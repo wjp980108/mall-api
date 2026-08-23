@@ -1,12 +1,12 @@
-package com.atguigu.meet.model.dto.auth;
+package com.atguigu.meet.model.dto.permission.user;
 
-import com.atguigu.meet.model.dto.permission.user.UserBaseDTO;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 
+import java.util.List;
+
 /**
- * 用户注册请求DTO
+ * 后台创建用户请求DTO
  * 必传字段：username、password、phone
  * 其他字段非必传，未传时使用默认值：
  * - nickname、email：null（父类有 @Length/@Email 约束，null 跳过校验）
@@ -14,20 +14,14 @@ import lombok.Data;
  * - age：0
  * - avatar：""（空字符串）
  * - birthday：null（日期无自然默认值）
- * - status："1"（正常）
+ * - status：true（正常）
  *
- * setter 覆盖策略：
- * - nickname/email：前端传 "" 时转 null，避免父类 @Length/@Email 校验失败
- * - gender/status：前端传 "" 时保留构造函数默认值
- *
- * getter 覆盖策略：
- * - 校验框架读 getter 上的注解规则做校验
- * - 只在 getter 上加 @NotBlank，确保只有三个必传字段
+ * 角色由前端传入：roleIds（可选，为空时不分配角色）
  */
 @Data
-public class AuthRegisterDTO extends UserBaseDTO {
+public class UserCreateDTO extends UserBaseDTO {
 
-    public AuthRegisterDTO() {
+    public UserCreateDTO() {
         setGender("0");
         setAge(0);
         setAvatar("");
@@ -76,15 +70,7 @@ public class AuthRegisterDTO extends UserBaseDTO {
         return super.getPhone();
     }
 
-    /**
-     * 邀请码（非必填，8位，区分大小写，数字+字母）
-     * 未传或传空时跳过邀请码校验与邀请流水处理，inviterId 置空。
-     */
-    @Pattern(regexp = "^$|^[A-Za-z0-9]{8}$", message = "邀请码格式不正确")
-    private String inviteCode;
-
-    public void setInviteCode(String inviteCode) {
-        this.inviteCode = (inviteCode == null || inviteCode.isEmpty()) ? null : inviteCode;
-    }
+    /** 角色ID列表（由前端传入，可选，为空时不分配角色） */
+    private List<Long> roleIds;
 
 }

@@ -122,6 +122,7 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Response addRole(RoleSaveDTO dto) {
         // 校验角色编码唯一
         LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
@@ -132,10 +133,19 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         SysRole role = new SysRole();
         BeanConvertUtils.copyProperties(dto, role);
         save(role);
+
+        // 同时分配菜单（若传入）
+        if (dto.getMenuIds() != null && !dto.getMenuIds().isEmpty()) {
+            assignRoleMenus(role.getId(), dto.getMenuIds());
+        }
+
+        log.info("[角色管理] 新增角色成功，roleId={}, roleName={}, menuIds={}",
+                role.getId(), role.getRoleName(), dto.getMenuIds());
         return Response.ok("新增角色成功", null);
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Response updateRole(RoleUpdateDTO dto) {
         SysRole existRole = getById(dto.getId());
         if (existRole == null) {
@@ -153,7 +163,31 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         SysRole role = new SysRole();
         BeanConvertUtils.copyProperties(dto, role);
         updateById(role);
+
+        // 同时更新菜单分配（仅当 menuIds 字段传入时全量覆盖，null 表示不修改已有菜单关联）
+        if (dto.getMenuIds() != null) {
+            assignRoleMenus(dto.getId(), dto.getMenuIds());
+            // 菜单权限变更后失效所有用户权限缓存
+            permissionCacheService.invalidateAllPermissions();
+        }
+
+        log.info("[角色管理] 修改角色成功，roleId={}, menuIds={}", dto.getId(), dto.getMenuIds());
         return Response.ok("修改角色成功", null);
+    }
+
+    /**
+     * 全量分配角色菜单（先删后插）
+     */
+    private void assignRoleMenus(Long roleId, List<Long> menuIds) {
+        sysRoleMenuMapper.deleteByRoleId(roleId);
+        if (menuIds != null && !menuIds.isEmpty()) {
+            for (Long menuId : menuIds) {
+                SysRoleMenu rm = new SysRoleMenu();
+                rm.setRoleId(roleId);
+                rm.setMenuId(menuId);
+                sysRoleMenuMapper.insert(rm);
+            }
+        }
     }
 
     @Override

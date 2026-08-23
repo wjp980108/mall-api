@@ -4,14 +4,19 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
+import com.atguigu.meet.mapper.permission.role.SysRoleMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
+import com.atguigu.meet.mapper.permission.userRole.SysUserRoleMapper;
+import com.atguigu.meet.model.dto.permission.user.UserCreateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.entity.permission.menu.SysMenu;
+import com.atguigu.meet.model.entity.permission.role.SysRole;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
+import com.atguigu.meet.model.entity.permission.userRole.SysUserRole;
 import com.atguigu.meet.model.vo.OptionVO;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.permission.menu.MenuVO;
@@ -33,6 +38,7 @@ import com.atguigu.meet.utils.BeanConvertUtils;
 import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -72,6 +78,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Autowired
     private PermissionCacheService permissionCacheService;
 
+    @Autowired
+    private PasswordEncoder passwordEncoder;
+
+    @Autowired
+    private SysUserRoleMapper sysUserRoleMapper;
+
+    @Autowired
+    private SysRoleMapper sysRoleMapper;
+
     @Override
     @Transactional(rollbackFor = Exception.class) // 所有异常都回滚，保证原子性
     public Response deleteUserByIds(UserDeleteDTO userDeleteDTO) {
@@ -90,6 +105,49 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         removeByIds(idList);
 
         return Response.ok("成功删除" + idList.size() + "个用户", null);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response createUser(UserCreateDTO userCreateDTO) {
+        // 1. 校验手机号是否已存在
+        LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+        lambdaQueryWrapper.eq(SysUser::getPhone, userCreateDTO.getPhone());
+        SysUser existUser = getOne(lambdaQueryWrapper);
+        if (existUser != null) {
+            return Response.fail(500, "用户已存在");
+        }
+
+        // 2. 校验角色ID有效性（存在且启用）
+        List<Long> roleIds = userCreateDTO.getRoleIds();
+        if (roleIds != null && !roleIds.isEmpty()) {
+            LambdaQueryWrapper<SysRole> roleWrapper = new LambdaQueryWrapper<>();
+            roleWrapper.in(SysRole::getId, roleIds).eq(SysRole::getStatus, 1);
+            long validCount = sysRoleMapper.selectCount(roleWrapper);
+            if (validCount != roleIds.size()) {
+                return Response.fail(500, "包含无效或已禁用的角色ID");
+            }
+        }
+
+        // 3. 创建用户（加密密码）
+        SysUser user = new SysUser();
+        String encodePwd = passwordEncoder.encode(userCreateDTO.getPassword());
+        BeanConvertUtils.copyProperties(userCreateDTO, user);
+        user.setPassword(encodePwd);
+        userMapper.insert(user);
+
+        // 4. 分配角色（写入 sys_user_role 关联）
+        if (roleIds != null && !roleIds.isEmpty()) {
+            for (Long roleId : roleIds) {
+                SysUserRole userRole = new SysUserRole();
+                userRole.setUserId(user.getId());
+                userRole.setRoleId(roleId);
+                sysUserRoleMapper.insert(userRole);
+            }
+        }
+
+        log.info("[用户管理] 创建用户成功，userId={}, roleIds={}", user.getId(), roleIds);
+        return Response.ok("创建用户成功", null);
     }
 
     @Override

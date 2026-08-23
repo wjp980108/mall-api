@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.permission.user;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.dto.permission.user.UserCreateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
@@ -15,6 +16,9 @@ import org.springframework.web.multipart.MultipartFile;
  */
 public interface UserService {
     Response deleteUserByIds(UserDeleteDTO userDeleteDTO);
+
+    /** 后台创建用户（角色由前端传入，事务保证用户与角色关联同时写入） */
+    Response createUser(UserCreateDTO userCreateDTO);
 
     Response updateUser(UserUpdateDTO userUpdateDTO);
 

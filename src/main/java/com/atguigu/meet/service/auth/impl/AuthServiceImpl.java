@@ -61,19 +61,27 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return Response.fail(500, "用户已存在");
         }
 
-        // 2. 校验邀请码有效性
-        SysInviteCode inviteCode = inviteCodeService.validateInviteCode(authRegisterDTO.getInviteCode());
+        // 2. 校验邀请码有效性（邀请码非必填，未传则跳过）
+        String inviteCodeStr = authRegisterDTO.getInviteCode();
+        SysInviteCode inviteCode = null;
+        if (inviteCodeStr != null && !inviteCodeStr.isEmpty()) {
+            inviteCode = inviteCodeService.validateInviteCode(inviteCodeStr);
+        }
 
         // 3. 创建用户
         SysUser user = new SysUser();
         String encodePwd = passwordEncoder.encode(authRegisterDTO.getPassword());
         BeanConvertUtils.copyProperties(authRegisterDTO, user);
         user.setPassword(encodePwd);
-        user.setInviterId(inviteCode.getInviterId());
+        if (inviteCode != null) {
+            user.setInviterId(inviteCode.getInviterId());
+        }
         userMapper.insert(user);
 
         // 4. 处理邀请流水 + 核销邀请码（更新已邀请人数，名额满则自动停用）
-        inviteCodeService.processInviteRecord(inviteCode, user.getId(), user.getPhone());
+        if (inviteCode != null) {
+            inviteCodeService.processInviteRecord(inviteCode, user.getId(), user.getPhone());
+        }
 
         UserVO userVO = new UserVO();
         BeanConvertUtils.copyProperties(user, userVO);

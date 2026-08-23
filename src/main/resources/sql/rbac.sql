@@ -55,14 +55,6 @@ CREATE TABLE IF NOT EXISTS sys_invite_code (
     KEY idx_invite_code (invite_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '邀请码表';
 
--- 0.1.1 存量库迁移：若旧版 sys_invite_code 表缺少 seq 列，按以下顺序执行（幂等）
--- 场景A：新部署 / 表为空 → 跳过本迁移段，CREATE TABLE 已包含 seq
--- 场景B：表中已有存量邀请码 → 必须先回填 seq 再加 NOT NULL/UNIQUE，否则会因 NULL/重复值报错
--- ============================================================
--- 第1步：加列（先允许 NULL，避免旧数据被塞 DEFAULT 0 导致 UNIQUE 冲突）
-ALTER TABLE sys_invite_code
-    ADD COLUMN IF NOT EXISTS seq BIGINT NULL COMMENT '原始序列号(Redis发号器分配,与invite_code一一对应)' AFTER id;
-
 -- 第2步：回填存量邀请码的 seq（通过 invite_code 反向解码，保证 seq ↔ invite_code 一一对应）
 --        说明：MySQL 原生无 54 进制解码函数，需用 Java 工具批量回填；
 --        若当前表行为空或可接受从新起点发号，也可直接按 1..N 递增分配 seq。

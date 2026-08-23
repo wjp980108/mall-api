@@ -3,6 +3,7 @@ package com.atguigu.meet.controller.permission.user;
 import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
+import com.atguigu.meet.model.dto.permission.user.UserCreateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
@@ -25,6 +26,15 @@ import org.springframework.web.multipart.MultipartFile;
 public class UserController {
     @Autowired
     private UserService userService;
+
+    /**
+     * 创建用户（角色由前端传入，事务保证用户与角色关联同时写入）
+     */
+    @PostMapping
+    @RequirePermission(PermissionConst.USER_ADD)
+    public Response createUser(@RequestBody @Valid UserCreateDTO userCreateDTO) {
+        return userService.createUser(userCreateDTO);
+    }
 
     /**
      * 用户列表分页查询

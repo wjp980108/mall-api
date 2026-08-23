@@ -17,6 +17,6 @@ public class RolePageQueryDTO {
     private String roleName;
     /** 角色编码（模糊查询） */
     private String roleCode;
-    /** 状态 1启用 0禁用 */
-    private Integer status;
+    /** 是否启用（true启用 false禁用） */
+    private Boolean status;
 }

@@ -15,9 +15,6 @@ public class MenuSaveDTO {
     @NotBlank(message = "菜单名称不能为空")
     private String name;
 
-    /** 菜单编码(目录/菜单可用，如 sys) */
-    private String menuCode;
-
     /** 权限标识(按钮用，格式: 模块:页面:操作，如 sys:user:delete) */
     private String perm;
 

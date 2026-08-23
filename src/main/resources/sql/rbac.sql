@@ -55,11 +55,23 @@ CREATE TABLE IF NOT EXISTS sys_invite_code (
     KEY idx_invite_code (invite_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT '邀请码表';
 
--- 0.1.1 存量库迁移：若旧版 sys_invite_code 表缺少 seq 列，执行以下语句（幂等）
--- 注意：存量邀请码需先通过 InviteCodeUtil.decode() 反查 seq 后回填，否则 NOT NULL 约束会失败。
--- 新部署直接由上面的 CREATE TABLE 建表，无需执行迁移。
--- ALTER TABLE sys_invite_code ADD COLUMN seq BIGINT NOT NULL DEFAULT 0 COMMENT '原始序列号' AFTER id;
--- ALTER TABLE sys_invite_code ADD UNIQUE KEY uk_seq (seq);
+-- 0.1.1 存量库迁移：若旧版 sys_invite_code 表缺少 seq 列，按以下顺序执行（幂等）
+-- 场景A：新部署 / 表为空 → 跳过本迁移段，CREATE TABLE 已包含 seq
+-- 场景B：表中已有存量邀请码 → 必须先回填 seq 再加 NOT NULL/UNIQUE，否则会因 NULL/重复值报错
+-- ============================================================
+-- 第1步：加列（先允许 NULL，避免旧数据被塞 DEFAULT 0 导致 UNIQUE 冲突）
+ALTER TABLE sys_invite_code
+    ADD COLUMN IF NOT EXISTS seq BIGINT NULL COMMENT '原始序列号(Redis发号器分配,与invite_code一一对应)' AFTER id;
+
+-- 第2步：回填存量邀请码的 seq（通过 invite_code 反向解码，保证 seq ↔ invite_code 一一对应）
+--        说明：MySQL 原生无 54 进制解码函数，需用 Java 工具批量回填；
+--        若当前表行为空或可接受从新起点发号，也可直接按 1..N 递增分配 seq。
+--        以下 SQL 提供"简单递增回填"（仅当表中无邀请码、或不关心历史 seq 对应关系时可用）：
+--        UPDATE sys_invite_code SET seq = id WHERE seq IS NULL;
+
+-- 第3步：加 NOT NULL 约束 + UNIQUE KEY（第2步完成、seq 全非空后再执行）
+-- ALTER TABLE sys_invite_code MODIFY COLUMN seq BIGINT NOT NULL COMMENT '原始序列号(Redis发号器分配,与invite_code一一对应)';
+-- ALTER TABLE sys_invite_code ADD UNIQUE KEY IF NOT EXISTS uk_seq (seq);
 
 -- 0.2 邀请明细流水表（分佣核心：记录每次邀请注册行为，预留分佣字段）
 CREATE TABLE IF NOT EXISTS sys_invite_record (

@@ -78,13 +78,24 @@ public class RedisInviteSeqGenerator {
      * <p>兜底场景：Redis 重启/丢号后从 1 重新发号会导致碰撞，
      * 此方法从 DB 取 MAX(seq) 同步到 Redis，确保下次 INCR 一定大于 DB 已存在的 seq。
      * <p>同步失败不阻塞应用启动（Redis 可能未就绪），首次发号时若 Redis 异常会自然暴露。
+     * <p>但若属于<b>数据库 schema 缺失</b>（例如 sys_invite_code 缺少 seq 列），会打印 ERROR
+     * 并给出明确迁移指引，避免首次发号时才暴露模糊的 SQL 错误。
      */
     @PostConstruct
     public void syncSeqFromDbOnStartup() {
         try {
             syncSeqFromDb();
         } catch (Exception e) {
-            log.warn("Redis seq 启动同步失败（Redis 不可用？），将在首次发号时报错: {}", e.getMessage());
+            if (isMissingSeqColumn(e)) {
+                log.error(
+                        "Redis seq 启动同步失败：sys_invite_code 表缺少 seq 列，请执行 rbac.sql 中的" +
+                        "【0.1.1 存量库迁移】三步脚本（ADD COLUMN → 回填 seq → 加 NOT NULL/UNIQUE）。" +
+                        " 错误详情: {}",
+                        extractRootMsg(e)
+                );
+            } else {
+                log.warn("Redis seq 启动同步失败（Redis 不可用？），将在首次发号时报错: {}", extractRootMsg(e));
+            }
         }
     }
 
@@ -119,15 +130,54 @@ public class RedisInviteSeqGenerator {
      * @throws IllegalStateException Redis 异常 或 序列号超过邀请码容量上限
      */
     public long nextSeq() {
-        Long seq = redisTemplate.opsForValue().increment(SEQ_KEY);
-        if (seq == null) {
-            throw new IllegalStateException("Redis INCR 返回 null，疑似连接异常");
+        try {
+            Long seq = redisTemplate.opsForValue().increment(SEQ_KEY);
+            if (seq == null) {
+                throw new IllegalStateException("Redis INCR 返回 null，疑似连接异常");
+            }
+            // 容量校验：超过 54^8 - 1 则拒绝服务，避免编码溢出
+            if (seq > InviteCodeUtil.maxSeq()) {
+                throw new IllegalStateException(String.format(
+                        "邀请码序列号已达容量上限 %d，当前 seq=%d", InviteCodeUtil.maxSeq(), seq));
+            }
+            return seq;
+        } catch (Exception e) {
+            // 兜底：若异常根因是 DB 缺少 seq 列（例如之前启动同步被静默吞掉、且 Redis 也失败走到 DB 兜底）
+            // 给出清晰的行动指引
+            if (isMissingSeqColumn(e)) {
+                throw new IllegalStateException(
+                        "生成邀请码失败：sys_invite_code 表缺少 seq 列，" +
+                        "请执行 rbac.sql 中的【0.1.1 存量库迁移】三步脚本后再试。", e);
+            }
+            throw e;
         }
-        // 容量校验：超过 54^8 - 1 则拒绝服务，避免编码溢出
-        if (seq > InviteCodeUtil.maxSeq()) {
-            throw new IllegalStateException(String.format(
-                    "邀请码序列号已达容量上限 %d，当前 seq=%d", InviteCodeUtil.maxSeq(), seq));
+    }
+
+    // ======================== 辅助方法 ========================
+
+    /**
+     * 判断异常链是否为 "Unknown column 'seq' in 'field list'" 类 schema 缺失错误
+     */
+    private static boolean isMissingSeqColumn(Throwable t) {
+        Throwable cur = t;
+        while (cur != null) {
+            String msg = cur.getMessage();
+            if (msg != null && msg.contains("Unknown column") && msg.contains("'seq'")) {
+                return true;
+            }
+            cur = cur.getCause();
         }
-        return seq;
+        return false;
+    }
+
+    /**
+     * 提取异常链最底层的异常消息，避免打印一堆包装层
+     */
+    private static String extractRootMsg(Throwable t) {
+        Throwable root = t;
+        while (root.getCause() != null && root.getCause() != root) {
+            root = root.getCause();
+        }
+        return root.getClass().getSimpleName() + ": " + root.getMessage();
     }
 }

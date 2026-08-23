@@ -29,6 +29,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.HashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -58,13 +60,42 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
             wrapper.like(SysRole::getRoleCode, parameter.getRoleCode());
         }
         if (parameter.getStatus() != null) {
-            wrapper.eq(SysRole::getStatus, parameter.getStatus());
+            wrapper.eq(SysRole::getStatus, Boolean.TRUE.equals(parameter.getStatus()) ? 1 : 0);
         }
         wrapper.orderByDesc(SysRole::getCreateTime);
 
         IPage<SysRole> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
         IPage<SysRole> result = page(page, wrapper);
-        return Response.ok(PageResultVO.of(result));
+
+        // 转为 RoleVO 列表（status 自动转 Boolean），并填充每个角色已分配的 menuIds
+        List<SysRole> roles = result.getRecords();
+        List<Long> roleIds = roles.stream().map(SysRole::getId).collect(Collectors.toList());
+
+        Map<Long, List<Long>> roleIdToMenuIds = new HashMap<>();
+        if (!roleIds.isEmpty()) {
+            LambdaQueryWrapper<SysRoleMenu> rmWrapper = new LambdaQueryWrapper<>();
+            rmWrapper.in(SysRoleMenu::getRoleId, roleIds);
+            List<SysRoleMenu> roleMenus = sysRoleMenuMapper.selectList(rmWrapper);
+            roleIdToMenuIds.putAll(roleMenus.stream().collect(Collectors.groupingBy(
+                    SysRoleMenu::getRoleId,
+                    Collectors.mapping(SysRoleMenu::getMenuId, Collectors.toList())
+            )));
+        }
+
+        List<RoleVO> voList = roles.stream().map(role -> {
+            RoleVO vo = new RoleVO();
+            BeanConvertUtils.copyProperties(role, vo);
+            vo.setMenuIds(roleIdToMenuIds.getOrDefault(role.getId(), List.of()));
+            return vo;
+        }).collect(Collectors.toList());
+
+        PageResultVO<RoleVO> pageResult = new PageResultVO<>();
+        pageResult.setList(voList);
+        pageResult.setTotal(result.getTotal());
+        pageResult.setPages(result.getPages());
+        pageResult.setCurrent(result.getCurrent());
+        pageResult.setSize(result.getSize());
+        return Response.ok(pageResult);
     }
 
     @Override

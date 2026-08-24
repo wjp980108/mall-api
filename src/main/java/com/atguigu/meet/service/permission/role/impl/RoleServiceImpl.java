@@ -108,6 +108,19 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
     }
 
     @Override
+    public Response getRoleList() {
+        LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByDesc(SysRole::getCreateTime);
+        List<SysRole> roles = list(wrapper);
+        List<RoleVO> voList = roles.stream().map(role -> {
+            RoleVO vo = new RoleVO();
+            BeanConvertUtils.copyProperties(role, vo);
+            return vo;
+        }).collect(Collectors.toList());
+        return Response.ok(voList);
+    }
+
+    @Override
     public Response getRoleById(Long id) {
         SysRole role = getById(id);
         if (role == null) {

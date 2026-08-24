@@ -53,7 +53,14 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Response register(AuthRegisterDTO authRegisterDTO) {
-        // 1. 校验手机号是否已注册
+        // 1. 校验用户名是否已存在
+        SysUser existUsername = getOne(new LambdaQueryWrapper<SysUser>()
+                .eq(SysUser::getUsername, authRegisterDTO.getUsername()));
+        if (existUsername != null) {
+            return Response.fail(500, "用户名已存在");
+        }
+
+        // 2. 校验手机号是否已注册
         LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
         lambdaQueryWrapper.eq(SysUser::getPhone, authRegisterDTO.getPhone());
         SysUser existUser = getOne(lambdaQueryWrapper);
@@ -61,14 +68,14 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return Response.fail(500, "用户已存在");
         }
 
-        // 2. 校验邀请码有效性（邀请码非必填，未传则跳过）
+        // 3. 校验邀请码有效性（邀请码非必填，未传则跳过）
         String inviteCodeStr = authRegisterDTO.getInviteCode();
         SysInviteCode inviteCode = null;
         if (inviteCodeStr != null && !inviteCodeStr.isEmpty()) {
             inviteCode = inviteCodeService.validateInviteCode(inviteCodeStr);
         }
 
-        // 3. 创建用户
+        // 4. 创建用户
         SysUser user = new SysUser();
         String encodePwd = passwordEncoder.encode(authRegisterDTO.getPassword());
         BeanConvertUtils.copyProperties(authRegisterDTO, user);
@@ -78,7 +85,7 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
         userMapper.insert(user);
 
-        // 4. 处理邀请流水 + 核销邀请码（更新已邀请人数，名额满则自动停用）
+        // 5. 处理邀请流水 + 核销邀请码（更新已邀请人数，名额满则自动停用）
         if (inviteCode != null) {
             inviteCodeService.processInviteRecord(inviteCode, user.getId(), user.getPhone());
         }

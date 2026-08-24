@@ -26,8 +26,9 @@ public class MenuController {
     /** 菜单树形列表 */
     @GetMapping("/tree")
     @RequirePermission(PermissionConst.MENU_QUERY)
-    public Response getMenuTree(@RequestParam(required = false) String name) {
-        return menuService.getMenuTree(name);
+    public Response getMenuTree(@RequestParam(required = false) String name,
+                                @RequestParam(required = false) Boolean status) {
+        return menuService.getMenuTree(name, status);
     }
 
     /** 菜单平铺分页列表 */

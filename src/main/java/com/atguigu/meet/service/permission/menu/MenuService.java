@@ -14,8 +14,8 @@ import java.util.List;
  */
 public interface MenuService {
 
-    /** 菜单树形列表（支持按名称模糊查询） */
-    Response getMenuTree(String name);
+    /** 菜单树形列表（支持按名称模糊查询、按状态过滤） */
+    Response getMenuTree(String name, Boolean status);
 
     /** 菜单平铺分页列表 */
     Response getPageList(MenuPageQueryDTO parameter);

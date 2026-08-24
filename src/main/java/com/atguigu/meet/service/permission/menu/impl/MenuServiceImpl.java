@@ -36,35 +36,38 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
     private PermissionCacheService permissionCacheService;
 
     @Override
-    public Response getMenuTree(String name) {
-        List<SysMenu> allMenus;
+    public Response getMenuTree(String name, Boolean status) {
+        Integer statusValue = (status != null) ? (Boolean.TRUE.equals(status) ? 1 : 0) : null;
 
+        // 1. 按条件查询匹配节点（name + status 都应用于此步）
+        LambdaQueryWrapper<SysMenu> matchWrapper = new LambdaQueryWrapper<>();
         if (StringUtils.hasText(name)) {
-            // 按名称模糊查询，同时保留匹配菜单的父级以维持树形结构
-            LambdaQueryWrapper<SysMenu> matchWrapper = new LambdaQueryWrapper<>();
-            matchWrapper.like(SysMenu::getName, name)
-                    .orderByAsc(SysMenu::getSort);
-            List<SysMenu> matchedMenus = list(matchWrapper);
+            matchWrapper.like(SysMenu::getName, name);
+        }
+        if (statusValue != null) {
+            matchWrapper.eq(SysMenu::getStatus, statusValue);
+        }
+        matchWrapper.orderByAsc(SysMenu::getSort);
+        List<SysMenu> matchedMenus = list(matchWrapper);
 
-            if (matchedMenus.isEmpty()) {
-                return Response.ok(new ArrayList<>());
-            }
-
-            // 收集所有匹配菜单及其祖先ID
-            List<Long> neededIds = new ArrayList<>();
-            for (SysMenu menu : matchedMenus) {
-                neededIds.add(menu.getId());
-                collectAncestorIds(menu.getParentId(), neededIds);
-            }
-
-            LambdaQueryWrapper<SysMenu> treeWrapper = new LambdaQueryWrapper<>();
-            treeWrapper.in(SysMenu::getId, neededIds)
-                    .orderByAsc(SysMenu::getSort);
-            allMenus = list(treeWrapper);
-        } else {
-            allMenus = list();
+        if (matchedMenus.isEmpty()) {
+            return Response.ok(new ArrayList<>());
         }
 
+        // 2. 收集匹配菜单及其所有祖先ID（祖先不限制 status，以保持树结构完整）
+        List<Long> neededIds = new ArrayList<>();
+        for (SysMenu menu : matchedMenus) {
+            neededIds.add(menu.getId());
+            collectAncestorIds(menu.getParentId(), neededIds);
+        }
+
+        // 3. 一次性拉回匹配节点 + 祖先节点（不再过滤 status，避免祖先链断裂）
+        LambdaQueryWrapper<SysMenu> treeWrapper = new LambdaQueryWrapper<>();
+        treeWrapper.in(SysMenu::getId, neededIds)
+                .orderByAsc(SysMenu::getSort);
+        List<SysMenu> allMenus = list(treeWrapper);
+
+        // 4. 组装树形结构
         List<MenuVO> tree = buildMenuTree(allMenus, 0L);
         return Response.ok(tree);
     }

@@ -39,4 +39,19 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
      * 根据ID查询抢购托售商品详情（含委托人信息 + 场次名称）
      */
     ConsignGoodsVO selectConsignGoodsById(@Param("id") Long id);
+    /**
+     * 抢购托售商品：按条件更新（用于并发安全的状态推进/回滚，affectedRows 判断冲突）
+     * @param expectStatus 期望的当前 goods_status；不匹配则返回 0（并发冲突/已被其他操作修改）
+     * @return 受影响行数；0 表示条件不匹配，调用方需中止并提示用户
+     */
+    int updateStatusWithCondition(@Param("id") Long id,
+                                  @Param("newStatus") Integer newStatus,
+                                  @Param("expectStatus") Integer expectStatus,
+                                  @Param("memberId") Long memberId);
+
+    /**
+     * 委托售卖次数 SQL 层自增（原子操作，避免 Java 读-算-写引发的丢失更新）
+     * @return 受影响行数
+     */
+    int incrementSaleTimesById(@Param("id") Long id);
 }

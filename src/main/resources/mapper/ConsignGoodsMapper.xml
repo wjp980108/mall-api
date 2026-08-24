@@ -78,4 +78,35 @@
         WHERE g.is_deleted = 0 AND g.id = #{id}
     </select>
 
+    <!--
+        并发安全的条件更新：仅当 goods_status = expectStatus 时才执行修改
+        受影响行数 = 0 表示并发冲突（其他线程已先一步改掉了状态）
+        member_id 可传 null，表示不修改委托人；非 null 则同时更新
+    -->
+    <update id="updateStatusWithCondition">
+        UPDATE t_consign_goods cg
+        <set>
+            cg.goods_status = #{newStatus},
+            <if test="memberId != null">
+                cg.member_id = #{memberId},
+            </if>
+            cg.update_time = NOW()
+        </set>
+        WHERE cg.id = #{id}
+          AND cg.is_deleted = 0
+          AND cg.goods_status = #{expectStatus}
+    </update>
+
+    <!--
+        sale_times SQL 层原子自增
+        避免 Java 层 "读旧值→+1→写回" 在并发下的丢失更新问题
+    -->
+    <update id="incrementSaleTimesById">
+        UPDATE t_consign_goods
+        SET sale_times = COALESCE(sale_times, 0) + 1,
+            update_time = NOW()
+        WHERE id = #{id}
+          AND is_deleted = 0
+    </update>
+
 </mapper>

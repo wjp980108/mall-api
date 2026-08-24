@@ -495,3 +495,106 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 -- 给超级管理员分配托售商品管理菜单/权限
 INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
 SELECT 1, id FROM sys_menu WHERE id IN (60, 61, 62, 63, 64, 65, 66);
+
+-- =============================================
+-- 订单模块表：t_order / t_order_operate_log
+-- =============================================
+
+-- 14. 抢购订单主表（方案B：下单快照版本）
+-- 金额统一使用 DECIMAL，禁止 double/float；手机号/姓名等均为下单时快照，避免后续用户信息变更影响历史订单
+CREATE TABLE IF NOT EXISTS `t_order` (
+    `id`                bigint       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `order_no`          varchar(64)  NOT NULL COMMENT '唯一订单编号',
+    `goods_id`          bigint       NOT NULL COMMENT '商品ID',
+    `goods_name`        varchar(128) NOT NULL COMMENT '商品名称【下单快照】',
+    `seller_id`         bigint       DEFAULT NULL COMMENT '卖方会员ID 关联sys_user.id',
+    `seller_name`       varchar(32)  DEFAULT NULL COMMENT '卖家姓名【下单快照】',
+    `seller_phone`      varchar(11)  DEFAULT NULL COMMENT '卖家手机号【下单快照】',
+    `buyer_id`          bigint       NOT NULL COMMENT '买方会员ID 关联sys_user.id',
+    `buyer_name`        varchar(32)  DEFAULT NULL COMMENT '买家姓名【下单快照】',
+    `buyer_phone`       varchar(11)  DEFAULT NULL COMMENT '买家手机号【下单快照】',
+    `rush_price`        decimal(18,2) NOT NULL COMMENT '抢购成交价格',
+    `receive_address`   varchar(512) DEFAULT NULL COMMENT '收货地址完整拼接字符串',
+    `order_status`      tinyint      NOT NULL COMMENT '订单状态：1待付款 2已付款 3已确认 4已代售 5已取消',
+    `put_commission`    decimal(18,2) DEFAULT 0.00 COMMENT '上架手续费',
+    `coupon_amount`     decimal(18,2) DEFAULT 0.00 COMMENT '优惠券抵扣金额',
+    `pay_voucher_url`   varchar(255) DEFAULT NULL COMMENT '支付凭证图片地址',
+    `pay_deadline`      datetime     DEFAULT NULL COMMENT '付款截止时间（倒计时）',
+    `create_time`       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '下单创建时间',
+    `update_time`       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`        tinyint      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0未删除 1已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_order_no` (`order_no`),
+    KEY `idx_buyer_id` (`buyer_id`),
+    KEY `idx_seller_id` (`seller_id`),
+    KEY `idx_goods_id` (`goods_id`),
+    KEY `idx_order_status` (`order_status`),
+    KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抢购订单主表';
+
+-- 15. 订单操作审计日志（保留，记录状态变更流水）
+-- 注：日志表不建外键，避免级联删除丢失审计记录、保留完整历史
+-- operate_type 存数字编码（对齐 t_goods_operate_log / t_consign_goods_operate_log），
+-- operate_desc 冗余存汉字用于列表展示，避免每次查库都要反查枚举
+CREATE TABLE IF NOT EXISTS `t_order_operate_log` (
+    `id`                bigint       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `order_id`          bigint       NOT NULL COMMENT '订单ID 关联t_order.id',
+    `before_status`     tinyint      DEFAULT NULL COMMENT '操作前订单状态',
+    `after_status`      tinyint      NOT NULL COMMENT '操作后订单状态',
+    `operate_type`      tinyint      NOT NULL COMMENT '操作类型数字编码 1上传凭证 2确认收款 3取消订单 4删除订单 5超时自动取消',
+    `operate_desc`      varchar(255) DEFAULT NULL COMMENT '操作类型中文描述(冗余展示列，如:确认收款/取消订单)',
+    `operate_user_id`   bigint       DEFAULT NULL COMMENT '操作人管理员/会员ID 关联sys_user.id',
+    `operate_user_name` varchar(64)  DEFAULT NULL COMMENT '操作人名称快照',
+    `remark`            varchar(512) DEFAULT NULL COMMENT '操作备注',
+    `create_time`       datetime     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_order_id` (`order_id`),
+    KEY `idx_operate_type` (`operate_type`),
+    KEY `idx_operate_user_id` (`operate_user_id`),
+    KEY `idx_create_time` (`create_time`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单操作审计日志';
+
+-- =============================================
+-- 订单管理模块菜单数据
+-- 目录 -> 5个菜单 -> 按钮权限
+-- 菜单ID 从 90 开始，避免与已有菜单冲突
+-- =============================================
+
+-- 订单管理目录（一级目录，放在系统管理(id=1) 下）
+INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, component_path, icon, sort, visible) VALUES
+(90, 1, '订单管理', 'order', NULL, 0, '/order', NULL, 'Tickets', 70, 1);
+
+-- 5 个二级菜单
+INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, component_path, icon, sort, visible) VALUES
+-- 所有订单菜单
+(91, 90, '所有订单',     'all',         NULL, 1, 'all',         'order/all/index',         'Document',   10, 1),
+-- 待付款订单菜单
+(92, 90, '待付款订单',   'waitPay',     NULL, 1, 'waitPay',     'order/waitPay/index',     'Wallet',     20, 1),
+-- 待确认收款订单菜单
+(93, 90, '待确认收款',   'waitConfirm', NULL, 1, 'waitConfirm', 'order/waitConfirm/index', 'Reading',    30, 1),
+-- 代售记录菜单
+(94, 90, '代售记录',     'agentSale',   NULL, 1, 'agentSale',   'order/agentSale/index',   'Histogram',  40, 1),
+-- 已取消订单菜单
+(95, 90, '已取消订单',   'cancel',      NULL, 1, 'cancel',      'order/cancel/index',      'Close',      50, 1);
+
+-- 菜单下的按钮权限
+INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, component_path, icon, sort, visible) VALUES
+-- 所有订单 -> 查询
+(96,  91, '所有订单查询',       NULL, 'order:all:query',                 2, NULL, NULL, NULL, 1, 1),
+-- 待付款订单 -> 查询 + 上传凭证 + 取消 + 删除
+(97,  92, '待付款订单查询',     NULL, 'order:waitPay:query',             2, NULL, NULL, NULL, 1, 1),
+(98,  92, '上传支付凭证',       NULL, 'order:waitPay:uploadVoucher',     2, NULL, NULL, NULL, 2, 1),
+(99,  92, '取消订单(待付款)',   NULL, 'order:operate:cancel',            2, NULL, NULL, NULL, 3, 1),
+(100, 92, '删除订单',           NULL, 'order:operate:delete',            2, NULL, NULL, NULL, 4, 1),
+-- 待确认收款 -> 查询 + 确认收款 + 取消
+(101, 93, '待确认订单查询',     NULL, 'order:waitConfirm:query',         2, NULL, NULL, NULL, 1, 1),
+(102, 93, '确认收款',           NULL, 'order:waitConfirm:confirmReceive',2, NULL, NULL, NULL, 2, 1),
+(103, 93, '取消订单(待确认)',   NULL, 'order:operate:cancel',            2, NULL, NULL, NULL, 3, 1),
+-- 代售记录 -> 查询
+(104, 94, '代售记录查询',       NULL, 'order:agentSale:query',           2, NULL, NULL, NULL, 1, 1),
+-- 已取消订单 -> 查询
+(105, 95, '已取消订单查询',     NULL, 'order:cancel:query',              2, NULL, NULL, NULL, 1, 1);
+
+-- 给超级管理员分配订单管理全部菜单/权限
+INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
+SELECT 1, id FROM sys_menu WHERE id BETWEEN 90 AND 105;

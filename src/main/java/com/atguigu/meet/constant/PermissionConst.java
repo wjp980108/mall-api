@@ -177,4 +177,27 @@ public final class PermissionConst {
     public static final String SESSION_DELETE = "session:delete";
     /** 场次背景图上传 */
     public static final String SESSION_BG_UPLOAD = "session:bg:upload";
+
+    // ==========================================
+    // 订单管理 (order:xxx)
+    // 对应 sys_menu: 订单管理目录 -> 5个菜单 -> 按钮权限
+    // ==========================================
+    /** 所有订单查询 */
+    public static final String ORDER_ALL_QUERY = "order:all:query";
+    /** 待付款订单查询 */
+    public static final String ORDER_WAIT_PAY_QUERY = "order:waitPay:query";
+    /** 待确认收款订单查询 */
+    public static final String ORDER_WAIT_CONFIRM_QUERY = "order:waitConfirm:query";
+    /** 代售记录查询 */
+    public static final String ORDER_AGENT_SALE_QUERY = "order:agentSale:query";
+    /** 已取消订单查询 */
+    public static final String ORDER_CANCEL_QUERY = "order:cancel:query";
+    /** 上传支付凭证 */
+    public static final String ORDER_UPLOAD_VOUCHER = "order:waitPay:uploadVoucher";
+    /** 取消订单（待付款/待确认可用） */
+    public static final String ORDER_CANCEL = "order:operate:cancel";
+    /** 删除订单（仅待付款可用） */
+    public static final String ORDER_DELETE = "order:operate:delete";
+    /** 管理员确认收款 */
+    public static final String ORDER_CONFIRM_RECEIVE = "order:waitConfirm:confirmReceive";
 }

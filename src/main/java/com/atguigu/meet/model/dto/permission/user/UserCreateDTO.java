@@ -58,7 +58,6 @@ public class UserCreateDTO extends UserBaseDTO {
         return super.getUsername();
     }
 
-    @NotBlank(message = "密码不能为空")
     @Override
     public String getPassword() {
         return super.getPassword();

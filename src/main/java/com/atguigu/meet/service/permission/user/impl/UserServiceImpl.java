@@ -110,15 +110,23 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Response createUser(UserCreateDTO userCreateDTO) {
-        // 1. 校验手机号是否已存在
-        LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
-        lambdaQueryWrapper.eq(SysUser::getPhone, userCreateDTO.getPhone());
-        SysUser existUser = getOne(lambdaQueryWrapper);
-        if (existUser != null) {
-            return Response.fail(500, "用户已存在");
+        // 1. 校验用户名是否已存在
+        LambdaQueryWrapper<SysUser> usernameWrapper = new LambdaQueryWrapper<>();
+        usernameWrapper.eq(SysUser::getUsername, userCreateDTO.getUsername());
+        SysUser existUsername = getOne(usernameWrapper);
+        if (existUsername != null) {
+            return Response.fail(500, "用户名已存在");
         }
 
-        // 2. 校验角色ID有效性（存在且启用）
+        // 2. 校验手机号是否已存在
+        LambdaQueryWrapper<SysUser> phoneWrapper = new LambdaQueryWrapper<>();
+        phoneWrapper.eq(SysUser::getPhone, userCreateDTO.getPhone());
+        SysUser existPhone = getOne(phoneWrapper);
+        if (existPhone != null) {
+            return Response.fail(500, "手机号已存在");
+        }
+
+        // 3. 校验角色ID有效性（存在且启用）
         List<Long> roleIds = userCreateDTO.getRoleIds();
         if (roleIds != null && !roleIds.isEmpty()) {
             LambdaQueryWrapper<SysRole> roleWrapper = new LambdaQueryWrapper<>();
@@ -129,14 +137,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             }
         }
 
-        // 3. 创建用户（加密密码）
+        // 4. 创建用户（加密密码，密码为空时使用默认密码 123456）
         SysUser user = new SysUser();
-        String encodePwd = passwordEncoder.encode(userCreateDTO.getPassword());
+        String rawPassword = (userCreateDTO.getPassword() == null || userCreateDTO.getPassword().isEmpty())
+                ? "123456"
+                : userCreateDTO.getPassword();
+        String encodePwd = passwordEncoder.encode(rawPassword);
         BeanConvertUtils.copyProperties(userCreateDTO, user);
         user.setPassword(encodePwd);
         userMapper.insert(user);
 
-        // 4. 分配角色（写入 sys_user_role 关联）
+        // 5. 分配角色（写入 sys_user_role 关联）
         if (roleIds != null && !roleIds.isEmpty()) {
             for (Long roleId : roleIds) {
                 SysUserRole userRole = new SysUserRole();

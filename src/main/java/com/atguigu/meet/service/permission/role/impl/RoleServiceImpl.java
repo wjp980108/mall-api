@@ -124,19 +124,35 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Response addRole(RoleSaveDTO dto) {
-        // 校验角色编码唯一
-        LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(SysRole::getRoleCode, dto.getRoleCode());
-        if (count(wrapper) > 0) {
-            return Response.fail(500, "角色编码已存在");
+        // 校验角色名称唯一
+        {
+            LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(SysRole::getRoleName, dto.getRoleName());
+            if (count(wrapper) > 0) {
+                return Response.fail(500, "角色名称已存在");
+            }
+        }
+        // 校验角色编码唯一（仅当传入时校验）
+        if (StringUtils.hasText(dto.getRoleCode())) {
+            LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(SysRole::getRoleCode, dto.getRoleCode());
+            if (count(wrapper) > 0) {
+                return Response.fail(500, "角色编码已存在");
+            }
         }
         SysRole role = new SysRole();
         BeanConvertUtils.copyProperties(dto, role);
+        if (!StringUtils.hasText(role.getRoleCode())) {
+            role.setRoleCode("ROLE_" + System.currentTimeMillis() + "_"
+                    + Math.round(Math.random() * 1000));
+        }
         save(role);
 
-        // 同时分配菜单（若传入）
-        if (dto.getMenuIds() != null && !dto.getMenuIds().isEmpty()) {
+        // 同时分配菜单（menuIds != null 即执行全量覆盖：传入空列表表示不分配任何菜单）
+        if (dto.getMenuIds() != null) {
             assignRoleMenus(role.getId(), dto.getMenuIds());
+            // 菜单权限变更后失效所有用户权限缓存
+            permissionCacheService.invalidateAllPermissions();
         }
 
         log.info("[角色管理] 新增角色成功，roleId={}, roleName={}, menuIds={}",
@@ -151,18 +167,9 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         if (existRole == null) {
             return Response.fail(500, "角色不存在");
         }
-        // 如果修改了角色编码，校验唯一性
-        if (!existRole.getRoleCode().equals(dto.getRoleCode())) {
-            LambdaQueryWrapper<SysRole> wrapper = new LambdaQueryWrapper<>();
-            wrapper.eq(SysRole::getRoleCode, dto.getRoleCode());
-            wrapper.ne(SysRole::getId, dto.getId());
-            if (count(wrapper) > 0) {
-                return Response.fail(500, "角色编码已存在");
-            }
-        }
-        SysRole role = new SysRole();
-        BeanConvertUtils.copyProperties(dto, role);
-        updateById(role);
+        // 基于已有实体覆盖：dto 中为 null 的字段保留数据库原值
+        BeanConvertUtils.copyPropertiesIgnoreNull(dto, existRole);
+        updateById(existRole);
 
         // 同时更新菜单分配（仅当 menuIds 字段传入时全量覆盖，null 表示不修改已有菜单关联）
         if (dto.getMenuIds() != null) {

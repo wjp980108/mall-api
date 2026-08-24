@@ -40,8 +40,8 @@ public class MenuController {
     /** 所有菜单（平铺，角色分配菜单用） */
     @GetMapping("/all")
     @RequirePermission(PermissionConst.MENU_QUERY)
-    public Response getAllMenus() {
-        return menuService.getAllMenus();
+    public Response getAllMenus(@RequestParam(required = false) Boolean status) {
+        return menuService.getAllMenus(status);
     }
 
     /** 根据ID查菜单 */

@@ -38,13 +38,6 @@ public class RoleController {
         return roleService.getAllRoles();
     }
 
-    /** 所有角色（包含启用、禁用），返回 status 为 Boolean */
-    @GetMapping("/list")
-    @RequirePermission(PermissionConst.ROLE_QUERY)
-    public Response getRoleList() {
-        return roleService.getRoleList();
-    }
-
     /** 根据ID查角色（含已分配菜单ID列表） */
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.ROLE_QUERY)

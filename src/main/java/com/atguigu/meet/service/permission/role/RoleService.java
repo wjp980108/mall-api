@@ -18,9 +18,6 @@ public interface RoleService {
     /** 所有启用角色（下拉框用） */
     Response getAllRoles();
 
-    /** 所有角色（包含启用、禁用），返回 status 为 Boolean */
-    Response getRoleList();
-
     /** 根据ID查角色（含已分配菜单ID列表） */
     Response getRoleById(Long id);
 

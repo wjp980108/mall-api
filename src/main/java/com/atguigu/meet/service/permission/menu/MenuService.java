@@ -36,5 +36,5 @@ public interface MenuService {
     Response updateStatus(MenuStatusDTO dto);
 
     /** 获取所有菜单（平铺，供角色分配菜单时使用） */
-    Response getAllMenus();
+    Response getAllMenus(Boolean status);
 }

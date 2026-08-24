@@ -152,8 +152,11 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
     }
 
     @Override
-    public Response getAllMenus() {
+    public Response getAllMenus(Boolean status) {
         LambdaQueryWrapper<SysMenu> wrapper = new LambdaQueryWrapper<>();
+        if (status != null) {
+            wrapper.eq(SysMenu::getStatus, Boolean.TRUE.equals(status) ? 1 : 0);
+        }
         wrapper.orderByAsc(SysMenu::getSort);
         List<SysMenu> menus = list(wrapper);
         List<MenuVO> voList = menus.stream().map(m -> {

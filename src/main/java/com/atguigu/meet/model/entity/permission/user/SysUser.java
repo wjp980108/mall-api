@@ -39,8 +39,7 @@ public class SysUser extends Model<SysUser> {
 
     private Integer age;
 
-    @TableField(jdbcType = JdbcType.INTEGER)
-    private String gender = "0";
+    private Integer gender = 0;
 
     private String avatar;
 

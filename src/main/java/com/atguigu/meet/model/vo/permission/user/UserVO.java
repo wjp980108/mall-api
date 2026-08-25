@@ -19,7 +19,7 @@ public class UserVO {
 
     private String email;
 
-    private String gender;
+    private Integer gender;
 
     private Integer age;
 

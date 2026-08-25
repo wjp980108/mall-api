@@ -22,7 +22,7 @@ import java.util.List;
 public class UserCreateDTO extends UserBaseDTO {
 
     public UserCreateDTO() {
-        setGender("0");
+        setGender(0);
         setAge(0);
         setAvatar("");
         setStatus(Boolean.TRUE);
@@ -39,8 +39,8 @@ public class UserCreateDTO extends UserBaseDTO {
     }
 
     @Override
-    public void setGender(String gender) {
-        if (gender != null && !gender.isEmpty()) {
+    public void setGender(Integer gender) {
+        if (gender != null) {
             super.setGender(gender);
         }
     }

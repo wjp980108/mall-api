@@ -50,6 +50,10 @@ public class FileServiceImpl implements FileService {
 
     @Override
     public Response upload(MultipartFile file, String bizType, String platform) {
+        // 0. bizType 为空时默认走通用 file 目录
+        if (bizType == null || bizType.isBlank()) {
+            bizType = "file";
+        }
         // 1. 校验业务类型是否存在
         var typeConfig = uploadRootConfig.getTypeConfig().get(bizType);
         if (typeConfig == null) {

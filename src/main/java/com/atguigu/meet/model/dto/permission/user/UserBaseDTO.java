@@ -25,8 +25,7 @@ public class UserBaseDTO {
     @Length(min = 6, max = 20, message = "密码长度 6-20 位")
     private String password;
 
-    @Pattern(regexp = "^[012]$", message = "性别参数不正确")
-    private String gender;
+    private Integer gender;
 
     private Integer age;
 

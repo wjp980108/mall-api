@@ -59,6 +59,11 @@ upload:
       sub-path: consign/detail/
       allow-suffix: jpg,jpeg,png,webp
       max-size-mb: 5
+    # 通用文件(bizType 为空时默认)
+    file:
+      sub-path: file/
+      allow-suffix: jpg,jpeg,png,webp,pdf,docx,xlsx,zip,rar
+      max-size-mb: 10
 
 # x-file-storage 文件存储配置
 # 切换平台只需修改 default-platform 并添加对应平台配置，零代码改动

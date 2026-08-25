@@ -36,7 +36,7 @@ public class FileController {
     @RequirePermission(PermissionConst.FILE_UPLOAD)
     public Response upload(
             @RequestParam("file") MultipartFile file,
-            @RequestParam("bizType") String bizType,
+            @RequestParam(value = "bizType", required = false) String bizType,
             @RequestParam(value = "platform", required = false) String platform) {
         try {
             return fileService.upload(file, bizType, platform);

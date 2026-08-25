@@ -40,8 +40,8 @@ public class UserUpdateDTO extends UserBaseDTO {
     }
 
     @Override
-    public void setGender(String gender) {
-        super.setGender((gender == null || gender.isEmpty()) ? null : gender);
+    public void setGender(Integer gender) {
+        super.setGender(gender);
     }
 
     @Override

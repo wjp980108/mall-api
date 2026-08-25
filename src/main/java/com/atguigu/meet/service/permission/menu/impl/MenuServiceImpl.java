@@ -39,8 +39,9 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
     public Response getMenuTree(String name, Boolean status) {
         Integer statusValue = (status != null) ? (Boolean.TRUE.equals(status) ? 1 : 0) : null;
 
-        // 1. 按条件查询匹配节点（name + status 都应用于此步）
+        // 1. 按条件查询匹配节点（name + status 都应用于此步），排除按钮(type=2)
         LambdaQueryWrapper<SysMenu> matchWrapper = new LambdaQueryWrapper<>();
+        matchWrapper.ne(SysMenu::getType, 2);
         if (StringUtils.hasText(name)) {
             matchWrapper.like(SysMenu::getName, name);
         }
@@ -61,9 +62,10 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
             collectAncestorIds(menu.getParentId(), neededIds);
         }
 
-        // 3. 一次性拉回匹配节点 + 祖先节点（不再过滤 status，避免祖先链断裂）
+        // 3. 一次性拉回匹配节点 + 祖先节点（不再过滤 status，避免祖先链断裂），排除按钮(type=2)
         LambdaQueryWrapper<SysMenu> treeWrapper = new LambdaQueryWrapper<>();
         treeWrapper.in(SysMenu::getId, neededIds)
+                .ne(SysMenu::getType, 2)
                 .orderByAsc(SysMenu::getSort);
         List<SysMenu> allMenus = list(treeWrapper);
 

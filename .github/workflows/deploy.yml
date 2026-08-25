@@ -158,9 +158,10 @@ jobs:
               --spring.config.additional-location=optional:file:./ > logs/app.log 2>&1 &
             app_pid=$!
             echo "$app_pid" > app.pid
-            deadline=$(( $(date +%s) + 30 ))
-            while [ "$(date +%s)" -lt "$deadline" ]; do
-              if grep -q 'Started MeetBackApplication' logs/app.log; then
+            startup_timeout=90
+            deadline=$(( $(date +%s) + startup_timeout ))
+            while true; do
+              if grep -q 'Started MeetBackApplication' logs/app.log && kill -0 "$app_pid" 2>/dev/null; then
                 echo "Application started successfully (PID: $app_pid)."
                 exit 0
               fi
@@ -170,10 +171,20 @@ jobs:
                 kill "$app_pid" 2>/dev/null || true
                 exit 1
               fi
+              if [ "$(date +%s)" -ge "$deadline" ]; then
+                break
+              fi
               sleep 2
             done
 
-            echo "Application did not finish starting within 30 seconds."
+            # Check once more after the deadline so a successful final startup
+            # check is not missed because of the polling interval.
+            if grep -q 'Started MeetBackApplication' logs/app.log && kill -0 "$app_pid" 2>/dev/null; then
+              echo "Application started successfully (PID: $app_pid)."
+              exit 0
+            fi
+
+            echo "Application did not finish starting within ${startup_timeout} seconds."
             tail -n 100 logs/app.log || true
             kill "$app_pid" 2>/dev/null || true
             exit 1

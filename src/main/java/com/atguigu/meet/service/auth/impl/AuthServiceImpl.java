@@ -12,6 +12,7 @@ import com.atguigu.meet.model.entity.permission.menu.SysMenu;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.auth.AuthService;
+import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.service.permission.invite.InviteCodeService;
 import com.atguigu.meet.utils.JwtUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -49,6 +50,9 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Autowired
     private InviteCodeService inviteCodeService;
+
+    @Autowired
+    private PermissionCacheService permissionCacheService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -104,6 +108,9 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (existUser == null) throw new BusinessException("当前用户不存在");
         boolean bool = passwordEncoder.matches(authLoginDTO.getPassword(), existUser.getPassword());
         if (!bool) throw new BusinessException("用户账号密码不正确");
+
+        // 登录成功后先清除该用户的 Redis 权限缓存，强制下次鉴权时从 DB 重新加载最新权限
+        permissionCacheService.invalidateUserPermissions(existUser.getId());
 
         Map<String, Object> claims = new HashMap<>();
         claims.put("username", existUser.getUsername());

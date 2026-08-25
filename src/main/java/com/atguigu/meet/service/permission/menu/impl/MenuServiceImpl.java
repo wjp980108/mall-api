@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -39,9 +40,8 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
     public Response getMenuTree(String name, Boolean status) {
         Integer statusValue = (status != null) ? (Boolean.TRUE.equals(status) ? 1 : 0) : null;
 
-        // 1. 按条件查询匹配节点（name + status 都应用于此步），排除按钮(type=2)
+        // 1. 按条件查询匹配节点（name + status 都应用于此步），包含按钮(type=2)
         LambdaQueryWrapper<SysMenu> matchWrapper = new LambdaQueryWrapper<>();
-        matchWrapper.ne(SysMenu::getType, 2);
         if (StringUtils.hasText(name)) {
             matchWrapper.like(SysMenu::getName, name);
         }
@@ -62,10 +62,9 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
             collectAncestorIds(menu.getParentId(), neededIds);
         }
 
-        // 3. 一次性拉回匹配节点 + 祖先节点（不再过滤 status，避免祖先链断裂），排除按钮(type=2)
+        // 3. 一次性拉回匹配节点 + 祖先节点（不再过滤 status，避免祖先链断裂），包含按钮(type=2)
         LambdaQueryWrapper<SysMenu> treeWrapper = new LambdaQueryWrapper<>();
         treeWrapper.in(SysMenu::getId, neededIds)
-                .ne(SysMenu::getType, 2)
                 .orderByAsc(SysMenu::getSort);
         List<SysMenu> allMenus = list(treeWrapper);
 
@@ -175,11 +174,12 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
     // ====================== 私有方法 ======================
 
     /**
-     * 递归构建菜单树
+     * 递归构建菜单树（每层按 sort 升序排序，null 视为 0）
      */
     private List<MenuVO> buildMenuTree(List<SysMenu> allMenus, Long parentId) {
         return allMenus.stream()
                 .filter(m -> parentId.equals(m.getParentId()))
+                .sorted(Comparator.comparingInt(m -> m.getSort() == null ? 0 : m.getSort()))
                 .map(m -> {
                     MenuVO vo = new MenuVO();
                     BeanConvertUtils.copyProperties(m, vo);

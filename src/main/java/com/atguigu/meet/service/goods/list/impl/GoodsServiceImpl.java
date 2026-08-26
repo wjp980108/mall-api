@@ -127,6 +127,10 @@ public class GoodsServiceImpl extends ServiceImpl<GoodsMapper, Goods> implements
         if (goods.getStatus() == null) {
             goods.setStatus(0);
         }
+        // sales 不传则默认 0
+        if (goods.getSales() == null) {
+            goods.setSales(0);
+        }
         save(goods);
 
         // 记录操作日志：before=null, after=dto, changedFields=空(新增), remark=新增商品

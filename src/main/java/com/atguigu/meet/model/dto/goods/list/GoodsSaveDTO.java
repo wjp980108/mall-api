@@ -55,6 +55,10 @@ public class GoodsSaveDTO {
     @Min(value = 0, message = "库存数量不能为负数")
     private Integer stock;
 
+    /** 销量（不传默认 0） */
+    @Min(value = 0, message = "销量不能为负数")
+    private Integer sales;
+
     /** 商品状态 false=下架 true=已上架（不传默认 false 下架） */
     private Boolean status;
 }

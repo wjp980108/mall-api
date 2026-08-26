@@ -4,6 +4,7 @@ import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -40,4 +41,10 @@ public class UserVO {
 
     /** 当前登录用户权限集合（仅 user-info 接口返回） */
     private Set<String> permissions;
+
+    /** 用户绑定的角色ID列表（用户列表、编辑用户回显时使用） */
+    private List<Long> roleIds;
+
+    /** 用户绑定的角色名称，逗号拼接，前端列表直接展示用 */
+    private String roleNames;
 }

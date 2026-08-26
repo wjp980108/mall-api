@@ -52,8 +52,10 @@ import java.io.OutputStreamWriter;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -248,20 +250,68 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (parameter.getUsername() != null && StringUtils.hasText(parameter.getUsername())) {
             lambdaQueryWrapper.like(SysUser::getUsername, parameter.getUsername());
         }
+        if (parameter.getPhone() != null && StringUtils.hasText(parameter.getPhone())) {
+            lambdaQueryWrapper.like(SysUser::getPhone, parameter.getPhone());
+        }
 
         IPage<SysUser> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
         IPage<SysUser> result = page(page, lambdaQueryWrapper);
-        // 方式一
-        /*//封装统一返回格式（包含分页信息 + 数据）
-        JSONObject resultData = new JSONObject();
-        resultData.put("list", result.getRecords()); // 数据列表 List<User>
-        resultData.put("total", result.getTotal()); // 总条数
-        resultData.put("totalPages", result.getPages()); // 总页数
-        resultData.put("pageNum", result.getCurrent()); // 当前页
-        resultData.put("pageSize", result.getSize()); // 每页条数
-        return Response.ok(resultData);*/
-        // 方式二(推荐)
-        PageResultVO<SysUser> pageVO = PageResultVO.of(result);
+
+        List<SysUser> records = result.getRecords();
+        List<UserVO> voList = new ArrayList<>(records.size());
+        if (!records.isEmpty()) {
+            // ========== 一次性批量查询本页所有用户的角色信息，避免 N+1 ==========
+            List<Long> userIds = records.stream().map(SysUser::getId).collect(Collectors.toList());
+
+            // 1. 批量查用户-角色关联（sys_user_role），按 userId 分组
+            LambdaQueryWrapper<SysUserRole> urWrapper = Wrappers.lambdaQuery(SysUserRole.class);
+            urWrapper.in(SysUserRole::getUserId, userIds);
+            List<SysUserRole> userRoleList = sysUserRoleMapper.selectList(urWrapper);
+            // Map<userId, List<roleId>>
+            java.util.Map<Long, List<Long>> userRoleIdsMap = userRoleList.stream()
+                    .collect(Collectors.groupingBy(
+                            SysUserRole::getUserId,
+                            Collectors.mapping(SysUserRole::getRoleId, Collectors.toList())
+                    ));
+
+            // 2. 批量查角色表（sys_role），roleId -> roleName
+            java.util.Map<Long, String> roleIdNameMap = new java.util.HashMap<>();
+            if (!userRoleList.isEmpty()) {
+                Set<Long> roleIds = userRoleList.stream()
+                        .map(SysUserRole::getRoleId)
+                        .collect(Collectors.toSet());
+                LambdaQueryWrapper<SysRole> roleWrapper = Wrappers.lambdaQuery(SysRole.class);
+                roleWrapper.in(SysRole::getId, roleIds);
+                List<SysRole> roles = sysRoleMapper.selectList(roleWrapper);
+                roleIdNameMap = roles.stream()
+                        .collect(Collectors.toMap(SysRole::getId, SysRole::getRoleName, (a, b) -> a));
+            }
+
+            // 3. 组装 UserVO（含角色 ID 列表 + 角色名称拼接）
+            final java.util.Map<Long, String> finalRoleIdNameMap = roleIdNameMap;
+            for (SysUser user : records) {
+                UserVO vo = new UserVO();
+                BeanConvertUtils.copyProperties(user, vo);
+                List<Long> roleIds = userRoleIdsMap.getOrDefault(user.getId(), Collections.emptyList());
+                vo.setRoleIds(roleIds);
+                if (!roleIds.isEmpty()) {
+                    String roleNames = roleIds.stream()
+                            .map(finalRoleIdNameMap::get)
+                            .filter(Objects::nonNull)
+                            .collect(Collectors.joining(","));
+                    vo.setRoleNames(roleNames);
+                }
+                voList.add(vo);
+            }
+        }
+
+        // 手动构建分页结果（注意泛型从 SysUser 变为 UserVO，复用 total/pages 等元信息）
+        PageResultVO<UserVO> pageVO = new PageResultVO<>();
+        pageVO.setList(voList);
+        pageVO.setTotal(result.getTotal());
+        pageVO.setPages(result.getPages());
+        pageVO.setCurrent(result.getCurrent());
+        pageVO.setSize(result.getSize());
         return Response.ok(pageVO);
     }
 

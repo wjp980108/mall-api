@@ -361,13 +361,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (userId == null) {
             return Response.fail(401, "未登录");
         }
+        // platform 默认值由 FileService.upload 内部处理(为空则 local-1)
         try {
             Response resUpload = fileService.upload(file, "avatar", platform);
             if (resUpload.getCode() == 500) return resUpload;
             String url = (String) resUpload.getData();
+            // 上传时传给 fileService 的 platform 即为最终入库平台(fileService 内部已做默认处理)
+            String finalPlatform = (platform == null || platform.isBlank()) ? "local-1" : platform;
             UserUpdateDTO userUpdateDTO = new UserUpdateDTO();
             userUpdateDTO.setId(userId);
             userUpdateDTO.setAvatar(url);
+            userUpdateDTO.setAvatarPlatform(finalPlatform);
             updateUser(userUpdateDTO);
             return Response.ok("头像上传并更新成功", url);
         } catch (RuntimeException e) {

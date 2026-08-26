@@ -54,6 +54,9 @@ public class SessionSaveDTO {
     @Size(max = 255, message = "背景图地址长度不能超过255")
     private String bgImg;
 
+    /** 场次背景图存储平台:local-1/aliyun-oss-1等 */
+    private String bgImgPlatform;
+
     /** 排序号 */
     @Min(value = 0, message = "排序号不能为负数")
     private Integer sort;

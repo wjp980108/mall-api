@@ -151,7 +151,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         uw.eq(Order::getId, dto.getId())
           .eq(Order::getOrderStatus, beforeStatus)
           .set(Order::getOrderStatus, afterStatus)
-          .set(Order::getPayVoucherUrl, dto.getPayVoucherUrl());
+          .set(Order::getPayVoucherUrl, dto.getPayVoucherUrl())
+          .set(Order::getPayVoucherPlatform, dto.getPayVoucherPlatform());
         int affected = baseMapper.update(null, uw);
         if (affected == 0) {
             return Response.fail(500, "订单状态已变更，请刷新后重试");

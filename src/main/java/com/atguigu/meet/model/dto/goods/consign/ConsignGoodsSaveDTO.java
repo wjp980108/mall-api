@@ -45,10 +45,16 @@ public class ConsignGoodsSaveDTO {
     @Pattern(regexp = "^[^<>]*$", message = "缩略图URL不能包含 < 或 > 字符")
     private String coverImg;
 
+    /** 商品缩略图存储平台:local-1/aliyun-oss-1等 */
+    private String coverImgPlatform;
+
     /** 商品详情图URL */
     @Size(max = 500, message = "详情图URL长度不能超过500")
     @Pattern(regexp = "^[^<>]*$", message = "详情图URL不能包含 < 或 > 字符")
     private String detailImg;
+
+    /** 商品详情图存储平台:local-1/aliyun-oss-1等 */
+    private String detailImgPlatform;
 
     /** 商品详情富文本 */
     private String goodsDetail;

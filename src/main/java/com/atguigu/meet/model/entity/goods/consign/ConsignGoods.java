@@ -41,8 +41,14 @@ public class ConsignGoods extends Model<ConsignGoods> {
     /** 商品缩略图URL */
     private String coverImg;
 
+    /** 商品缩略图存储平台:local-1/aliyun-oss-1等 */
+    private String coverImgPlatform;
+
     /** 商品详情图URL */
     private String detailImg;
+
+    /** 商品详情图存储平台:local-1/aliyun-oss-1等 */
+    private String detailImgPlatform;
 
     /** 商品详情富文本 */
     private String goodsDetail;

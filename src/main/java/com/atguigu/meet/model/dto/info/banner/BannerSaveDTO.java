@@ -12,6 +12,9 @@ public class BannerSaveDTO {
     @NotBlank(message = "轮播图地址不能为空")
     private String imgUrl;
 
+    /** 轮播图存储平台:local-1/aliyun-oss-1等 */
+    private String imgUrlPlatform;
+
     /** 轮播位置：home=首页 seckill=抢购 */
     @NotBlank(message = "轮播位置不能为空")
     private String position;

@@ -16,4 +16,7 @@ public class UploadVoucherDTO {
     /** 支付凭证图片地址 */
     @NotBlank(message = "支付凭证不能为空")
     private String payVoucherUrl;
+
+    /** 支付凭证存储平台:local-1/aliyun-oss-1等 */
+    private String payVoucherPlatform;
 }

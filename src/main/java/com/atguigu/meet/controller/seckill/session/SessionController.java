@@ -33,9 +33,10 @@ public class SessionController {
      */
     @PostMapping("/bgImg")
     @RequirePermission(PermissionConst.SESSION_BG_UPLOAD)
-    public Response uploadBgImg(@RequestParam("file") MultipartFile file) {
+    public Response uploadBgImg(@RequestParam("file") MultipartFile file,
+                                @RequestParam(value = "platform", required = false) String platform) {
         try {
-            return fileService.upload(file, "sessionBg", null);
+            return fileService.upload(file, "sessionBg", platform);
         } catch (RuntimeException e) {
             return Response.fail(500, e.getMessage());
         }

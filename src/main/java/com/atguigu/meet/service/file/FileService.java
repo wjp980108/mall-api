@@ -14,8 +14,8 @@ public interface FileService {
      * @param file     文件
      * @param bizType  业务类型: avatar / goods / document
      * @param platform 存储平台: local-1 / aliyun-oss-1 / qiniu-kodo-1 / minio-1 / tencent-cos-1
-     *                  为空时使用 application.yml 中 default-platform
-     * @return 最终访问路径
+     *                  为空时默认 local-1 本地存储
+     * @return Response.data 为访问URL字符串；platform 由前端保存业务时显式传入业务接口
      */
     Response upload(MultipartFile file, String bizType, String platform);
 

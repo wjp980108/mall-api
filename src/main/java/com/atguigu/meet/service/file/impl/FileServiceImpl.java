@@ -79,23 +79,22 @@ public class FileServiceImpl implements FileService {
         if (file.getSize() > maxSize) {
             throw new RuntimeException("文件不能超过 " + typeConfig.getMaxSizeMb() + "MB");
         }
-        // 6. 校验存储平台白名单(为空则走 default-platform)
-        if (platform != null && !platform.isBlank()) {
-            if (!ALLOWED_PLATFORMS.contains(platform)) {
-                return Response.fail(500, "不支持的存储平台：" + platform);
-            }
+        // 6. 存储平台:未传则默认 local-1 本地存储,传了则校验白名单
+        if (platform == null || platform.isBlank()) {
+            platform = "local-1";
+        } else if (!ALLOWED_PLATFORMS.contains(platform)) {
+            return Response.fail(500, "不支持的存储平台：" + platform);
         }
         // 7. 通过 x-file-storage 上传，动态指定平台，自动生成外网 URL
         var builder = fileStorageService.of(file)
-                .setPath(typeConfig.getSubPath());
-        if (platform != null && !platform.isBlank()) {
-            builder.setPlatform(platform);
-        }
+                .setPath(typeConfig.getSubPath())
+                .setPlatform(platform);
         org.dromara.x.file.storage.core.FileInfo uploaded = builder.upload();
         // 8. 本地存储返回相对路径时拼接后端基础地址,云存储 URL 已完整则原样返回
         String fullUrl = buildFullUrl(uploaded.getUrl());
         // 9. 文件元数据入库（便于假删除/审计）
         saveFileInfo(uploaded, originalFilename, suffix, bizType, file.getSize(), fullUrl);
+        // 10. 只返回访问URL，platform 由前端保存业务时显式传入业务接口
         return Response.ok(200, "上传成功", fullUrl);
     }
 

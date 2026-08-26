@@ -42,6 +42,9 @@ public class GoodsSaveDTO {
     @Pattern(regexp = "^[^<>]*$", message = "缩略图URL不能包含 < 或 > 字符")
     private String goodsThumb;
 
+    /** 商品缩略图存储平台:local-1/aliyun-oss-1等 */
+    private String goodsThumbPlatform;
+
     /** 商品售价 */
     @NotNull(message = "商品售价不能为空")
     @DecimalMin(value = "0.00", message = "商品售价不能为负数")

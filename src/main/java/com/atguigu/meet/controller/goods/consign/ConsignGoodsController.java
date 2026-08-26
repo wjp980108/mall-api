@@ -35,9 +35,10 @@ public class ConsignGoodsController {
     /** 上传商品缩略图（内部调用通用上传接口 bizType=consignCover，独立权限） */
     @PostMapping("/coverImg")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_COVER_IMG_UPLOAD)
-    public Response uploadCoverImg(@RequestParam("file") MultipartFile file) {
+    public Response uploadCoverImg(@RequestParam("file") MultipartFile file,
+                                   @RequestParam(value = "platform", required = false) String platform) {
         try {
-            return fileService.upload(file, "consignCover", null);
+            return fileService.upload(file, "consignCover", platform);
         } catch (RuntimeException e) {
             return Response.fail(500, e.getMessage());
         }
@@ -46,9 +47,10 @@ public class ConsignGoodsController {
     /** 上传商品详情图（内部调用通用上传接口 bizType=consignDetail，独立权限） */
     @PostMapping("/detailImg")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_DETAIL_IMG_UPLOAD)
-    public Response uploadDetailImg(@RequestParam("file") MultipartFile file) {
+    public Response uploadDetailImg(@RequestParam("file") MultipartFile file,
+                                    @RequestParam(value = "platform", required = false) String platform) {
         try {
-            return fileService.upload(file, "consignDetail", null);
+            return fileService.upload(file, "consignDetail", platform);
         } catch (RuntimeException e) {
             return Response.fail(500, e.getMessage());
         }

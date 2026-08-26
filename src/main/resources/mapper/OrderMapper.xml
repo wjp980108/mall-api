@@ -22,6 +22,7 @@
         <result column="put_commission" property="putCommission"/>
         <result column="coupon_amount" property="couponAmount"/>
         <result column="pay_voucher_url" property="payVoucherUrl"/>
+        <result column="pay_voucher_platform" property="payVoucherPlatform"/>
         <result column="pay_deadline" property="payDeadline"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
@@ -39,7 +40,7 @@
              THEN CONCAT(LEFT(o.buyer_phone, 3), '****', RIGHT(o.buyer_phone, 4))
              ELSE o.buyer_phone END AS buyer_phone_masked,
         o.rush_price, o.receive_address, o.order_status,
-        o.put_commission, o.coupon_amount, o.pay_voucher_url,
+        o.put_commission, o.coupon_amount, o.pay_voucher_url, o.pay_voucher_platform,
         o.pay_deadline, o.create_time, o.update_time
     </sql>
 

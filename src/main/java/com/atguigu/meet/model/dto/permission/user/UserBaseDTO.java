@@ -31,6 +31,9 @@ public class UserBaseDTO {
 
     private String avatar;
 
+    /** 头像存储平台:local-1/aliyun-oss-1等 */
+    private String avatarPlatform;
+
     private LocalDate birthday;
 
     @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")

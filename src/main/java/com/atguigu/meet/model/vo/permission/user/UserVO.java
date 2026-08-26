@@ -26,6 +26,9 @@ public class UserVO {
 
     private String avatar;
 
+    /** 头像存储平台:local-1/aliyun-oss-1等 */
+    private String avatarPlatform;
+
     private LocalDate birthday;
 
     private String phone;

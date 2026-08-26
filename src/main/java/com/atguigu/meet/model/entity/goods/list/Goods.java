@@ -35,6 +35,9 @@ public class Goods extends Model<Goods> {
     /** 商品缩略图URL */
     private String goodsThumb;
 
+    /** 商品缩略图存储平台:local-1/aliyun-oss-1等 */
+    private String goodsThumbPlatform;
+
     /** 商品售价 */
     private BigDecimal price;
 

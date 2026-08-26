@@ -12,7 +12,9 @@
         <result column="member_id" property="memberId"/>
         <result column="session_id" property="sessionId"/>
         <result column="cover_img" property="coverImg"/>
+        <result column="cover_img_platform" property="coverImgPlatform"/>
         <result column="detail_img" property="detailImg"/>
+        <result column="detail_img_platform" property="detailImgPlatform"/>
         <result column="goods_detail" property="goodsDetail"/>
         <result column="sale_times" property="saleTimes"/>
         <result column="goods_status" property="goodsStatus"/>
@@ -26,15 +28,17 @@
             <result column="nickname" property="nickname"/>
             <result column="phone" property="phone"/>
             <result column="avatar" property="avatar"/>
+            <result column="avatar_platform" property="avatarPlatform"/>
         </association>
     </resultMap>
 
     <!-- 公共列片段：商品 + 委托人 + 场次 -->
     <sql id="baseColumnList">
         g.id, g.goods_name, g.goods_price, g.member_id, g.session_id,
-        g.cover_img, g.detail_img, g.goods_detail, g.sale_times,
+        g.cover_img, g.cover_img_platform, g.detail_img, g.detail_img_platform,
+        g.goods_detail, g.sale_times,
         g.goods_status, g.online_status, g.create_time, g.update_time,
-        u.username, u.nickname, u.phone, u.avatar,
+        u.username, u.nickname, u.phone, u.avatar, u.avatar_platform,
         s.session_name
     </sql>
 

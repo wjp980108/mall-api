@@ -52,6 +52,9 @@ public class Session extends Model<Session> {
     /** 场次背景图地址 */
     private String bgImg;
 
+    /** 场次背景图存储平台:local-1/aliyun-oss-1等 */
+    private String bgImgPlatform;
+
     /** 排序号（前端按顺序展示第1场、第2场） */
     private Integer sort = 0;
 

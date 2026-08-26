@@ -69,6 +69,9 @@ public class Order extends Model<Order> {
     /** 支付凭证图片地址 */
     private String payVoucherUrl;
 
+    /** 支付凭证存储平台:local-1/aliyun-oss-1等 */
+    private String payVoucherPlatform;
+
     /** 付款截止时间（倒计时） */
     private LocalDateTime payDeadline;
 

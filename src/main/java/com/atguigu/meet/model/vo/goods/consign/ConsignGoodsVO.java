@@ -18,7 +18,11 @@ public class ConsignGoodsVO {
     private Long memberId;
     private Long sessionId;
     private String coverImg;
+    /** 商品缩略图存储平台:local-1/aliyun-oss-1等 */
+    private String coverImgPlatform;
     private String detailImg;
+    /** 商品详情图存储平台:local-1/aliyun-oss-1等 */
+    private String detailImgPlatform;
     private String goodsDetail;
     private Integer saleTimes;
     /** 商品业务状态 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货 */
@@ -45,5 +49,7 @@ public class ConsignGoodsVO {
         private String nickname;
         private String phone;
         private String avatar;
+        /** 委托人头像存储平台:local-1/aliyun-oss-1等 */
+        private String avatarPlatform;
     }
 }

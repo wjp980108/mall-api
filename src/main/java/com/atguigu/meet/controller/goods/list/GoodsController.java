@@ -32,9 +32,10 @@ public class GoodsController {
     /** 上传商品缩略图（内部调用通用上传接口 bizType=goodsCover，独立权限） */
     @PostMapping("/coverImg")
     @RequirePermission(PermissionConst.GOODS_COVER_IMG_UPLOAD)
-    public Response uploadCoverImg(@RequestParam("file") MultipartFile file) {
+    public Response uploadCoverImg(@RequestParam("file") MultipartFile file,
+                                   @RequestParam(value = "platform", required = false) String platform) {
         try {
-            return fileService.upload(file, "goodsCover", null);
+            return fileService.upload(file, "goodsCover", platform);
         } catch (RuntimeException e) {
             return Response.fail(500, e.getMessage());
         }
@@ -43,9 +44,10 @@ public class GoodsController {
     /** 上传商品详情图（内部调用通用上传接口 bizType=goodsDetail，独立权限） */
     @PostMapping("/detailImg")
     @RequirePermission(PermissionConst.GOODS_DETAIL_IMG_UPLOAD)
-    public Response uploadDetailImg(@RequestParam("file") MultipartFile file) {
+    public Response uploadDetailImg(@RequestParam("file") MultipartFile file,
+                                    @RequestParam(value = "platform", required = false) String platform) {
         try {
-            return fileService.upload(file, "goodsDetail", null);
+            return fileService.upload(file, "goodsDetail", platform);
         } catch (RuntimeException e) {
             return Response.fail(500, e.getMessage());
         }

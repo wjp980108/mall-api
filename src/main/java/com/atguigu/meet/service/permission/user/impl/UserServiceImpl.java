@@ -20,6 +20,7 @@ import com.atguigu.meet.model.entity.permission.userRole.SysUserRole;
 import com.atguigu.meet.model.vo.OptionVO;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.permission.menu.MenuVO;
+import com.atguigu.meet.model.vo.permission.role.RoleVO;
 import com.atguigu.meet.model.vo.permission.user.UserOrderVO;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.auth.PermissionCacheService;
@@ -274,8 +275,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                             Collectors.mapping(SysUserRole::getRoleId, Collectors.toList())
                     ));
 
-            // 2. 批量查角色表（sys_role），roleId -> roleName
-            java.util.Map<Long, String> roleIdNameMap = new java.util.HashMap<>();
+            // 2. 批量查角色表（sys_role），roleId -> RoleVO（含 id/roleName/roleCode/status）
+            java.util.Map<Long, RoleVO> roleIdToVOMap = new java.util.HashMap<>();
             if (!userRoleList.isEmpty()) {
                 Set<Long> roleIds = userRoleList.stream()
                         .map(SysUserRole::getRoleId)
@@ -283,21 +284,35 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                 LambdaQueryWrapper<SysRole> roleWrapper = Wrappers.lambdaQuery(SysRole.class);
                 roleWrapper.in(SysRole::getId, roleIds);
                 List<SysRole> roles = sysRoleMapper.selectList(roleWrapper);
-                roleIdNameMap = roles.stream()
-                        .collect(Collectors.toMap(SysRole::getId, SysRole::getRoleName, (a, b) -> a));
+                roleIdToVOMap = roles.stream()
+                        .collect(Collectors.toMap(
+                                SysRole::getId,
+                                r -> {
+                                    RoleVO rv = new RoleVO();
+                                    rv.setId(r.getId());
+                                    rv.setRoleName(r.getRoleName());
+                                    rv.setRoleCode(r.getRoleCode());
+                                    rv.setStatus(r.getStatus() != null && r.getStatus() == 1);
+                                    return rv;
+                                },
+                                (a, b) -> a));
             }
 
-            // 3. 组装 UserVO（含角色 ID 列表 + 角色名称拼接）
-            final java.util.Map<Long, String> finalRoleIdNameMap = roleIdNameMap;
+            // 3. 组装 UserVO（含角色 ID 列表 + 角色名称拼接 + 角色完整信息列表）
+            final java.util.Map<Long, RoleVO> finalRoleIdToVOMap = roleIdToVOMap;
             for (SysUser user : records) {
                 UserVO vo = new UserVO();
                 BeanConvertUtils.copyProperties(user, vo);
                 List<Long> roleIds = userRoleIdsMap.getOrDefault(user.getId(), Collections.emptyList());
                 vo.setRoleIds(roleIds);
                 if (!roleIds.isEmpty()) {
-                    String roleNames = roleIds.stream()
-                            .map(finalRoleIdNameMap::get)
+                    List<RoleVO> userRoles = roleIds.stream()
+                            .map(finalRoleIdToVOMap::get)
                             .filter(Objects::nonNull)
+                            .collect(Collectors.toList());
+                    vo.setRoles(userRoles);
+                    String roleNames = userRoles.stream()
+                            .map(RoleVO::getRoleName)
                             .collect(Collectors.joining(","));
                     vo.setRoleNames(roleNames);
                 }

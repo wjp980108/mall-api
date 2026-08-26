@@ -1,5 +1,6 @@
 package com.atguigu.meet.model.vo.permission.user;
 
+import com.atguigu.meet.model.vo.permission.role.RoleVO;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -50,4 +51,7 @@ public class UserVO {
 
     /** 用户绑定的角色名称，逗号拼接，前端列表直接展示用 */
     private String roleNames;
+
+    /** 用户绑定的角色完整信息列表（含 id、roleName、roleCode、status 等） */
+    private List<RoleVO> roles;
 }

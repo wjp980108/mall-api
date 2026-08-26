@@ -108,6 +108,10 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
     public Response addMenu(MenuSaveDTO dto) {
         SysMenu menu = new SysMenu();
         BeanConvertUtils.copyProperties(dto, menu);
+        // 目录/菜单无权限标识时，空串转 null，避免触发 uk_perm 唯一索引冲突
+        if (!StringUtils.hasText(menu.getPerm())) {
+            menu.setPerm(null);
+        }
         save(menu);
         return Response.ok("新增菜单成功", null);
     }
@@ -120,6 +124,10 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
         }
         SysMenu menu = new SysMenu();
         BeanConvertUtils.copyProperties(dto, menu);
+        // 目录/菜单无权限标识时，空串转 null，避免触发 uk_perm 唯一索引冲突
+        if (!StringUtils.hasText(menu.getPerm())) {
+            menu.setPerm(null);
+        }
         updateById(menu);
         return Response.ok("修改菜单成功", null);
     }

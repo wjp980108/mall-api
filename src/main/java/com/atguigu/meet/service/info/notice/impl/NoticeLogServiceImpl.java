@@ -6,6 +6,7 @@ import com.atguigu.meet.model.dto.info.notice.NoticeLogPageQueryDTO;
 import com.atguigu.meet.model.entity.info.notice.NoticeLog;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.service.info.notice.NoticeLogService;
+import com.atguigu.meet.utils.TimeRangeUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -14,6 +15,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 公告阅读日志 Service 实现
@@ -31,11 +33,21 @@ public class NoticeLogServiceImpl extends ServiceImpl<NoticeLogMapper, NoticeLog
         if (parameter.getUserId() != null) {
             wrapper.eq(NoticeLog::getUserId, parameter.getUserId());
         }
-        if (parameter.getStartTime() != null) {
-            wrapper.ge(NoticeLog::getCreateTime, parameter.getStartTime());
-        }
-        if (parameter.getEndTime() != null) {
-            wrapper.le(NoticeLog::getCreateTime, parameter.getEndTime());
+        // 解析时间范围：timeRange[0] -> 当天 00:00:00，timeRange[1] -> 当天 23:59:59
+        List<String> timeRange = parameter.getTimeRange();
+        if (timeRange != null && !timeRange.isEmpty()) {
+            if (timeRange.size() >= 1) {
+                LocalDateTime startTime = TimeRangeUtils.toStartOfDay(timeRange.get(0));
+                if (startTime != null) {
+                    wrapper.ge(NoticeLog::getCreateTime, startTime);
+                }
+            }
+            if (timeRange.size() >= 2) {
+                LocalDateTime endTime = TimeRangeUtils.toEndOfDay(timeRange.get(1));
+                if (endTime != null) {
+                    wrapper.le(NoticeLog::getCreateTime, endTime);
+                }
+            }
         }
         wrapper.orderByDesc(NoticeLog::getReadTime);
 

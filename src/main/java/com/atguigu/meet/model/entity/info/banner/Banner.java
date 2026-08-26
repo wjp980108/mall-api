@@ -1,6 +1,7 @@
 package com.atguigu.meet.model.entity.info.banner;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -46,9 +47,11 @@ public class Banner extends Model<Banner> {
     @TableLogic
     private Integer isDeleted = 0;
 
-    private LocalDateTime createdAt;
+    @TableField("created_at")
+    private LocalDateTime createdTime;
 
-    private LocalDateTime updatedAt;
+    @TableField("updated_at")
+    private LocalDateTime updateTime;
 
     /** 操作人ID(管理员id) */
     private Long createBy;

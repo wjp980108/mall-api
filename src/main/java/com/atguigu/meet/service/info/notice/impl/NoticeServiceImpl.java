@@ -15,6 +15,7 @@ import com.atguigu.meet.model.vo.info.notice.NoticeVO;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.info.notice.NoticeService;
 import com.atguigu.meet.utils.AdminContext;
+import com.atguigu.meet.utils.TimeRangeUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -25,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -49,11 +51,21 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
         if (parameter.getStatus() != null) {
             wrapper.eq(Notice::getStatus, parameter.getStatus());
         }
-        if (parameter.getStartTime() != null) {
-            wrapper.ge(Notice::getCreateTime, parameter.getStartTime());
-        }
-        if (parameter.getEndTime() != null) {
-            wrapper.le(Notice::getCreateTime, parameter.getEndTime());
+        // 解析时间范围：timeRange[0] -> 当天 00:00:00，timeRange[1] -> 当天 23:59:59
+        List<String> timeRange = parameter.getTimeRange();
+        if (timeRange != null && !timeRange.isEmpty()) {
+            if (timeRange.size() >= 1) {
+                LocalDateTime startTime = TimeRangeUtils.toStartOfDay(timeRange.get(0));
+                if (startTime != null) {
+                    wrapper.ge(Notice::getCreateTime, startTime);
+                }
+            }
+            if (timeRange.size() >= 2) {
+                LocalDateTime endTime = TimeRangeUtils.toEndOfDay(timeRange.get(1));
+                if (endTime != null) {
+                    wrapper.le(Notice::getCreateTime, endTime);
+                }
+            }
         }
         // sort 越大越靠前，同级按创建时间倒序
         wrapper.orderByDesc(Notice::getSort);

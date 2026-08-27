@@ -5,12 +5,14 @@ import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.activerecord.Model;
+import com.fasterxml.jackson.annotation.JsonFormat;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.databind.annotation.JsonSerialize;
 import com.atguigu.meet.config.jackson.Integer01ToBooleanSerializer;
 import lombok.Data;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 
 /**
  * 抢购场次实体（对应 t_session）
@@ -34,11 +36,13 @@ public class Session extends Model<Session> {
     /** 进场时间控制(分钟) */
     private Integer enterControlMinute = 0;
 
-    /** 抢购开始时间（完整年月日时分秒） */
-    private LocalDateTime rushStartTime;
+    /** 每日抢购开始时间（时:分，例：09:50，每天该时刻开启抢购） */
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime rushStartTime;
 
-    /** 抢购结束时间（完整年月日时分秒） */
-    private LocalDateTime rushEndTime;
+    /** 每日抢购结束时间（时:分，例：17:00，不支持跨天） */
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime rushEndTime;
 
     /** 最多购买次数(次) */
     private Integer maxBuyCount = 1;

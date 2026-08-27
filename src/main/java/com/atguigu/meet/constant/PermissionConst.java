@@ -175,6 +175,8 @@ public final class PermissionConst {
     public static final String SESSION_UPDATE = "session:update";
     /** 场次删除 */
     public static final String SESSION_DELETE = "session:delete";
+    /** 场次启用/禁用 */
+    public static final String SESSION_STATUS = "session:status";
     /** 场次背景图上传 */
     public static final String SESSION_BG_UPLOAD = "session:bg:upload";
 

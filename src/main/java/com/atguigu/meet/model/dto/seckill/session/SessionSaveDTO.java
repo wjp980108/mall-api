@@ -6,7 +6,9 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
 
-import java.time.LocalDateTime;
+import com.fasterxml.jackson.annotation.JsonFormat;
+
+import java.time.LocalTime;
 
 /**
  * 抢购场次新增DTO
@@ -27,13 +29,15 @@ public class SessionSaveDTO {
     @Min(value = 0, message = "进场时间控制不能为负数")
     private Integer enterControlMinute;
 
-    /** 抢购开始时间 */
+    /** 每日抢购开始时间（时:分，例："09:50"） */
     @NotNull(message = "抢购开始时间不能为空")
-    private LocalDateTime rushStartTime;
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime rushStartTime;
 
-    /** 抢购结束时间 */
+    /** 每日抢购结束时间（时:分，例："17:00"，不支持跨天） */
     @NotNull(message = "抢购结束时间不能为空")
-    private LocalDateTime rushEndTime;
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime rushEndTime;
 
     /** 最多购买次数(次) */
     @NotNull(message = "最多购买次数不能为空")

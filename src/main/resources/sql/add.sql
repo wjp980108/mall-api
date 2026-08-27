@@ -1,7 +1,4 @@
-ALTER TABLE sys_user        ADD COLUMN avatar_platform        VARCHAR(50) DEFAULT NULL COMMENT '头像存储平台'        AFTER avatar;
-ALTER TABLE t_goods         ADD COLUMN goods_thumb_platform   VARCHAR(50) DEFAULT NULL COMMENT '商品缩略图存储平台'   AFTER goods_thumb;
-ALTER TABLE t_consign_goods ADD COLUMN cover_img_platform     VARCHAR(50) DEFAULT NULL COMMENT '商品缩略图存储平台'   AFTER cover_img;
-ALTER TABLE t_consign_goods ADD COLUMN detail_img_platform    VARCHAR(50) DEFAULT NULL COMMENT '商品详情图存储平台'   AFTER detail_img;
-ALTER TABLE t_session       ADD COLUMN bg_img_platform       VARCHAR(50) DEFAULT NULL COMMENT '场次背景图存储平台'   AFTER bg_img;
-ALTER TABLE t_order         ADD COLUMN pay_voucher_platform  VARCHAR(50) DEFAULT NULL COMMENT '支付凭证存储平台'     AFTER pay_voucher_url;
-ALTER TABLE t_banner        ADD COLUMN img_url_platform      VARCHAR(50) DEFAULT NULL COMMENT '轮播图存储平台'       AFTER img_url;
+
+-- 抢购场次改为每日固定时段开启：抢购时间由完整日期时间(_DATETIME)降为每日时分(TIME)，旧数据自动截取时间部分
+ALTER TABLE t_session MODIFY COLUMN rush_start_time TIME NOT NULL COMMENT '每日抢购开始时间（时:分:秒，例：09:50:00）';
+ALTER TABLE t_session MODIFY COLUMN rush_end_time   TIME NOT NULL COMMENT '每日抢购结束时间（时:分:秒，例：17:00:00，不支持跨天）';

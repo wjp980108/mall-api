@@ -5,6 +5,7 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.seckill.session.SessionPageQueryDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionSaveDTO;
+import com.atguigu.meet.model.dto.seckill.session.SessionStatusDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionUpdateDTO;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.seckill.session.SessionService;
@@ -82,5 +83,12 @@ public class SessionController {
     @RequirePermission(PermissionConst.SESSION_DELETE)
     public Response deleteSession(@PathVariable Long id) {
         return sessionService.deleteSession(id);
+    }
+
+    /** 场次启用/禁用 */
+    @PatchMapping("/status")
+    @RequirePermission(PermissionConst.SESSION_STATUS)
+    public Response updateStatus(@RequestBody @Valid SessionStatusDTO dto) {
+        return sessionService.updateStatus(dto);
     }
 }

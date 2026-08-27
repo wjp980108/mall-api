@@ -4,6 +4,7 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.model.dto.seckill.session.SessionPageQueryDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionSaveDTO;
+import com.atguigu.meet.model.dto.seckill.session.SessionStatusDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionUpdateDTO;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.vo.OptionVO;
@@ -26,7 +27,7 @@ import java.util.List;
  * 抢购场次 Service 实现
  * <p>
  * 核心保障：
- * - 抢购时间窗口校验：rush_end_time 必须晚于 rush_start_time
+ * - 抢购时间窗口校验：rush_end_time 必须晚于 rush_start_time（每日时段，不支持跨天）
  * - 排序：按 sort 正序，同序按创建时间倒序
  */
 @Service
@@ -40,7 +41,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
             wrapper.like(Session::getSessionName, parameter.getSessionName());
         }
         if (parameter.getSessionStatus() != null) {
-            wrapper.eq(Session::getSessionStatus, parameter.getSessionStatus());
+            wrapper.eq(Session::getSessionStatus, Boolean.TRUE.equals(parameter.getSessionStatus()) ? 1 : 0);
         }
         wrapper.orderByAsc(Session::getSort);
         wrapper.orderByDesc(Session::getCreateTime);
@@ -61,8 +62,8 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
     @Override
     public Response addSession(SessionSaveDTO dto) {
-        // 时间窗口校验
-        if (dto.getRushEndTime().isBefore(dto.getRushStartTime())) {
+        // 时间窗口校验（每日时段，不支持跨天）
+        if (!dto.getRushEndTime().isAfter(dto.getRushStartTime())) {
             return Response.fail(500, "抢购结束时间必须晚于开始时间");
         }
         Session session = new Session();
@@ -83,8 +84,8 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         if (existSession == null) {
             return Response.fail(500, "场次不存在");
         }
-        // 时间窗口校验
-        if (dto.getRushEndTime().isBefore(dto.getRushStartTime())) {
+        // 时间窗口校验（每日时段，不支持跨天）
+        if (!dto.getRushEndTime().isAfter(dto.getRushStartTime())) {
             return Response.fail(500, "抢购结束时间必须晚于开始时间");
         }
         Session session = new Session();
@@ -106,6 +107,21 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
     }
 
     @Override
+    public Response updateStatus(SessionStatusDTO dto) {
+        Session existSession = getById(dto.getId());
+        if (existSession == null) {
+            return Response.fail(500, "场次不存在");
+        }
+        Session session = new Session();
+        session.setId(dto.getId());
+        session.setSessionStatus(Boolean.TRUE.equals(dto.getStatus()) ? 1 : 0);
+        updateById(session);
+        log.info("[抢购场次] 启停成功，id={}, {}->{}",
+                dto.getId(), existSession.getSessionStatus() == 1, dto.getStatus());
+        return Response.ok("场次启停成功", null);
+    }
+
+    @Override
     public Response getSessionOptions() {
         LambdaQueryWrapper<Session> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Session::getSessionStatus, 1);
@@ -113,7 +129,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         wrapper.orderByDesc(Session::getCreateTime);
         List<Session> sessions = list(wrapper);
 
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("HH:mm");
         List<OptionVO<Long>> options = new ArrayList<>(sessions.size());
         for (Session s : sessions) {
             String label = s.getSessionName() + ": "

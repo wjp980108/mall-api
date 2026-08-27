@@ -15,6 +15,6 @@ public class SessionPageQueryDTO {
 
     /** 场次名称（模糊查询） */
     private String sessionName;
-    /** 场次状态 1开启 0关闭 */
-    private Integer sessionStatus;
+    /** 场次状态 true开启 false关闭 */
+    private Boolean sessionStatus;
 }

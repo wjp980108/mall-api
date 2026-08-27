@@ -3,6 +3,7 @@ package com.atguigu.meet.service.seckill.session;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.seckill.session.SessionPageQueryDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionSaveDTO;
+import com.atguigu.meet.model.dto.seckill.session.SessionStatusDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionUpdateDTO;
 
 /**
@@ -24,6 +25,9 @@ public interface SessionService {
 
     /** 删除场次（逻辑删除） */
     Response deleteSession(Long id);
+
+    /** 场次启用/禁用 */
+    Response updateStatus(SessionStatusDTO dto);
 
     /** 场次下拉选项列表（仅启用场次） */
     Response getSessionOptions();

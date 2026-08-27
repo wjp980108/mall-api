@@ -46,7 +46,7 @@ public class UserController {
     }
 
     /**
-     * 用户下拉选项列表（仅启用用户）
+     * 用户下拉选项列表（委托人, 仅启用用户）
      */
     @GetMapping("/options")
     @RequirePermission(PermissionConst.USER_QUERY)

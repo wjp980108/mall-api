@@ -467,6 +467,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     public Response getUserOptions() {
         LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysUser::getStatus, "1");
+        // 过滤超级管理员角色
+        List<Long> superAdminUserIds = getSuperAdminUserIds();
+        if (!superAdminUserIds.isEmpty()) {
+            wrapper.notIn(SysUser::getId, superAdminUserIds);
+        }
         wrapper.orderByAsc(SysUser::getId);
         List<SysUser> users = list(wrapper);
 
@@ -476,6 +481,26 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             options.add(new OptionVO<>(label, u.getId()));
         }
         return Response.ok(options);
+    }
+
+    /**
+     * 查询拥有超级管理员角色的用户ID集合
+     */
+    private List<Long> getSuperAdminUserIds() {
+        LambdaQueryWrapper<SysRole> roleWrapper = Wrappers.lambdaQuery(SysRole.class)
+                .eq(SysRole::getRoleCode, PermissionConst.ROLE_SUPER_ADMIN);
+        List<Long> superRoleIds = sysRoleMapper.selectList(roleWrapper).stream()
+                .map(SysRole::getId)
+                .collect(Collectors.toList());
+        if (superRoleIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return sysUserRoleMapper.selectList(
+                        Wrappers.lambdaQuery(SysUserRole.class).in(SysUserRole::getRoleId, superRoleIds))
+                .stream()
+                .map(SysUserRole::getUserId)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     private List<MenuVO> buildMenuTree(List<SysMenu> allMenus, Long parentId) {

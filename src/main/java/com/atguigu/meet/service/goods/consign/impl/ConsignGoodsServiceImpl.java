@@ -22,6 +22,7 @@ import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.RequestContextUtil;
 import com.atguigu.meet.utils.TimeRangeUtils;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -197,10 +198,15 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
             return Response.fail(500, String.format("业务状态不允许从[%s]流转到[%s]",
                     statusName(fromStatus), statusName(toStatus)));
         }
-        ConsignGoods goods = new ConsignGoods();
-        goods.setId(dto.getId());
-        goods.setGoodsStatus(toStatus);
-        updateById(goods);
+        // 条件更新：WHERE id=? AND goods_status=fromStatus，闭合「先查后改」并发空窗
+        LambdaUpdateWrapper<ConsignGoods> uw = new LambdaUpdateWrapper<>();
+        uw.eq(ConsignGoods::getId, dto.getId())
+          .eq(ConsignGoods::getGoodsStatus, fromStatus)
+          .set(ConsignGoods::getGoodsStatus, toStatus);
+        int affected = baseMapper.update(null, uw);
+        if (affected == 0) {
+            return Response.fail(500, "业务状态已变更，请刷新后重试");
+        }
         // 记录操作日志：5=业务状态流转，动态 desc 由枚举方法 buildBizFlowDesc 拼装
         String bizDesc = ConsignGoodsOperateType.BIZ_FLOW
                 .buildBizFlowDesc(statusName(fromStatus), statusName(toStatus));
@@ -253,6 +259,20 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         }
         log.info("[托售商品] 批量删除成功（逻辑删除），ids={}", idList);
         return Response.ok("成功删除" + idList.size() + "个托售商品", null);
+    }
+
+    @Override
+    public void recordExternalBizFlow(Long goodsId, Integer fromStatus, Integer toStatus, String remark) {
+        String bizDesc = ConsignGoodsOperateType.BIZ_FLOW
+                .buildBizFlowDesc(statusName(fromStatus), statusName(toStatus));
+        Map<String, Object> before = new LinkedHashMap<>();
+        before.put("goodsStatus", fromStatus);
+        before.put("goodsStatusName", statusName(fromStatus));
+        Map<String, Object> after = new LinkedHashMap<>();
+        after.put("goodsStatus", toStatus);
+        after.put("goodsStatusName", statusName(toStatus));
+        saveOperateLog(goodsId, ConsignGoodsOperateType.BIZ_FLOW, bizDesc, before, after,
+                Collections.singletonList("goodsStatus"), remark, fromStatus, toStatus);
     }
 
     // ====================== 私有方法 ======================

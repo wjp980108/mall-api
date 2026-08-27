@@ -3,6 +3,21 @@ spring:
     url: jdbc:mysql://127.0.0.1:3306/mall?useUnicode=true&characterEncoding=utf-8&zeroDateTimeBehavior=convertToNull&useSSL=false&serverTimezone=UTC
     username: root
     password: 123456
+    # HikariCP 连接池（Spring Boot 3 默认实现，参数显式化避免依赖隐式默认 maximumPoolSize=10）
+    hikari:
+      # 池内最大连接数。同时约束：MySQL max_connections >= 所有实例该值之和 * 1.5（预留管理/维护连接）
+      maximum-pool-size: 25
+      # 常驻最小空闲连接，秒杀开场免冷启动建连抖动
+      minimum-idle: 10
+      # 获取连接最长等待：超时快速失败并抛出，避免请求无限堆积
+      connection-timeout: 6000
+      # 空闲连接最大存活，须远小于 MySQL wait_timeout，防止使用已被服务端关闭的死连接
+      idle-timeout: 300000
+      # 连接最长存活时间（默认30分钟）
+      max-lifetime: 1500000
+      # 借出连接时的探活语句
+      connection-test-query: SELECT 1
+      pool-name: MeetBackHikariPool
   sql:
     # 后期在处理
     init:

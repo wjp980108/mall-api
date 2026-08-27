@@ -11,6 +11,7 @@ import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
 import com.atguigu.meet.model.entity.order.Order;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.order.OrderVO;
+import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.order.OrderOperateLogService;
 import com.atguigu.meet.service.order.OrderService;
 import com.atguigu.meet.utils.TimeRangeUtils;
@@ -55,6 +56,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Autowired
     private ConsignGoodsMapper consignGoodsMapper;
+
+    @Autowired
+    private ConsignGoodsService consignGoodsService;
 
     // ====================== 5 个列表查询 ======================
 
@@ -161,6 +165,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         // 日志 REQUIRES_NEW：无论本事务后续是否回滚，都记录"上传凭证"操作
         orderOperateLogService.writeOperateLog(dto.getId(), beforeStatus, afterStatus,
                 OrderOperateType.UPLOAD_VOUCHER, null);
+
+        // 商品联动：已抢购待付款(2) -> 等待确认付款(3)，消除原「管理端手工补状态」缺口
+        advanceConsignGoodsToWaitConfirmSafely(existOrder);
+
         log.info("[订单管理] 上传凭证成功，orderId={}, {}->{}", dto.getId(), beforeStatus, afterStatus);
         return Response.ok("上传凭证成功", null);
     }
@@ -300,6 +308,32 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     // ====================== 私有方法：商品状态联动（并发安全版） ======================
 
     /**
+     * 上传支付凭证成功：托售商品推进到 3 等待确认付款（条件更新 + 期望状态匹配）
+     * <p>
+     * 期望商品状态为 2（已抢购待付款），仅匹配时推进为 3；
+     * 状态不匹配仅告警不阻断（商品可能已被管理端手工流转或处于并发保护中）。
+     */
+    private void advanceConsignGoodsToWaitConfirmSafely(Order order) {
+        if (order.getGoodsId() == null) {
+            return;
+        }
+        Integer expectGoodsStatus = 2; // 已抢购待付款
+        int affected = consignGoodsMapper.updateStatusWithCondition(
+                order.getGoodsId(),
+                3,                     // 目标：3 等待确认付款
+                expectGoodsStatus,
+                null                   // 委托人不变
+        );
+        if (affected == 0) {
+            log.warn("[订单管理] 商品并发保护：托售商品状态不匹配预期(2)，未自动推进，orderId={}, goodsId={}",
+                    order.getId(), order.getGoodsId());
+            return;
+        }
+        consignGoodsService.recordExternalBizFlow(order.getGoodsId(), expectGoodsStatus, 3,
+                "上传支付凭证自动流转，订单号：" + order.getOrderNo());
+    }
+
+    /**
      * 删除/取消订单：回滚托售商品状态（条件更新 + 期望状态匹配）
      * <p>
      * 不同订单 beforeStatus 对应不同的「期望商品状态」：
@@ -334,6 +368,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                     expectGoodsStatus, order.getId(), order.getGoodsId());
             return;
         }
+        consignGoodsService.recordExternalBizFlow(order.getGoodsId(), expectGoodsStatus, 1,
+                "取消/删除订单回滚商品，订单号：" + order.getOrderNo());
         log.info("[订单管理] 订单商品状态回滚完成，orderId={}, goodsId={}, status({})->1, memberId->{}",
                 order.getId(), order.getGoodsId(), expectGoodsStatus, order.getSellerId());
     }
@@ -367,6 +403,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             log.error("[订单管理] sale_times 自增失败：商品行不存在或已删除，orderId={}, goodsId={}",
                     order.getId(), order.getGoodsId());
         }
+        consignGoodsService.recordExternalBizFlow(order.getGoodsId(), expectGoodsStatus, 5,
+                "确认收款进入委托代卖(sale_times+1)，订单号：" + order.getOrderNo());
         log.info("[订单管理] 订单商品进入委托代卖完成，orderId={}, goodsId={}, status->5, memberId->{}",
                 order.getId(), order.getGoodsId(), order.getBuyerId());
     }

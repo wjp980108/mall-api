@@ -56,12 +56,8 @@
         </dependency>
         <!-- mybatis end-->
 
-        <!-- druid -->
-        <dependency>
-            <groupId>com.alibaba</groupId>
-            <artifactId>druid-spring-boot-starter</artifactId>
-            <version>1.2.18</version>
-        </dependency>
+        <!-- druid 已移除：代码零引用，且 1.2.18 starter 与 Spring Boot 3 自动装配不兼容，
+             实际生效的是 HikariCP；连接池参数统一在 application-dev.yml 的 spring.datasource.hikari 下配置 -->
 
         <!-- lombok
         @Data -> java bean

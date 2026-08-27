@@ -53,8 +53,8 @@ public class ConsignGoods extends Model<ConsignGoods> {
     /** 商品详情富文本 */
     private String goodsDetail;
 
-    /** 委托售卖次数 */
-    private Integer saleTimes = 0;
+    /** 委托售卖次数（入库默认由 DB 列 DEFAULT 0 提供，禁止实例默认值：避免部分字段 updateById 时被静默清零） */
+    private Integer saleTimes;
 
     /**
      * 商品业务状态
@@ -62,9 +62,9 @@ public class ConsignGoods extends Model<ConsignGoods> {
      */
     private Integer goodsStatus;
 
-    /** 上下架状态 0下架 1上架 */
+    /** 上下架状态 0下架 1上架（同上，禁止实例默认值；新增时由 Service 显式兜底） */
     @JsonSerialize(using = Integer01ToBooleanSerializer.class)
-    private Integer onlineStatus = 0;
+    private Integer onlineStatus;
 
     /** 逻辑删除 0正常 1删除 */
     @JsonIgnore

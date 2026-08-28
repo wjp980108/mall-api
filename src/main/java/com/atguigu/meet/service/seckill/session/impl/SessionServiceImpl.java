@@ -112,10 +112,12 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         if (existSession == null) {
             return Response.fail(500, "场次不存在");
         }
-        Session session = new Session();
-        session.setId(dto.getId());
-        session.setSessionStatus(Boolean.TRUE.equals(dto.getStatus()) ? 1 : 0);
-        updateById(session);
+        // 实体字段带内联默认值，updateById 会把默认值一并写入覆盖真实数据，改用定点更新
+        int status = Boolean.TRUE.equals(dto.getStatus()) ? 1 : 0;
+        lambdaUpdate()
+                .eq(Session::getId, dto.getId())
+                .set(Session::getSessionStatus, status)
+                .update();
         log.info("[抢购场次] 启停成功，id={}, {}->{}",
                 dto.getId(), existSession.getSessionStatus() == 1, dto.getStatus());
         return Response.ok("场次启停成功", null);

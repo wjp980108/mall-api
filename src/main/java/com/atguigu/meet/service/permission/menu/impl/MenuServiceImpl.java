@@ -152,10 +152,11 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
         if (existMenu == null) {
             return Response.fail(500, "菜单不存在");
         }
-        SysMenu menu = new SysMenu();
-        menu.setId(dto.getId());
-        menu.setStatus(Boolean.TRUE.equals(dto.getStatus()) ? 1 : 0);
-        updateById(menu);
+        // 实体字段带内联默认值(type=1等)，updateById 会把默认值一并写入覆盖真实数据，改用定点更新
+        lambdaUpdate()
+                .eq(SysMenu::getId, dto.getId())
+                .set(SysMenu::getStatus, Boolean.TRUE.equals(dto.getStatus()) ? 1 : 0)
+                .update();
 
         // 菜单状态变更可能影响所有用户可见/可访问菜单，清除全部权限缓存
         permissionCacheService.invalidateAllPermissions();

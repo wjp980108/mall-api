@@ -188,10 +188,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (existUser == null) {
             return Response.fail(500, "用户不存在");
         }
-        SysUser user = new SysUser();
-        user.setId(userId);
-        user.setStatus(Boolean.TRUE.equals(userStatusDTO.getStatus()) ? "1" : "0");
-        userMapper.updateById(user);
+        // 实体字段带内联默认值(gender=0等)，updateById 会把默认值一并写入覆盖真实数据，改用定点更新
+        lambdaUpdate()
+                .eq(SysUser::getId, userId)
+                .set(SysUser::getStatus, Boolean.TRUE.equals(userStatusDTO.getStatus()) ? "1" : "0")
+                .update();
 
         // 用户状态变更后失效自己的权限缓存
         permissionCacheService.invalidateUserPermissions(userId);

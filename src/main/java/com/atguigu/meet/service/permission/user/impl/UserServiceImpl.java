@@ -129,7 +129,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return Response.fail(500, "手机号已存在");
         }
 
-        // 3. 校验角色ID有效性（存在且启用）
+        // 3. 图片平台条件校验：传了头像URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(userCreateDTO.getAvatar()) && !StringUtils.hasText(userCreateDTO.getAvatarPlatform())) {
+            return Response.fail(400, "头像存储平台不能为空");
+        }
+
+        // 4. 校验角色ID有效性（存在且启用）
         List<Long> roleIds = userCreateDTO.getRoleIds();
         if (roleIds != null && !roleIds.isEmpty()) {
             LambdaQueryWrapper<SysRole> roleWrapper = new LambdaQueryWrapper<>();
@@ -172,6 +177,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         SysUser existUser = getOne(lambdaQueryWrapper);
         if (existUser == null) {
             return Response.fail(500, "用户不存在");
+        }
+        // 图片平台条件校验：传了头像URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(userUpdateDTO.getAvatar()) && !StringUtils.hasText(userUpdateDTO.getAvatarPlatform())) {
+            return Response.fail(400, "头像存储平台不能为空");
         }
         // 只复制 DTO 中非 null 的字段到 existUser，避免覆盖数据库原有值
         // 注：password 字段已在 UserUpdateDTO.setPassword 中强制置 null，此接口禁止修改密码

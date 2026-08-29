@@ -110,6 +110,13 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (member == null) {
             return Response.fail(500, "委托人不存在");
         }
+        // 图片平台条件校验：传了图片URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(dto.getCoverImg()) && !StringUtils.hasText(dto.getCoverImgPlatform())) {
+            return Response.fail(400, "商品缩略图存储平台不能为空");
+        }
+        if (StringUtils.hasText(dto.getDetailImg()) && !StringUtils.hasText(dto.getDetailImgPlatform())) {
+            return Response.fail(400, "商品详情图存储平台不能为空");
+        }
         ConsignGoods goods = new ConsignGoods();
         BeanConvertUtils.copyProperties(dto, goods);
         // 兜底 XSS 防护：转义字符串字段
@@ -143,6 +150,13 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         SysUser member = userMapper.selectById(dto.getMemberId());
         if (member == null) {
             return Response.fail(500, "委托人不存在");
+        }
+        // 图片平台条件校验：传了图片URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(dto.getCoverImg()) && !StringUtils.hasText(dto.getCoverImgPlatform())) {
+            return Response.fail(400, "商品缩略图存储平台不能为空");
+        }
+        if (StringUtils.hasText(dto.getDetailImg()) && !StringUtils.hasText(dto.getDetailImgPlatform())) {
+            return Response.fail(400, "商品详情图存储平台不能为空");
         }
         ConsignGoods goods = new ConsignGoods();
         BeanConvertUtils.copyProperties(dto, goods);

@@ -25,6 +25,7 @@ public class UserCreateDTO extends UserBaseDTO {
         setGender(0);
         setAge(0);
         setAvatar("");
+        setAvatarPlatform("");
         setStatus(Boolean.TRUE);
     }
 

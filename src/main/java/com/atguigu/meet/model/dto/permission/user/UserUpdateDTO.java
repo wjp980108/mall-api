@@ -50,6 +50,11 @@ public class UserUpdateDTO extends UserBaseDTO {
     }
 
     @Override
+    public void setAvatarPlatform(String avatarPlatform) {
+        super.setAvatarPlatform((avatarPlatform == null || avatarPlatform.isEmpty()) ? null : avatarPlatform);
+    }
+
+    @Override
     public void setPhone(String phone) {
         super.setPhone((phone == null || phone.isEmpty()) ? null : phone);
     }

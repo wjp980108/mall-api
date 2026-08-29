@@ -115,6 +115,10 @@ public class GoodsServiceImpl extends ServiceImpl<GoodsMapper, Goods> implements
         } else if (existsByGoodsSn(goodsSn, null)) {
             return Response.fail(500, "商品货号已存在");
         }
+        // 图片平台条件校验：传了缩略图URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(dto.getGoodsThumb()) && !StringUtils.hasText(dto.getGoodsThumbPlatform())) {
+            return Response.fail(400, "商品缩略图存储平台不能为空");
+        }
         Goods goods = new Goods();
         BeanConvertUtils.copyProperties(dto, goods);
         // 兜底 XSS 防护：转义字符串字段
@@ -149,6 +153,10 @@ public class GoodsServiceImpl extends ServiceImpl<GoodsMapper, Goods> implements
         // 货号唯一性预校验（排除自身）
         if (existsByGoodsSn(dto.getGoodsSn(), dto.getId())) {
             return Response.fail(500, "商品货号已存在");
+        }
+        // 图片平台条件校验：传了缩略图URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(dto.getGoodsThumb()) && !StringUtils.hasText(dto.getGoodsThumbPlatform())) {
+            return Response.fail(400, "商品缩略图存储平台不能为空");
         }
         Goods goods = new Goods();
         BeanConvertUtils.copyProperties(dto, goods);

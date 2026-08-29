@@ -66,6 +66,10 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         if (!dto.getRushEndTime().isAfter(dto.getRushStartTime())) {
             return Response.fail(500, "抢购结束时间必须晚于开始时间");
         }
+        // 图片平台条件校验：传了背景图URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(dto.getBgImg()) && !StringUtils.hasText(dto.getBgImgPlatform())) {
+            return Response.fail(400, "场次背景图存储平台不能为空");
+        }
         Session session = new Session();
         BeanConvertUtils.copyProperties(dto, session);
         // 默认值：场次状态不传则 1 开启
@@ -87,6 +91,10 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         // 时间窗口校验（每日时段，不支持跨天）
         if (!dto.getRushEndTime().isAfter(dto.getRushStartTime())) {
             return Response.fail(500, "抢购结束时间必须晚于开始时间");
+        }
+        // 图片平台条件校验：传了背景图URL就必须传存储平台，避免后续 NPE 导致 500
+        if (StringUtils.hasText(dto.getBgImg()) && !StringUtils.hasText(dto.getBgImgPlatform())) {
+            return Response.fail(400, "场次背景图存储平台不能为空");
         }
         Session session = new Session();
         BeanConvertUtils.copyProperties(dto, session);

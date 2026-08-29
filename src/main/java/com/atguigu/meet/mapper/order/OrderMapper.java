@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public interface OrderMapper extends BaseMapper<Order> {
 
     /**
-     * 分页查询订单列表（返回VO，手机号已在SQL中脱敏）
+     * 分页查询订单列表（返回VO，手机号原文输出）
      */
     IPage<OrderVO> selectOrderPage(Page<OrderVO> page,
                                    @Param("orderNo") String orderNo,

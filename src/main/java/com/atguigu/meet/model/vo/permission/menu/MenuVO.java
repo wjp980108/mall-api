@@ -15,7 +15,13 @@ public class MenuVO {
     private String name;
     private String menuCode;
     private String perm;
+    /** 类型 0目录 1菜单 2按钮权限
+     * @see com.atguigu.meet.enums.MenuType
+     */
     private Integer type;
+
+    /** 类型中文名：目录/菜单/按钮权限（由 Service 层通过枚举组装） */
+    private String typeName;
     private String path;
     private String routeName;
     private String componentPath;

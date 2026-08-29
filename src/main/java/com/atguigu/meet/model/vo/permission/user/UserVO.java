@@ -21,7 +21,13 @@ public class UserVO {
 
     private String email;
 
+    /** 性别 0未知 1男 2女
+     * @see com.atguigu.meet.enums.Gender
+     */
     private Integer gender;
+
+    /** 性别中文名：未知/男/女（由 Service 层通过枚举组装） */
+    private String genderName;
 
     private Integer age;
 

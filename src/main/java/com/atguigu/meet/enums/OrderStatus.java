@@ -23,13 +23,22 @@ public enum OrderStatus {
         this.desc = desc;
     }
 
-    public static OrderStatus of(int code) {
+    public static OrderStatus of(Integer code) {
+        if (code == null) return null;
         for (OrderStatus s : values()) {
             if (s.code == code) {
                 return s;
             }
         }
         return null;
+    }
+
+    /**
+     * 安全获取状态中文名，code 为 null 或未知时返回「未知」
+     */
+    public static String descOf(Integer code) {
+        OrderStatus s = of(code);
+        return s == null ? "未知" : s.getDesc();
     }
 
     /**

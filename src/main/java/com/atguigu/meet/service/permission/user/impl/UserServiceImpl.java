@@ -2,6 +2,7 @@ package com.atguigu.meet.service.permission.user.impl;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
+import com.atguigu.meet.enums.Gender;
 import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
 import com.atguigu.meet.mapper.permission.role.SysRoleMapper;
@@ -240,6 +241,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
         UserVO userVO = new UserVO();
         BeanConvertUtils.copyProperties(existUser, userVO);
+        userVO.setGenderName(Gender.descOf(userVO.getGender()));
         return Response.ok("查询用户成功", userVO);
     }
 
@@ -313,6 +315,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             for (SysUser user : records) {
                 UserVO vo = new UserVO();
                 BeanConvertUtils.copyProperties(user, vo);
+                vo.setGenderName(Gender.descOf(vo.getGender()));
                 List<Long> roleIds = userRoleIdsMap.getOrDefault(user.getId(), Collections.emptyList());
                 vo.setRoleIds(roleIds);
                 if (!roleIds.isEmpty()) {
@@ -430,6 +433,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
         UserVO userVO = new UserVO();
         BeanConvertUtils.copyProperties(user, userVO);
+        userVO.setGenderName(Gender.descOf(userVO.getGender()));
         userVO.setPermissions(currentUser.getPermissions());
         return Response.ok(userVO);
     }

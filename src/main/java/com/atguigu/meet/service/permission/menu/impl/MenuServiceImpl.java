@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.permission.menu.impl;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.enums.MenuType;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
 import com.atguigu.meet.model.dto.permission.menu.MenuPageQueryDTO;
 import com.atguigu.meet.model.dto.permission.menu.MenuSaveDTO;
@@ -90,7 +91,23 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
 
         IPage<SysMenu> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
         IPage<SysMenu> result = page(page, wrapper);
-        return Response.ok(PageResultVO.of(result));
+
+        // SysMenu -> MenuVO（派生 typeName 中文名，数据库不存）
+        List<MenuVO> voList = result.getRecords().stream().map(m -> {
+            MenuVO vo = new MenuVO();
+            BeanConvertUtils.copyProperties(m, vo);
+            vo.setTypeName(MenuType.descOf(vo.getType()));
+            return vo;
+        }).collect(Collectors.toList());
+
+        // 手动构建分页结果（泛型从 SysMenu 变为 MenuVO）
+        PageResultVO<MenuVO> pageVO = new PageResultVO<>();
+        pageVO.setList(voList);
+        pageVO.setTotal(result.getTotal());
+        pageVO.setPages(result.getPages());
+        pageVO.setCurrent(result.getCurrent());
+        pageVO.setSize(result.getSize());
+        return Response.ok(pageVO);
     }
 
     @Override
@@ -101,6 +118,7 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
         }
         MenuVO vo = new MenuVO();
         BeanConvertUtils.copyProperties(menu, vo);
+        vo.setTypeName(MenuType.descOf(vo.getType()));
         return Response.ok(vo);
     }
 
@@ -175,6 +193,7 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
         List<MenuVO> voList = menus.stream().map(m -> {
             MenuVO vo = new MenuVO();
             BeanConvertUtils.copyProperties(m, vo);
+            vo.setTypeName(MenuType.descOf(vo.getType()));
             return vo;
         }).collect(Collectors.toList());
         return Response.ok(voList);
@@ -192,6 +211,7 @@ public class MenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impleme
                 .map(m -> {
                     MenuVO vo = new MenuVO();
                     BeanConvertUtils.copyProperties(m, vo);
+                    vo.setTypeName(MenuType.descOf(vo.getType()));
                     vo.setChildren(buildMenuTree(allMenus, m.getId()));
                     return vo;
                 })

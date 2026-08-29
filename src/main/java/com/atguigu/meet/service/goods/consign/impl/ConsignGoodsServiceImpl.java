@@ -3,6 +3,7 @@ package com.atguigu.meet.service.goods.consign.impl;
 import com.alibaba.fastjson.JSON;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.enums.ConsignGoodsOperateType;
+import com.atguigu.meet.enums.GoodsStatus;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsOperateLogMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
@@ -91,6 +92,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 startTime,
                 endTime
         );
+        // 组装商品业务状态中文名（VO 层派生字段，数据库不存）
+        result.getRecords().forEach(vo -> vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus())));
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -100,6 +103,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (vo == null) {
             return Response.fail(500, "商品不存在");
         }
+        // 组装商品业务状态中文名（VO 层派生字段，数据库不存）
+        vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
         return Response.ok(vo);
     }
 
@@ -406,18 +411,9 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         return false;
     }
 
-    /** 业务状态中文名称 */
+    /** 业务状态中文名称 —— 委托 GoodsStatus 枚举统一维护，避免重复硬编码 */
     private String statusName(Integer status) {
-        if (status == null) return "未知";
-        switch (status) {
-            case 1: return "挂卖中";
-            case 2: return "已抢购待付款";
-            case 3: return "等待确认付款";
-            case 4: return "待处理";
-            case 5: return "委托代卖";
-            case 6: return "委托发货";
-            default: return "未知";
-        }
+        return GoodsStatus.descOf(status);
     }
 
     /**

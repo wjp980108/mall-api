@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 /**
  * 订单列表返回VO
- * <p>手机号均脱敏展示（中间4位替换为****）</p>
+ * <p>手机号原文展示（不做脱敏）</p>
  */
 @Data
 public class OrderVO {
@@ -39,7 +39,7 @@ public class OrderVO {
     /** 买家姓名 */
     private String buyerName;
 
-    /** 买家手机号（脱敏：138****8888） */
+    /** 买家手机号 */
     private String buyerPhone;
 
     /** 抢购成交价格 */
@@ -50,8 +50,12 @@ public class OrderVO {
 
     /**
      * 订单状态：1待付款 2已付款 3已确认 4已代售 5已取消
+     * @see com.atguigu.meet.enums.OrderStatus
      */
     private Integer orderStatus;
+
+    /** 订单状态中文名：待付款/已付款/已确认/已代售/已取消（由 Service 层通过枚举组装） */
+    private String orderStatusName;
 
     /** 上架手续费 */
     private BigDecimal putCommission;

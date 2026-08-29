@@ -25,8 +25,13 @@ public class ConsignGoodsVO {
     private String detailImgPlatform;
     private String goodsDetail;
     private Integer saleTimes;
-    /** 商品业务状态 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货 */
+    /** 商品业务状态 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货
+     * @see com.atguigu.meet.enums.GoodsStatus
+     */
     private Integer goodsStatus;
+
+    /** 商品业务状态中文名（由 Service 层通过枚举组装） */
+    private String goodsStatusName;
     /** 上下架状态 false下架 true上架 */
     private Boolean onlineStatus;
     private LocalDateTime createTime;

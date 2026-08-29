@@ -4,7 +4,7 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.atguigu.meet.mapper.order.OrderMapper">
 
-    <!-- 结果映射：订单VO（手机号脱敏通过SQL CONCAT+LEFT+RIGHT实现） -->
+    <!-- 结果映射：订单VO -->
     <resultMap id="OrderVOResultMap" type="com.atguigu.meet.model.vo.order.OrderVO">
         <id column="id" property="id"/>
         <result column="order_no" property="orderNo"/>
@@ -12,10 +12,10 @@
         <result column="goods_name" property="goodsName"/>
         <result column="seller_id" property="sellerId"/>
         <result column="seller_name" property="sellerName"/>
-        <result column="seller_phone_masked" property="sellerPhone"/>
+        <result column="seller_phone" property="sellerPhone"/>
         <result column="buyer_id" property="buyerId"/>
         <result column="buyer_name" property="buyerName"/>
-        <result column="buyer_phone_masked" property="buyerPhone"/>
+        <result column="buyer_phone" property="buyerPhone"/>
         <result column="rush_price" property="rushPrice"/>
         <result column="receive_address" property="receiveAddress"/>
         <result column="order_status" property="orderStatus"/>
@@ -28,17 +28,11 @@
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
-    <!-- 公共列片段（含手机号脱敏） -->
+    <!-- 公共列片段（手机号原文输出，不做脱敏） -->
     <sql id="baseColumnList">
         o.id, o.order_no, o.goods_id, o.goods_name,
-        o.seller_id, o.seller_name,
-        CASE WHEN CHAR_LENGTH(o.seller_phone) = 11
-             THEN CONCAT(LEFT(o.seller_phone, 3), '****', RIGHT(o.seller_phone, 4))
-             ELSE o.seller_phone END AS seller_phone_masked,
-        o.buyer_id, o.buyer_name,
-        CASE WHEN CHAR_LENGTH(o.buyer_phone) = 11
-             THEN CONCAT(LEFT(o.buyer_phone, 3), '****', RIGHT(o.buyer_phone, 4))
-             ELSE o.buyer_phone END AS buyer_phone_masked,
+        o.seller_id, o.seller_name, o.seller_phone,
+        o.buyer_id, o.buyer_name, o.buyer_phone,
         o.rush_price, o.receive_address, o.order_status,
         o.put_commission, o.coupon_amount, o.pay_voucher_url, o.pay_voucher_platform,
         o.pay_deadline, o.create_time, o.update_time

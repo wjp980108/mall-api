@@ -44,7 +44,7 @@ import java.util.Objects;
  *   <li><b>操作日志 REQUIRES_NEW</b>：审计日志写入独立事务 {@link OrderOperateLogService}，
  *       无论业务事务提交或回滚，日志必落地，审计链不丢失。</li>
  *   <li><b>金额安全</b>：Entity/DTO/VO 层统一 BigDecimal，禁止 double/float；
- *       手机号 SQL 层脱敏（CONCAT+LEFT+RIGHT）避免 Service 层二次处理遗漏。</li>
+ *       手机号原文输出（不做脱敏）。</li>
  * </ol>
  */
 @Service
@@ -124,6 +124,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 startTime,
                 endTime
         );
+        // 组装订单状态中文名（VO 层派生字段，数据库不存）
+        result.getRecords().forEach(vo -> vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus())));
         return Response.ok(PageResultVO.of(result));
     }
 

@@ -15,7 +15,8 @@ public enum OrderOperateType {
     CONFIRM_RECEIVE(2, "确认收款"),
     CANCEL_ORDER(3, "取消订单"),
     DELETE_ORDER(4, "删除订单"),
-    TIMEOUT_CANCEL(5, "超时自动取消");
+    TIMEOUT_CANCEL(5, "超时自动取消"),
+    PLACE_ORDER(6, "下单");
 
     private final int code;
     private final String desc;

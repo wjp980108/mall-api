@@ -3,6 +3,7 @@ package com.atguigu.meet.service.order;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.order.AllOrderQueryDTO;
 import com.atguigu.meet.model.dto.order.OrderOperateDTO;
+import com.atguigu.meet.model.dto.order.PlaceOrderDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
 
 /**
@@ -40,4 +41,18 @@ public interface OrderService {
 
     /** 管理员确认收款（仅待确认可用，status 2->3->4 自动流转到已代售） */
     Response confirmReceive(OrderOperateDTO dto);
+
+    // ====================== C 端用户接口（带 buyerId 归属校验） ======================
+
+    /**
+     * C 端用户抢购下单
+     * <p>校验抢购时间窗口 + 限购 + 商品状态条件更新(1挂卖中->2已抢购待付款) + 建单 + pay_deadline
+     */
+    Response placeOrder(PlaceOrderDTO dto, Long currentUserId);
+
+    /** C 端用户取消订单（校验订单归属当前买家，复用取消核心逻辑） */
+    Response cancelOrderByUser(OrderOperateDTO dto, Long currentUserId);
+
+    /** C 端用户上传支付凭证（校验订单归属当前买家，复用上传核心逻辑） */
+    Response uploadVoucherByUser(UploadVoucherDTO dto, Long currentUserId);
 }

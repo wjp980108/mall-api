@@ -1,19 +1,30 @@
 package com.atguigu.meet.service.order.impl;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.constant.OrderConstants;
 import com.atguigu.meet.enums.OrderOperateType;
 import com.atguigu.meet.enums.OrderStatus;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.order.OrderMapper;
+import com.atguigu.meet.mapper.permission.user.UserMapper;
+import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.model.dto.order.AllOrderQueryDTO;
 import com.atguigu.meet.model.dto.order.OrderOperateDTO;
+import com.atguigu.meet.model.dto.order.PlaceOrderDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
+import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
 import com.atguigu.meet.model.entity.order.Order;
+import com.atguigu.meet.model.entity.permission.user.SysUser;
+import com.atguigu.meet.model.entity.seckill.session.Session;
+import com.atguigu.meet.model.entity.user.UserAddress;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.order.OrderVO;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.order.OrderOperateLogService;
 import com.atguigu.meet.service.order.OrderService;
+import com.atguigu.meet.service.user.UserAddressService;
+import com.atguigu.meet.utils.AdminContext;
+import com.atguigu.meet.utils.OrderNoUtil;
 import com.atguigu.meet.utils.TimeRangeUtils;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -26,6 +37,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -59,6 +71,15 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Autowired
     private ConsignGoodsService consignGoodsService;
+
+    @Autowired
+    private SessionMapper sessionMapper;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private UserAddressService userAddressService;
 
     // ====================== 5 个列表查询 ======================
 
@@ -409,5 +430,148 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 "确认收款进入委托代卖(sale_times+1)，订单号：" + order.getOrderNo());
         log.info("[订单管理] 订单商品进入委托代卖完成，orderId={}, goodsId={}, status->5, memberId->{}",
                 order.getId(), order.getGoodsId(), order.getBuyerId());
+    }
+
+    // ====================== C 端用户接口 ======================
+
+    /**
+     * C 端用户抢购下单
+     * <p>
+     * 流程：登录校验 → 商品状态/上架校验 → 场次开启+时间窗口 → 限购 → 收货地址归属
+     *      → 商品状态条件更新(1挂卖中->2已抢购待付款，affected=0 即并发冲突)
+     *      → 建单(订单号+买卖家快照+成交价+pay_deadline) → 商品/订单审计日志
+     * <p>
+     * 并发保障：商品状态条件更新与建单同处一个事务，事务回滚则商品状态一并回滚，
+     *          避免出现「商品已占用但订单未建」的脏数据。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response placeOrder(PlaceOrderDTO dto, Long currentUserId) {
+        if (currentUserId == null) {
+            return Response.fail(401, "未登录");
+        }
+        // 1. 查商品 + 状态校验（必须挂卖中+已上架）
+        ConsignGoods goods = consignGoodsMapper.selectById(dto.getGoodsId());
+        if (goods == null) {
+            return Response.fail(500, "商品不存在");
+        }
+        if (!Objects.equals(goods.getGoodsStatus(), OrderConstants.GOODS_STATUS_ON_SALE)) {
+            return Response.fail(500, "商品已被抢购或不可抢");
+        }
+        if (!Integer.valueOf(1).equals(goods.getOnlineStatus())) {
+            return Response.fail(500, "商品未上架");
+        }
+        // 2. 查场次 + 时间窗口校验（非抢购时段禁止下单）
+        Session session = sessionMapper.selectById(goods.getSessionId());
+        if (session == null || !Integer.valueOf(1).equals(session.getSessionStatus())) {
+            return Response.fail(500, "抢购场次未开启或不存在");
+        }
+        LocalTime now = LocalTime.now();
+        if (session.getRushStartTime() == null || session.getRushEndTime() == null
+                || now.isBefore(session.getRushStartTime()) || now.isAfter(session.getRushEndTime())) {
+            return Response.fail(500, "非抢购时段，无法下单");
+        }
+        // 3. 限购校验：t_order 无 session_id，JOIN t_consign_goods 统计该场次有效抢购次数（排除已取消）
+        int maxBuy = session.getMaxBuyCount() == null ? 1 : session.getMaxBuyCount();
+        int rushed = baseMapper.countRushedByUserAndSession(currentUserId, session.getId());
+        if (rushed >= maxBuy) {
+            return Response.fail(500, "已达本场次抢购上限(" + maxBuy + "次)");
+        }
+        // 4. 收货地址（归属校验，防越权使用他人地址）
+        UserAddress addr = userAddressService.getByIdForOrder(dto.getAddressId(), currentUserId);
+        if (addr == null) {
+            return Response.fail(500, "收货地址不存在");
+        }
+        // 5. 买卖家信息快照（下单时从 sys_user 取，避免后续用户改名影响历史订单）
+        SysUser buyer = userMapper.selectById(currentUserId);
+        SysUser seller = userMapper.selectById(goods.getMemberId());
+        if (buyer == null) {
+            return Response.fail(500, "买家信息不存在");
+        }
+        // 6. 商品状态条件更新 1挂卖中 -> 2已抢购待付款（affected=0 即被并发抢走）
+        int affected = consignGoodsMapper.updateStatusWithCondition(
+                goods.getId(),
+                OrderConstants.GOODS_STATUS_RUSHED_WAIT_PAY,
+                OrderConstants.GOODS_STATUS_ON_SALE,
+                null);
+        if (affected == 0) {
+            return Response.fail(500, "商品已被抢购，请重试");
+        }
+        // 7. 建单
+        Order order = new Order();
+        order.setOrderNo(OrderNoUtil.generate(currentUserId));
+        order.setGoodsId(goods.getId());
+        order.setGoodsName(goods.getGoodsName());
+        order.setSellerId(goods.getMemberId());
+        order.setSellerName(pickName(seller));
+        order.setSellerPhone(seller == null ? null : seller.getPhone());
+        order.setBuyerId(currentUserId);
+        order.setBuyerName(pickName(buyer));
+        order.setBuyerPhone(buyer.getPhone());
+        order.setRushPrice(goods.getGoodsPrice());
+        order.setReceiveAddress(addr.getAddress());
+        order.setOrderStatus(OrderStatus.WAIT_PAY.getCode());
+        order.setPayDeadline(LocalDateTime.now().plusMinutes(OrderConstants.PAY_TIMEOUT_MINUTES));
+        save(order);
+
+        // 8. 审计日志（@Async REQUIRES_NEW，操作人自动取 AdminContext；商品侧跨模块日志保持链路完整）
+        consignGoodsService.recordExternalBizFlow(goods.getId(),
+                OrderConstants.GOODS_STATUS_ON_SALE, OrderConstants.GOODS_STATUS_RUSHED_WAIT_PAY,
+                "用户抢购下单，订单号：" + order.getOrderNo());
+        orderOperateLogService.writeOperateLog(order.getId(), null, OrderStatus.WAIT_PAY.getCode(),
+                OrderOperateType.PLACE_ORDER, "用户抢购下单");
+
+        log.info("[订单管理] 抢购下单成功，orderNo={}, orderId={}, goodsId={}, buyerId={}",
+                order.getOrderNo(), order.getId(), goods.getId(), currentUserId);
+        return Response.ok("下单成功", order.getOrderNo());
+    }
+
+    /** 取用户展示名：优先 nickname，回退 username */
+    private String pickName(SysUser u) {
+        if (u == null) {
+            return null;
+        }
+        return StringUtils.hasText(u.getNickname()) ? u.getNickname() : u.getUsername();
+    }
+
+    /**
+     * C 端用户取消订单
+     * <p>
+     * 归属校验（order.buyerId == currentUserId）后复用 {@link #cancelOrder} 核心逻辑：
+     * 状态条件更新 + 商品回滚 + 审计日志。防越权：用户只能取消自己的订单。
+     * <p>
+     * 事务由本方法 {@code @Transactional} 保证（this 调用 cancelOrder 跳过其代理注解，
+     * 但本方法事务覆盖整个调用链，状态条件更新与商品回滚仍原子一致）。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response cancelOrderByUser(OrderOperateDTO dto, Long currentUserId) {
+        if (currentUserId == null) {
+            return Response.fail(401, "未登录");
+        }
+        Order order = getById(dto.getId());
+        if (order == null || !Objects.equals(order.getBuyerId(), currentUserId)) {
+            return Response.fail(500, "订单不存在或无权操作");
+        }
+        return cancelOrder(dto);
+    }
+
+    /**
+     * C 端用户上传支付凭证
+     * <p>
+     * 归属校验后复用 {@link #uploadVoucher} 核心逻辑：状态条件更新 1待付款->2已付款 +
+     * 商品推进 2->3等待确认 + 审计日志。防越权：用户只能给自己的订单上传凭证。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response uploadVoucherByUser(UploadVoucherDTO dto, Long currentUserId) {
+        if (currentUserId == null) {
+            return Response.fail(401, "未登录");
+        }
+        Order order = getById(dto.getId());
+        if (order == null || !Objects.equals(order.getBuyerId(), currentUserId)) {
+            return Response.fail(500, "订单不存在或无权操作");
+        }
+        return uploadVoucher(dto);
     }
 }

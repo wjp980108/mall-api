@@ -5,11 +5,13 @@ import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
+import com.atguigu.meet.mapper.permission.userRole.SysUserRoleMapper;
 import com.atguigu.meet.model.dto.auth.AuthRegisterDTO;
 import com.atguigu.meet.model.dto.auth.AuthLoginDTO;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteCode;
 import com.atguigu.meet.model.entity.permission.menu.SysMenu;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
+import com.atguigu.meet.model.entity.permission.userRole.SysUserRole;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.auth.AuthService;
 import com.atguigu.meet.service.auth.PermissionCacheService;
@@ -44,6 +46,9 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Autowired
     private UserMapper userMapper;
+
+    @Autowired
+    private SysUserRoleMapper sysUserRoleMapper;
 
     @Autowired
     private SysMenuMapper sysMenuMapper;
@@ -94,6 +99,12 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
         userMapper.insert(user);
 
+        // 4.1 H5 注册用户默认绑定 MEMBER(会员) 角色（固定 roleId=3）
+        SysUserRole memberRole = new SysUserRole();
+        memberRole.setUserId(user.getId());
+        memberRole.setRoleId(PermissionConst.MEMBER_ROLE_ID);
+        sysUserRoleMapper.insert(memberRole);
+
         // 5. 处理邀请流水 + 核销邀请码（更新已邀请人数，名额满则自动停用）
         if (inviteCode != null) {
             inviteCodeService.processInviteRecord(inviteCode, user.getId(), user.getPhone());
@@ -106,6 +117,34 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Override
     public Response login(AuthLoginDTO authLoginDTO) {
+        SysUser existUser = validateLogin(authLoginDTO);
+        String token = generateUserToken(existUser);
+        Map<String, Object> data = new HashMap<>();
+        data.put("token", token);
+        return Response.ok(200, "用户登录成功", data);
+    }
+
+    @Override
+    public Response appLogin(AuthLoginDTO authLoginDTO) {
+        SysUser existUser = validateLogin(authLoginDTO);
+        String token = generateUserToken(existUser);
+        Map<String, Object> data = new HashMap<>();
+        data.put("token", token);
+        // H5 前端展示所需的用户基本信息
+        data.put("userId", existUser.getId());
+        data.put("username", existUser.getUsername());
+        data.put("nickname", existUser.getNickname());
+        data.put("phone", existUser.getPhone());
+        data.put("avatar", existUser.getAvatar());
+        return Response.ok(200, "登录成功", data);
+    }
+
+    /**
+     * 登录共用校验逻辑：账号（手机号/用户名）+ 密码校验、启用状态校验、清除权限缓存
+     *
+     * @return 校验通过的用户实体
+     */
+    private SysUser validateLogin(AuthLoginDTO authLoginDTO) {
         String account = authLoginDTO.getAccount();
         // 支持手机号或用户名登录（内置超管账户 admin 无手机号绑定要求，可直接用用户名登录）
         LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
@@ -121,7 +160,13 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 登录成功后先清除该用户的 Redis 权限缓存，强制下次鉴权时从 DB 重新加载最新权限
         permissionCacheService.invalidateUserPermissions(existUser.getId());
+        return existUser;
+    }
 
+    /**
+     * 登录共用 token 生成逻辑：加载权限（内置超管全量放行）并签发 JWT
+     */
+    private String generateUserToken(SysUser existUser) {
         Map<String, Object> claims = new HashMap<>();
         claims.put("username", existUser.getUsername());
         claims.put("phone", existUser.getPhone());
@@ -153,10 +198,7 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         claims.put("permissions", permissions);
-        String token = jwtUtil.generateToken(existUser.getId(), claims);
-        Map<String, Object> data = new HashMap<>();
-        data.put("token", token);
-        return Response.ok(200, "用户登录成功", data);
+        return jwtUtil.generateToken(existUser.getId(), claims);
     }
 
 }

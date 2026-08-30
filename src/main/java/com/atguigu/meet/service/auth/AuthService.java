@@ -13,4 +13,9 @@ public interface AuthService {
 
     Response login(AuthLoginDTO user);
 
+    /**
+     * H5 端登录（与 login 共用校验逻辑，额外返回用户基本信息供 H5 前端展示）
+     */
+    Response appLogin(AuthLoginDTO user);
+
 }

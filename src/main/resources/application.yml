@@ -21,7 +21,8 @@ jwt:
   security:
     public-paths:
       - /auth/login
-      - /auth/register
+      - /app/auth/login
+      - /app/auth/register
       - /upload/**
 #      - /user/update
 

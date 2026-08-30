@@ -21,6 +21,15 @@ public final class PermissionConst {
     /** 超级管理员角色编码（该角色跳过所有权限校验） */
     public static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 
+    /** 会员角色编码（H5 端注册用户的默认角色） */
+    public static final String ROLE_MEMBER = "MEMBER";
+
+    /**
+     * 会员角色的固定 roleId（H5 端注册默认绑定）。
+     * 与 rbac_data.sql 初始化数据保持一致：sys_role 中 id=3 为 MEMBER(会员)。
+     */
+    public static final long MEMBER_ROLE_ID = 3L;
+
     // ==========================================
     // 内置超级管理员账户常量
     // ==========================================

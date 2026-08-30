@@ -13,7 +13,11 @@ USE mall;
 -- =============================================
 
 -- 超级管理员角色
-INSERT IGNORE INTO sys_role(role_name, role_code) VALUES('超级管理员', 'SUPER_ADMIN');
+INSERT IGNORE INTO sys_role(role_name, role_code) VALUES(1, '超级管理员', 'SUPER_ADMIN');
+-- 平台管理员角色（后台运营人员，显式固定 id=2）
+INSERT IGNORE INTO sys_role(id, role_name, role_code) VALUES(2, '平台管理员', 'PLATFORM_ADMIN');
+-- 会员角色（H5 端注册用户默认角色，代码 PermissionConst.MEMBER_ROLE_ID 固定引用 id=3，显式固定 id 防止自增漂移）
+INSERT IGNORE INTO sys_role(id, role_name, role_code) VALUES(3, '会员', 'MEMBER');
 
 -- 菜单数据：目录 -> 菜单 -> 按钮 三级结构
 -- 系统管理目录

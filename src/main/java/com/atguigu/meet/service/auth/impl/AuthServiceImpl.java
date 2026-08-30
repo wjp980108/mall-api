@@ -64,6 +64,11 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return Response.fail(500, "用户名已存在");
         }
 
+        // 1.1 系统保留用户名校验（内置超级管理员账户名不可被占用，大小写不敏感 + trim）
+        if (PermissionConst.isReservedSuperAdminName(authRegisterDTO.getUsername())) {
+            return Response.fail(500, "该用户名为系统保留，请更换用户名");
+        }
+
         // 2. 校验手机号是否已注册
         LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
         lambdaQueryWrapper.eq(SysUser::getPhone, authRegisterDTO.getPhone());
@@ -102,10 +107,15 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Override
     public Response login(AuthLoginDTO authLoginDTO) {
         String account = authLoginDTO.getAccount();
+        // 支持手机号或用户名登录（内置超管账户 admin 无手机号绑定要求，可直接用用户名登录）
         LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
-        lambdaQueryWrapper.eq(SysUser::getPhone, account);
+        lambdaQueryWrapper.eq(SysUser::getPhone, account)
+                .or()
+                .eq(SysUser::getUsername, account)
+                .last("LIMIT 1");
         SysUser existUser = getOne(lambdaQueryWrapper);
         if (existUser == null) throw new BusinessException("当前用户不存在");
+        if (!"1".equals(existUser.getStatus())) throw new BusinessException("当前用户已被禁用");
         boolean bool = passwordEncoder.matches(authLoginDTO.getPassword(), existUser.getPassword());
         if (!bool) throw new BusinessException("用户账号密码不正确");
 
@@ -119,7 +129,10 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 查询用户角色
         List<String> roleCodes = sysMenuMapper.selectRoleCodesByUserId(existUser.getId());
-        boolean isSuperAdmin = roleCodes.contains(PermissionConst.ROLE_SUPER_ADMIN);
+        // 内置超级管理员（不关联任何角色）与 SUPER_ADMIN 角色用户同等地位：拥有全部权限
+        // 注意：此处必须用 DB 查询到的真实 username 精确匹配（大小写敏感），才是真正的内置超管
+        boolean isSuperAdmin = roleCodes.contains(PermissionConst.ROLE_SUPER_ADMIN)
+                || PermissionConst.SUPER_ADMIN_USERNAME.equals(existUser.getUsername());
 
         // 查询当前用户的权限码列表
         List<String> permissions;

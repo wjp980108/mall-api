@@ -18,6 +18,8 @@
         <result column="goods_detail" property="goodsDetail"/>
         <result column="sale_times" property="saleTimes"/>
         <result column="goods_status" property="goodsStatus"/>
+        <result column="entrust_status" property="entrustStatus"/>
+        <result column="audit_status" property="auditStatus"/>
         <result column="online_status" property="onlineStatus"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
@@ -37,7 +39,7 @@
         g.id, g.goods_name, g.goods_price, g.member_id, g.session_id,
         g.cover_img, g.cover_img_platform, g.detail_img, g.detail_img_platform,
         g.goods_detail, g.sale_times,
-        g.goods_status, g.online_status, g.create_time, g.update_time,
+        g.goods_status, g.entrust_status, g.audit_status, g.online_status, g.create_time, g.update_time,
         u.username, u.nickname, u.phone, u.avatar, u.avatar_platform,
         s.session_name
     </sql>
@@ -60,6 +62,12 @@
         </if>
         <if test="goodsStatus != null">
             AND g.goods_status = #{goodsStatus}
+        </if>
+        <if test="entrustStatus != null">
+            AND g.entrust_status = #{entrustStatus}
+        </if>
+        <if test="auditStatus != null">
+            AND g.audit_status = #{auditStatus}
         </if>
         <if test="onlineStatus != null">
             AND g.online_status = #{onlineStatus}
@@ -85,7 +93,15 @@
     <!--
         并发安全的条件更新：仅当 goods_status = expectStatus 时才执行修改
         受影响行数 = 0 表示并发冲突（其他线程已先一步改掉了状态）
-        member_id 可传 null，表示不修改委托人；非 null 则同时更新
+        member_id / entrust_status / audit_status / online_status 传 null 表示不修改，非 null 则同时更新
+        场景：
+          下单占用       (id, 2, 1, null,    0, 0, null)   新一轮周期重置委托/审核状态
+          上传凭证推进   (id, 3, 2, null,    null, null, null)
+          确认收款交买家 (id, 4, 3, buyerId, 0, 0, null)
+          取消/删除回滚  (id, 1, expect, sellerId, null, null, null)
+          买家申请委托   (id, 5, 4, null,    1, 1, null)
+          审核通过上架   (id, 1, 5, null,    null, 2, 1)
+          审核驳回退回   (id, 4, 5, null,    0, 3, null)
     -->
     <update id="updateStatusWithCondition">
         UPDATE t_consign_goods cg
@@ -93,6 +109,15 @@
             cg.goods_status = #{newStatus},
             <if test="memberId != null">
                 cg.member_id = #{memberId},
+            </if>
+            <if test="entrustStatus != null">
+                cg.entrust_status = #{entrustStatus},
+            </if>
+            <if test="auditStatus != null">
+                cg.audit_status = #{auditStatus},
+            </if>
+            <if test="onlineStatus != null">
+                cg.online_status = #{onlineStatus},
             </if>
             cg.update_time = NOW()
         </set>

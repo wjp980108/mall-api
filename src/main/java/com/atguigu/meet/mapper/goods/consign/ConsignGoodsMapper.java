@@ -22,6 +22,8 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
      * @param memberId  委托人ID
      * @param sessionId 场次ID
      * @param goodsStatus 业务状态
+     * @param entrustStatus 委托状态 0未委托 1委托代卖中
+     * @param auditStatus   审核状态 0无需审核 1待审核 2通过 3驳回
      * @param onlineStatus 上下架状态
      * @param startTime 创建开始时间
      * @param endTime   创建结束时间
@@ -31,6 +33,8 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
                                                  @Param("memberId") Long memberId,
                                                  @Param("sessionId") Long sessionId,
                                                  @Param("goodsStatus") Integer goodsStatus,
+                                                 @Param("entrustStatus") Integer entrustStatus,
+                                                 @Param("auditStatus") Integer auditStatus,
                                                  @Param("onlineStatus") Integer onlineStatus,
                                                  @Param("startTime") Object startTime,
                                                  @Param("endTime") Object endTime);
@@ -41,13 +45,22 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
     ConsignGoodsVO selectConsignGoodsById(@Param("id") Long id);
     /**
      * 抢购托售商品：按条件更新（用于并发安全的状态推进/回滚，affectedRows 判断冲突）
+     * <p>除 id/状态外其余参数传 null 表示不修改该字段。
+     *
      * @param expectStatus 期望的当前 goods_status；不匹配则返回 0（并发冲突/已被其他操作修改）
+     * @param memberId     委托人（确认收款时变更为买家；其余场景传 null）
+     * @param entrustStatus 委托状态 0未委托 1委托代卖中（场景需要时传入）
+     * @param auditStatus   审核状态 0无需审核 1待审核 2通过 3驳回（场景需要时传入）
+     * @param onlineStatus  上下架 0下架 1上架（委托审核通过重新上架时传 1）
      * @return 受影响行数；0 表示条件不匹配，调用方需中止并提示用户
      */
     int updateStatusWithCondition(@Param("id") Long id,
                                   @Param("newStatus") Integer newStatus,
                                   @Param("expectStatus") Integer expectStatus,
-                                  @Param("memberId") Long memberId);
+                                  @Param("memberId") Long memberId,
+                                  @Param("entrustStatus") Integer entrustStatus,
+                                  @Param("auditStatus") Integer auditStatus,
+                                  @Param("onlineStatus") Integer onlineStatus);
 
     /**
      * 委托售卖次数 SQL 层自增（原子操作，避免 Java 读-算-写引发的丢失更新）

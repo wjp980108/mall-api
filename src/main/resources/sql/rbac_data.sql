@@ -53,9 +53,19 @@ SELECT 1, id FROM sys_menu;
 -- =============================================
 -- 初始化用户数据（密码均为 BCrypt 加密，原始密码见注释）
 -- =============================================
+-- ⚠️ 系统内置超级管理员（密码: admin）【强制固定 id = 1，与代码 PermissionConst.SUPER_ADMIN_USER_ID = 1L 保持绝对一致】
+-- 说明：
+--   1. 该账户 id 必须恒等于 1（代码中硬编码常量作为身份最终锚点，不可变动）
+--   2. 该账户不关联任何角色(sys_user_role 无记录)，代码层面按 id=1 且 username='admin' 双重识别，天然拥有全系统所有权限
+--   3. 用户名 'admin' 为系统保留名，注册/新建用户不可占用；该账户禁止删除、禁用、改名
+--   4. 幂等：依赖 username 唯一键(INSERT IGNORE) + 主键 id=1，重复执行自动跳过
+--   5. 启动时 BuiltinSuperAdminHealthChecker 会 Fail-Fast 校验：id=1 必须存在 + username 精确='admin' + status=1 + is_deleted=0，不满足直接阻止应用启动
+INSERT IGNORE INTO sys_user (id, username, password, nickname, status, is_deleted) VALUES
+(1, 'admin', '$2b$10$nA8pOSsQ4.Hvu9w1K1Il8e5LOCjmqdP9IjWtZhHCoAaQshfaynGFi', '超级管理员', 1, 0);
+
 INSERT IGNORE INTO sys_user (id, username, password, nickname, email, phone, age, gender, avatar, birthday, status, create_time, update_time, is_deleted) VALUES
 -- 密码: 123456
-(1, '17639524881', '$2b$10$JnMlXJG65NApREMFbecz/OOavrH8cptEARJQhKjCEzNNoU5H/WJUW', '哈哈哈', 'AbC123@example.com', '17639524881', 18, 0, '/upload/avatar/7', '1989-05-26', 1, '2026-08-13 16:06:13', '2026-08-13 16:13:16', 0),
+(12, '17639524881', '$2b$10$JnMlXJG65NApREMFbecz/OOavrH8cptEARJQhKjCEzNNoU5H/WJUW', '哈哈哈', 'AbC123@example.com', '17639524881', 18, 0, '/upload/avatar/7', '1989-05-26', 1, '2026-08-13 16:06:13', '2026-08-13 16:13:16', 0),
 -- 密码: admin
 (2, '13823456789', '$2b$10$nA8pOSsQ4.Hvu9w1K1Il8e5LOCjmqdP9IjWtZhHCoAaQshfaynGFi', '测试数据', 'x7ZzQ9@test.com', '13823456789', 18, 2, NULL, '1999-04-01', 1, '2026-08-13 16:08:13', '2026-08-13 16:13:16', 0),
 -- 密码: 111111
@@ -77,8 +87,9 @@ INSERT IGNORE INTO sys_user (id, username, password, nickname, email, phone, age
 
 -- =============================================
 -- 给指定用户绑定超级管理员角色
+-- ⚠️ 注意：内置超级管理员账户(id=1, username=admin)不关联任何角色，此处绑定的是「拥有 SUPER_ADMIN 角色的普通测试用户(id=12)」
 -- =============================================
-INSERT IGNORE INTO sys_user_role(user_id, role_id) VALUES(1, 1);
+INSERT IGNORE INTO sys_user_role(user_id, role_id) VALUES(12, 1);
 
 -- =============================================
 -- 轮播图模块菜单数据
@@ -152,11 +163,12 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 (63, 60, '托售商品修改', NULL,     'goods:consign:update',       2, NULL, NULL, NULL, 3, 1),
 (64, 60, '托售商品删除', NULL,     'goods:consign:delete',       2, NULL, NULL, NULL, 4, 1),
 (65, 60, '托售商品上下架', NULL,   'goods:consign:shelf',        2, NULL, NULL, NULL, 5, 1),
-(66, 60, '托售商品业务状态流转', NULL, 'goods:consign:biz:status', 2, NULL, NULL, NULL, 6, 1);
+(66, 60, '托售商品业务状态流转', NULL, 'goods:consign:biz:status', 2, NULL, NULL, NULL, 6, 1),
+(67, 60, '托售商品委托审核', NULL, 'goods:consign:entrust:audit', 2, NULL, NULL, NULL, 7, 1);
 
 -- 给超级管理员分配托售商品管理菜单/权限
 INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
-SELECT 1, id FROM sys_menu WHERE id IN (60, 61, 62, 63, 64, 65, 66);
+SELECT 1, id FROM sys_menu WHERE id IN (60, 61, 62, 63, 64, 65, 66, 67);
 
 -- =============================================
 -- 订单管理模块菜单数据

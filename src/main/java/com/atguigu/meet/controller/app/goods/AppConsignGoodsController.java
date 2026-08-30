@@ -1,0 +1,37 @@
+package com.atguigu.meet.controller.app.goods;
+
+import com.atguigu.meet.common.Response;
+import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
+import com.atguigu.meet.utils.AdminContext;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.validation.annotation.Validated;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
+
+/**
+ * C 端用户托售商品控制器（委托代卖申请）
+ * <p>
+ * 不走 {@code @RequirePermission}（后台 RBAC），依赖 JWT 登录态；
+ * Service 层校验商品持有者归属（goods.member_id == 当前用户），防越权。
+ */
+@RestController
+@RequestMapping("/app/consign-goods")
+@Validated
+public class AppConsignGoodsController {
+
+    @Autowired
+    private ConsignGoodsService consignGoodsService;
+
+    /**
+     * 申请委托代卖
+     * <p>仅商品持有者（确认收款后的买家）可申请；
+     * 商品状态 4待处理 -> 5委托代卖，进入平台审核流程；
+     * 审核通过后商品重新上架（1挂卖中）进入下一轮抢购。
+     */
+    @PostMapping("/entrust/{goodsId}")
+    public Response entrust(@PathVariable Long goodsId) {
+        return consignGoodsService.entrustByOwner(goodsId, AdminContext.getLoginUserId());
+    }
+}

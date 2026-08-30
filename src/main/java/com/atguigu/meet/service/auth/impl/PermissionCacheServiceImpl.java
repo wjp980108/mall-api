@@ -2,9 +2,15 @@ package com.atguigu.meet.service.auth.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONArray;
+import com.atguigu.meet.config.BuiltinSuperAdminIdCache;
 import com.atguigu.meet.config.PermissionCacheProperties;
+import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
+import com.atguigu.meet.mapper.permission.user.UserMapper;
+import com.atguigu.meet.model.entity.permission.menu.SysMenu;
+import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.service.auth.PermissionCacheService;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -34,6 +40,12 @@ public class PermissionCacheServiceImpl implements PermissionCacheService {
 
     @Autowired
     private SysMenuMapper sysMenuMapper;
+
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private BuiltinSuperAdminIdCache builtinSuperAdminIdCache;
 
     /**
      * 构建用户权限缓存的 Redis Key
@@ -83,12 +95,37 @@ public class PermissionCacheServiceImpl implements PermissionCacheService {
             return Collections.emptySet();
         }
 
-        // 多表联查：sys_user_role -> sys_role -> sys_role_menu -> sys_menu
-        List<String> permsList = sysMenuMapper.selectPermsByUserId(userId);
-        Set<String> permsSet = permsList.stream()
-                .filter(Objects::nonNull)
-                .filter(p -> !p.trim().isEmpty())
-                .collect(Collectors.toSet());
+        Set<String> permsSet;
+
+        // 内置超级管理员（不关联任何角色）：跳过多表联查，直接加载全系统所有权限标识
+        // 安全说明：三重身份校验（userId缓存命中 + DB 真实 username 精确匹配 == "admin" + 保留名校验）。
+        // 该方法只接受 userId 参数，无法被 JWT claims 伪造 username 的场景影响。
+        // 优先使用 BuiltinSuperAdminIdCache（自增主键不可变，是最可靠的识别锚）。
+        SysUser user = userMapper.selectById(userId);
+        boolean isBuiltinSuper = builtinSuperAdminIdCache.isBuiltinAdmin(userId)
+                && user != null
+                && PermissionConst.SUPER_ADMIN_USERNAME.equals(user.getUsername())
+                && PermissionConst.isReservedSuperAdminName(user.getUsername());
+        if (isBuiltinSuper) {
+            LambdaQueryWrapper<SysMenu> wrapper = new LambdaQueryWrapper<SysMenu>()
+                    .eq(SysMenu::getStatus, 1)
+                    .eq(SysMenu::getIsDeleted, 0)
+                    .isNotNull(SysMenu::getPerm)
+                    .ne(SysMenu::getPerm, "");
+            permsSet = sysMenuMapper.selectList(wrapper).stream()
+                    .map(SysMenu::getPerm)
+                    .filter(Objects::nonNull)
+                    .filter(p -> !p.trim().isEmpty())
+                    .collect(Collectors.toSet());
+            log.info("[权限缓存] 内置超级管理员加载全量权限，userId={}, 权限数={}", userId, permsSet.size());
+        } else {
+            // 多表联查：sys_user_role -> sys_role -> sys_role_menu -> sys_menu
+            List<String> permsList = sysMenuMapper.selectPermsByUserId(userId);
+            permsSet = permsList.stream()
+                    .filter(Objects::nonNull)
+                    .filter(p -> !p.trim().isEmpty())
+                    .collect(Collectors.toSet());
+        }
 
         // 写入 Redis，手动 JSON 序列化
         String cacheKey = buildCacheKey(userId);

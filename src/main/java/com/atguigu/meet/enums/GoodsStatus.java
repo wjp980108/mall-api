@@ -5,7 +5,7 @@ import lombok.Getter;
 /**
  * 托售商品业务状态枚举
  * 对应 t_consign_goods.goods_status
- * 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货
+ * 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖
  */
 @Getter
 public enum GoodsStatus {
@@ -14,8 +14,7 @@ public enum GoodsStatus {
     WAIT_PAY(2, "已抢购待付款"),
     WAIT_CONFIRM(3, "等待确认付款"),
     PENDING(4, "待处理"),
-    AGENT_SALE(5, "委托代卖"),
-    AGENT_SHIP(6, "委托发货");
+    AGENT_SALE(5, "委托代卖");
 
     private final int code;
     private final String desc;

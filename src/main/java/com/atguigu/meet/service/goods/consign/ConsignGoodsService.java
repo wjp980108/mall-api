@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.goods.consign;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsAuditDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsBizStatusDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsDeleteDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsOnlineStatusDTO;
@@ -11,7 +12,8 @@ import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsUpdateDTO;
 /**
  * 抢购托售商品 Service
  * <p>
- * 业务状态流转：1挂卖中 -> 2已抢购待付款 -> 3等待确认付款 -> 4待处理 -> 5委托代卖 -> 6委托发货
+ * 业务状态流转：1挂卖中 -> 2已抢购待付款 -> 3等待确认付款 -> 4待处理(买家持有)
+ *             -> 5委托代卖(买家申请,待审核) -> 审核通过 -> 1挂卖中(重新上架)；驳回 -> 4待处理
  */
 public interface ConsignGoodsService {
 
@@ -51,4 +53,24 @@ public interface ConsignGoodsService {
      * @param remark     备注（如触发来源与订单号）
      */
     void recordExternalBizFlow(Long goodsId, Integer fromStatus, Integer toStatus, String remark);
+
+    // ====================== 委托代卖审核 ======================
+
+    /**
+     * C 端买家申请委托代卖（商品 4待处理 -> 5委托代卖，委托状态=1委托代卖中，审核状态=1待审核）
+     * <p>校验：仅商品当前委托人（即确认收款后的买家）可申请；商品状态必须为 4待处理。
+     *
+     * @param goodsId       托售商品ID
+     * @param currentUserId 当前登录用户ID（商品持有者）
+     */
+    Response entrustByOwner(Long goodsId, Long currentUserId);
+
+    /**
+     * 后台管理员委托代卖审核
+     * <p>通过：商品 5委托代卖 -> 1挂卖中 + 自动上架（审核状态=2通过）；
+     * 驳回：商品 5委托代卖 -> 4待处理（委托状态=0未委托，审核状态=3驳回），买家可重新申请。
+     *
+     * @param dto 审核参数（商品ID + 通过/驳回 + 备注）
+     */
+    Response auditEntrust(ConsignGoodsAuditDTO dto);
 }

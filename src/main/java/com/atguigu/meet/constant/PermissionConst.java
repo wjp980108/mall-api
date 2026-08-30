@@ -22,6 +22,54 @@ public final class PermissionConst {
     public static final String ROLE_SUPER_ADMIN = "SUPER_ADMIN";
 
     // ==========================================
+    // 内置超级管理员账户常量
+    // ==========================================
+    /**
+     * 系统内置超级管理员用户名（不关联任何角色，天然拥有全部权限）
+     * <ul>
+     *   <li>权限校验直接放行，无需查询角色/权限表</li>
+     *   <li>用户名全局保留，禁止注册/创建/改名占用</li>
+     *   <li>禁止删除、禁用、修改用户名，保证超管账户永不可失效</li>
+     * </ul>
+     */
+    public static final String SUPER_ADMIN_USERNAME = "admin";
+
+    /**
+     * 系统内置超级管理员的固定 userId（硬编码常量，不可改变）。
+     * <p>
+     *   这是内置超管身份的「最终可信锚点」，相比 username 字符串比较更可靠：
+     *   <ul>
+     *     <li>userId 是自增主键 BIGINT，一旦写入数据库就 永久不会变化</li>
+     *     <li>数值型精确比较，不存在大小写/trim/Unicode 变体等字符串绕过手段</li>
+     *     <li>数据库初始化 SQL（rbac_data.sql）中 admin 账户必须显式 INSERT id=1</li>
+     *   </ul>
+     *   <b>如果有人通过数据库直连把其他用户的 username 改成 admin，只要 id != 本常量，就不可能获得内置超管权限。</b>
+     * </p>
+     * <p>
+     *   启动时 {@link com.atguigu.meet.config.BuiltinSuperAdminHealthChecker} 会 Fail-Fast 校验：
+     *   DB 中 id=1 的那条记录 username 必须精确 == "admin" 且 status=1、is_deleted=0，
+     *   不满足则阻止应用启动，从根源避免数据篡改或初始化错误。
+     * </p>
+     */
+    public static final long SUPER_ADMIN_USER_ID = 1L;
+
+    /**
+     * 判断给定用户名是否匹配内置超级管理员保留名（忽略大小写 + 去两端空格）。
+     * <p>
+     * 用于：注册/新增/修改用户时的保留名拦截、删除/禁用时的超管识别等。
+     * 不用于真正的权限放行判定（权限放行需走{@code isBuiltinSuperAdmin(userId, usernameFromDB)}双因子校验）。
+     *
+     * @param username 待检测的用户名
+     * @return true 表示命中内置超管保留名，禁止占用或篡改
+     */
+    public static boolean isReservedSuperAdminName(String username) {
+        if (username == null) {
+            return false;
+        }
+        return SUPER_ADMIN_USERNAME.equalsIgnoreCase(username.trim());
+    }
+
+    // ==========================================
     // 系统管理 -> 用户管理 (sys:user:xxx)
     // 对应 sys_menu: parent=系统管理(id=1) -> 用户管理(id=2) -> 按钮
     // ==========================================
@@ -161,6 +209,9 @@ public final class PermissionConst {
     public static final String CONSIGN_GOODS_COVER_IMG_UPLOAD = "goods:consign:cover:upload";
     /** 托售商品详情图上传 */
     public static final String CONSIGN_GOODS_DETAIL_IMG_UPLOAD = "goods:consign:detail:upload";
+
+    /** 托售商品-委托代卖审核（通过/驳回） */
+    public static final String CONSIGN_GOODS_ENTRUST_AUDIT = "goods:consign:entrust:audit";
 
     // ==========================================
     // 抢购场次管理 (session:xxx)

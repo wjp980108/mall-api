@@ -22,8 +22,12 @@ public class ConsignGoodsPageQueryDTO {
     private Long memberId;
     /** 所属场次ID（精确查询） */
     private Long sessionId;
-    /** 商品业务状态 1-6 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货*/
+    /** 商品业务状态 1-5 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖*/
     private Integer goodsStatus;
+    /** 委托状态 0未委托 1委托代卖中 */
+    private Integer entrustStatus;
+    /** 审核状态 0无需审核 1待审核 2审核通过 3审核驳回 */
+    private Integer auditStatus;
     /** 上下架状态 0下架 1上架 */
     private Integer onlineStatus;
     /**

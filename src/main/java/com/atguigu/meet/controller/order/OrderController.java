@@ -118,7 +118,7 @@ public class OrderController {
     /**
      * 9. 管理员确认收款（仅待确认可用）
      * <p>订单状态：2已付款 → 3已确认 → 4已代售（系统自动流转至已代售）</p>
-     * <p>商品联动：托售商品状态推进至 5委托代卖，委托人变更为本次买家</p>
+     * <p>商品联动：托售商品状态推进至 4待处理（交由买家持有，买家可在C端申请委托代卖），委托人变更为本次买家</p>
      */
     @PostMapping("/confirmReceive")
     @RequirePermission(PermissionConst.ORDER_CONFIRM_RECEIVE)

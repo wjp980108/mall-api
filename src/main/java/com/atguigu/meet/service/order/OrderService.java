@@ -39,7 +39,7 @@ public interface OrderService {
     /** 删除订单（仅待付款可用，逻辑删除 + 商品状态回滚） */
     Response deleteOrder(OrderOperateDTO dto);
 
-    /** 管理员确认收款（仅待确认可用，status 2->3->4 自动流转到已代售） */
+    /** 管理员确认收款（仅待确认可用，status 2->3->4 自动流转到已代售；商品 3->4待处理交由买家，可申请委托代卖） */
     Response confirmReceive(OrderOperateDTO dto);
 
     // ====================== C 端用户接口（带 buyerId 归属校验） ======================

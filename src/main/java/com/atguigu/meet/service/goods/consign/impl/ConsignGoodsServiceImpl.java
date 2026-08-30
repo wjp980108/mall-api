@@ -2,11 +2,14 @@ package com.atguigu.meet.service.goods.consign.impl;
 
 import com.alibaba.fastjson.JSON;
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.enums.AuditStatus;
 import com.atguigu.meet.enums.ConsignGoodsOperateType;
+import com.atguigu.meet.enums.EntrustStatus;
 import com.atguigu.meet.enums.GoodsStatus;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsOperateLogMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
+import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsAuditDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsBizStatusDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsDeleteDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsOnlineStatusDTO;
@@ -32,6 +35,7 @@ import org.springframework.beans.BeanWrapper;
 import org.springframework.beans.BeanWrapperImpl;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.beans.PropertyDescriptor;
@@ -42,6 +46,7 @@ import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -88,12 +93,18 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 parameter.getMemberId(),
                 parameter.getSessionId(),
                 parameter.getGoodsStatus(),
+                parameter.getEntrustStatus(),
+                parameter.getAuditStatus(),
                 parameter.getOnlineStatus(),
                 startTime,
                 endTime
         );
-        // 组装商品业务状态中文名（VO 层派生字段，数据库不存）
-        result.getRecords().forEach(vo -> vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus())));
+        // 组装商品业务状态/委托状态/审核状态中文名（VO 层派生字段，数据库不存）
+        result.getRecords().forEach(vo -> {
+            vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
+            vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
+            vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+        });
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -103,8 +114,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (vo == null) {
             return Response.fail(500, "商品不存在");
         }
-        // 组装商品业务状态中文名（VO 层派生字段，数据库不存）
+        // 组装商品业务状态/委托状态/审核状态中文名（VO 层派生字段，数据库不存）
         vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
+        vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
+        vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
         return Response.ok(vo);
     }
 
@@ -294,6 +307,89 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 Collections.singletonList("goodsStatus"), remark, fromStatus, toStatus);
     }
 
+    // ====================== 委托代卖审核 ======================
+
+    /**
+     * C 端买家申请委托代卖
+     * <p>
+     * 前置校验（持有者 + 状态4待处理）+ 条件更新（4->5委托代卖，entrust=1，audit=1待审核），
+     * affected=0 即并发冲突；成功后补商品审计日志。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response entrustByOwner(Long goodsId, Long currentUserId) {
+        if (currentUserId == null) {
+            return Response.fail(401, "未登录");
+        }
+        ConsignGoods goods = getById(goodsId);
+        if (goods == null) {
+            return Response.fail(500, "商品不存在");
+        }
+        if (!Objects.equals(goods.getMemberId(), currentUserId)) {
+            return Response.fail(500, "仅商品持有者可申请委托代卖");
+        }
+        if (!Integer.valueOf(GoodsStatus.PENDING.getCode()).equals(goods.getGoodsStatus())) {
+            return Response.fail(500, "商品当前状态不可申请委托代卖");
+        }
+        // 条件更新：4待处理 -> 5委托代卖 + 委托状态1委托代卖中 + 审核状态1待审核
+        int affected = baseMapper.updateStatusWithCondition(goodsId,
+                GoodsStatus.AGENT_SALE.getCode(), GoodsStatus.PENDING.getCode(),
+                null, EntrustStatus.ENTRUSTING.getCode(), AuditStatus.WAIT_AUDIT.getCode(), null);
+        if (affected == 0) {
+            return Response.fail(500, "商品状态已变更，请刷新后重试");
+        }
+        recordExternalBizFlow(goodsId, GoodsStatus.PENDING.getCode(), GoodsStatus.AGENT_SALE.getCode(),
+                "买家申请委托代卖，等待平台审核");
+        log.info("[托售商品] 买家申请委托代卖成功，goodsId={}, userId={}", goodsId, currentUserId);
+        return Response.ok("委托申请已提交，等待平台审核", null);
+    }
+
+    /**
+     * 后台管理员委托代卖审核
+     * <p>
+     * 通过：5委托代卖 -> 1挂卖中 + 自动上架（audit=2通过，entrust 保持1委托代卖中，
+     *      待下一轮被抢购时由下单流程重置）；驳回：5 -> 4待处理（entrust=0，audit=3驳回）。
+     * <p>前置校验（状态5 + 待审核）+ 条件更新（expect=5）双保险防并发重复审核。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response auditEntrust(ConsignGoodsAuditDTO dto) {
+        Long adminId = AdminContext.getLoginUserId();
+        ConsignGoods goods = getById(dto.getGoodsId());
+        if (goods == null) {
+            return Response.fail(500, "商品不存在");
+        }
+        if (!Integer.valueOf(GoodsStatus.AGENT_SALE.getCode()).equals(goods.getGoodsStatus())
+                || !Integer.valueOf(AuditStatus.WAIT_AUDIT.getCode()).equals(goods.getAuditStatus())) {
+            return Response.fail(500, "商品不在委托待审核状态，无法审核");
+        }
+        boolean pass = Boolean.TRUE.equals(dto.getPass());
+        String baseRemark = pass ? "委托审核通过，商品重新上架进入下一轮售卖" : "委托审核驳回，商品退回待处理";
+        String remark = StringUtils.hasText(dto.getRemark()) ? baseRemark + "，备注：" + dto.getRemark() : baseRemark;
+
+        int affected;
+        int toStatus;
+        if (pass) {
+            // 通过：5 -> 1挂卖中 + 上架 + audit=2（entrust 保持1，下一轮被抢购时重置）
+            affected = baseMapper.updateStatusWithCondition(dto.getGoodsId(),
+                    GoodsStatus.ON_SALE.getCode(), GoodsStatus.AGENT_SALE.getCode(),
+                    null, null, AuditStatus.PASS.getCode(), 1);
+            toStatus = GoodsStatus.ON_SALE.getCode();
+        } else {
+            // 驳回：5 -> 4待处理 + entrust=0 + audit=3（买家可重新申请）
+            affected = baseMapper.updateStatusWithCondition(dto.getGoodsId(),
+                    GoodsStatus.PENDING.getCode(), GoodsStatus.AGENT_SALE.getCode(),
+                    null, EntrustStatus.NOT_ENTRUST.getCode(), AuditStatus.REJECT.getCode(), null);
+            toStatus = GoodsStatus.PENDING.getCode();
+        }
+        if (affected == 0) {
+            return Response.fail(500, "商品状态已变更，请刷新后重试");
+        }
+        recordExternalBizFlow(dto.getGoodsId(), GoodsStatus.AGENT_SALE.getCode(), toStatus, remark);
+        log.info("[托售商品] 委托审核完成，goodsId={}, pass={}, 操作人={}", dto.getGoodsId(), pass, adminId);
+        return Response.ok(pass ? "审核通过，商品已重新上架" : "已驳回，商品退回待处理", null);
+    }
+
     // ====================== 私有方法 ======================
 
     /**
@@ -382,9 +478,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
      * 1挂卖中 -> 2已抢购待付款 / 4待处理 / 5委托代卖
      * 2已抢购待付款 -> 3等待确认付款 / 4待处理
      * 3等待确认付款 -> 4待处理 / 5委托代卖
-     * 4待处理 -> 5委托代卖 / 6委托发货 / 1挂卖中
-     * 5委托代卖 -> 6委托发货 / 1挂卖中
-     * 6委托发货 -> 1挂卖中（发货完成后重新挂卖）
+     * 4待处理 -> 5委托代卖 / 1挂卖中
+     * 5委托代卖 -> 1挂卖中
      * 同状态不允许流转
      */
     private boolean isValidTransition(Integer from, Integer to) {
@@ -396,9 +491,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         transitions.put(1, new int[]{2, 4, 5});
         transitions.put(2, new int[]{3, 4});
         transitions.put(3, new int[]{4, 5});
-        transitions.put(4, new int[]{1, 5, 6});
-        transitions.put(5, new int[]{1, 6});
-        transitions.put(6, new int[]{1});
+        transitions.put(4, new int[]{1, 5});
+        transitions.put(5, new int[]{1});
         int[] allowed = transitions.get(from);
         if (allowed == null) {
             return false;

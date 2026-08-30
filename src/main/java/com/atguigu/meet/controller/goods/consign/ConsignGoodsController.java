@@ -3,6 +3,7 @@ package com.atguigu.meet.controller.goods.consign;
 import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
+import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsAuditDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsBizStatusDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsDeleteDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsOnlineStatusDTO;
@@ -20,7 +21,7 @@ import org.springframework.web.multipart.MultipartFile;
 /**
  * 抢购商品订单管理
  * <p>
- * 业务状态：1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货
+ * 业务状态：1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖
  */
 @RestController
 @RequestMapping("/consign-goods")
@@ -96,6 +97,13 @@ public class ConsignGoodsController {
     @RequirePermission(PermissionConst.CONSIGN_GOODS_BIZ_STATUS)
     public Response updateBizStatus(@RequestBody @Valid ConsignGoodsBizStatusDTO dto) {
         return consignGoodsService.updateBizStatus(dto);
+    }
+
+    /** 委托代卖审核（通过：商品重新上架进入下一轮售卖；驳回：退回待处理） */
+    @PatchMapping("/entrust-audit")
+    @RequirePermission(PermissionConst.CONSIGN_GOODS_ENTRUST_AUDIT)
+    public Response auditEntrust(@RequestBody @Valid ConsignGoodsAuditDTO dto) {
+        return consignGoodsService.auditEntrust(dto);
     }
 
     /** 删除 */

@@ -1,8 +1,12 @@
 package com.atguigu.meet.filter;
 
+import com.atguigu.meet.config.BuiltinSuperAdminIdCache;
 import com.atguigu.meet.config.JwtSecurityProperties;
+import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
+import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
+import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.JwtUtil;
@@ -55,6 +59,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     @Autowired
     private SysMenuMapper sysMenuMapper;
 
+    @Autowired
+    private UserMapper userMapper;
+
+    @Autowired
+    private BuiltinSuperAdminIdCache builtinSuperAdminIdCache;
+
     private String getTokenFormRequest(HttpServletRequest request) {
         String bearerToken = request.getHeader("Authorization");
         if (StringUtils.hasText(bearerToken) && bearerToken.startsWith("Bearer ")) {
@@ -101,9 +111,30 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 }
                 // ====================== 4. 解析 Token 拿到 userId（步骤1）======================
                 Long userId = jwtUtil.extractUserId(token);
-                String phone = jwtUtil.extractPhone(token);
-                String username = jwtUtil.extractUsername(token);
-                log.info("[JWT] Token解析成功，userId={}, username={}", userId, username);
+                // —— 安全加固：不信任 JWT claims 中的 username/phone，以 DB 实时查询结果为准。
+                //    防止：①密钥泄露后伪造 username=admin 的 token；②DB 中 username 被篡改后与 JWT 不一致。
+                SysUser dbUser = userMapper.selectById(userId);
+                if (dbUser == null) {
+                    log.warn("[JWT] Token中的userId在DB不存在，拒绝放行，userId={}", userId);
+                    authenticationEntryPoint.commence(request, response, new AuthenticationServiceException("用户不存在"));
+                    return;
+                }
+                if (!"1".equals(dbUser.getStatus())) {
+                    log.warn("[JWT] 账号已禁用，拒绝放行，userId={}", userId);
+                    authenticationEntryPoint.commence(request, response, new AuthenticationServiceException("当前用户已被禁用"));
+                    return;
+                }
+                // 可信身份（来自 DB，而非 JWT claims）
+                String realUsername = dbUser.getUsername();
+                String realPhone = dbUser.getPhone();
+                // 内置超管判定：三因子同时成立才算可信（缺一不可）
+                //  ① userId 命中启动时从 DB 加载的 BuiltinSuperAdminIdCache（主键不可变，最可靠依据）；
+                //  ② DB 实时查询出的 username 精确 == "admin"（大小写敏感，防止主键被重建但DB username被他人占用的极端情况）；
+                //  ③ 保留名校验 isReservedSuperAdminName 通过（兜底保护变体）。
+                boolean isBuiltinSuper = builtinSuperAdminIdCache.isBuiltinAdmin(userId)
+                        && PermissionConst.SUPER_ADMIN_USERNAME.equals(realUsername)
+                        && PermissionConst.isReservedSuperAdminName(realUsername);
+                log.info("[JWT] Token解析+DB核对成功，userId={}, username={}, builtinSuperAdmin={}", userId, realUsername, isBuiltinSuper);
 
                 // ====================== 5. 从Redis/DB获取用户权限集合（步骤2+3）======================
                 // Redis 优先 -> Redis 无则执行多表联查 -> 写入 Redis 并设置过期时间
@@ -122,8 +153,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
                 HashMap<String, Object> userinfo = new HashMap<>();
                 userinfo.put("userId", userId);
-                userinfo.put("phone", phone);
-                userinfo.put("username", username);
+                userinfo.put("phone", realPhone);
+                userinfo.put("username", realUsername);
 
                 // ====================== 6. 构建认证信息，告诉 Spring Security：这个人已登录！并携带其权限
                 // ======================
@@ -136,12 +167,13 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 // 存入用户信息上下文（含权限集合，供 @RequirePermission AOP 切面直接使用）
                 AdminUser adminUser = new AdminUser();
                 adminUser.setUserId(userId);
-                adminUser.setPhone(phone);
-                adminUser.setUsername(username);
+                adminUser.setPhone(realPhone);
+                adminUser.setUsername(realUsername);
+                adminUser.setBuiltinSuperAdmin(isBuiltinSuper);
                 adminUser.setPermissions(permissions);
                 adminUser.setRoleCodes(roleCodes);
                 AdminContext.set(adminUser);
-                log.info("[JWT] 用户上下文已设置，userId={}", userId);
+                log.info("[JWT] 用户上下文已设置，userId={}, builtinSuperAdmin={}", userId, isBuiltinSuper);
             } catch (Exception ex) {
                 // 任何异常都清空认证信息，避免上下文泄漏
                 SecurityContextHolder.clearContext();

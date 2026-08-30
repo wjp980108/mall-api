@@ -32,7 +32,7 @@ public class ConsignGoodsOperateLog extends Model<ConsignGoodsOperateLog> {
     /** 操作中文描述(新增/编辑/删除/上下架/状态流转:挂卖中->待付款)，列表展示用，避免每次解析 JSON */
     private String operateDesc;
 
-    /** 业务流转前状态(仅operate_type=5有效 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货) */
+    /** 业务流转前状态(仅operate_type=5有效 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖) */
     private Integer fromStatus;
 
     /** 业务流转后状态(仅operate_type=5有效) */

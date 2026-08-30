@@ -61,11 +61,11 @@ public class ConsignGoodsSaveDTO {
 
     /**
      * 商品业务状态
-     * 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖 6委托发货
+     * 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖
      * 不传默认 1 挂卖中
      */
-    @Min(value = 1, message = "业务状态取值范围 1-6")
-    @Max(value = 6, message = "业务状态取值范围 1-6")
+    @Min(value = 1, message = "业务状态取值范围 1-5")
+    @Max(value = 5, message = "业务状态取值范围 1-5")
     private Integer goodsStatus;
 
     /** 上下架状态 false下架 true上架（不传默认 false 下架） */

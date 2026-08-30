@@ -19,3 +19,27 @@ CREATE TABLE IF NOT EXISTS `t_user_address` (
     KEY `idx_user_default` (`user_id`, `is_default`, `is_deleted`) COMMENT '查询用户地址列表（含默认置顶）',
     CONSTRAINT `fk_user_address_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户收货地址簿';
+
+-- =============================================
+-- 托售商品委托代卖审核：t_consign_goods 增量加列
+-- =============================================
+-- 业务背景：确认收款后商品交由买家处理(4待处理)，买家主动发起委托代卖申请，
+-- 平台管理员审核通过后商品重新上架(1挂卖中)进入下一轮抢购；驳回则退回待处理。
+-- 注意：MySQL 8 的 ALTER ADD COLUMN 不支持 IF NOT EXISTS，本脚本仅需执行一次；
+--       重复执行报 Duplicate column name 错误可直接忽略（幂等性由 rbac_schema.sql 全量建表兜底）。
+ALTER TABLE `t_consign_goods`
+    ADD COLUMN `entrust_status` TINYINT NOT NULL DEFAULT 0 COMMENT '委托状态 0未委托 1委托代卖中' AFTER `goods_status`,
+    ADD COLUMN `audit_status` TINYINT NOT NULL DEFAULT 0 COMMENT '审核状态 0无需审核 1待审核 2审核通过 3审核驳回' AFTER `entrust_status`,
+    ADD INDEX `idx_entrust_audit` (`entrust_status`, `audit_status`);
+
+-- =============================================
+-- 移除预留状态6委托发货：列注释同步（MODIFY 幂等，可重复执行）
+-- =============================================
+-- 说明：业务闭环调整后状态机为 1挂卖中↔2↔3↔4↔5（含委托审核闭环），
+--       6委托发货不再作为业务状态（发货履约功能未规划），枚举/流转矩阵/注释已同步移除。
+-- 如存量数据存在 goods_status=6 的记录，先回退为 4待处理（按需手动执行）：
+-- UPDATE t_consign_goods SET goods_status = 4 WHERE goods_status = 6;
+ALTER TABLE `t_consign_goods`
+    MODIFY COLUMN `goods_status` TINYINT COMMENT '商品业务状态 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖';
+ALTER TABLE `t_consign_goods_operate_log`
+    MODIFY COLUMN `from_status` TINYINT DEFAULT NULL COMMENT '业务流转前状态(仅operate_type=5有效 1挂卖中 2已抢购待付款 3等待确认付款 4待处理 5委托代卖)';

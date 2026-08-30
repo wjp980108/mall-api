@@ -320,8 +320,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         orderOperateLogService.writeOperateLog(dto.getId(), step1After, step2After,
                 OrderOperateType.CONFIRM_RECEIVE, step2Remark);
 
-        // 商品联动：goods_status -> 5, member_id -> buyer, sale_times SQL 层自增
-        promoteConsignGoodsToAgentSaleSafely(existOrder, beforeStatus);
+        // 商品联动：goods_status -> 4待处理(买家持有), member_id -> buyer, 委托/审核状态重置, sale_times SQL 层自增
+        promoteConsignGoodsToPendingSafely(existOrder, beforeStatus);
 
         log.info("[订单管理] 确认收款成功，orderId={}, {}->{}->{}",
                 dto.getId(), beforeStatus, step1After, step2After);
@@ -345,7 +345,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 order.getGoodsId(),
                 3,                     // 目标：3 等待确认付款
                 expectGoodsStatus,
-                null                   // 委托人不变
+                null,                  // 委托人不变
+                null, null, null       // 委托/审核/上下架状态不变
         );
         if (affected == 0) {
             log.warn("[订单管理] 商品并发保护：托售商品状态不匹配预期(2)，未自动推进，orderId={}, goodsId={}",
@@ -384,7 +385,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 order.getGoodsId(),
                 1,           // 回滚目标：1 挂卖中
                 expectGoodsStatus,
-                order.getSellerId()  // 委托人回滚至订单快照 seller_id（防二次销售商品委托人错乱）
+                order.getSellerId(),  // 委托人回滚至订单快照 seller_id（防二次销售商品委托人错乱）
+                null, null, null      // 委托/审核/上下架状态不变
         );
         if (affected == 0) {
             log.warn("[订单管理] 商品并发保护：托售商品状态不匹配预期({})，可能已被其他流程处理，orderId={}, goodsId={}",
@@ -398,12 +400,17 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     }
 
     /**
-     * 确认收款成功：托售商品推进到 5 委托代卖（条件更新 + SQL 层 sale_times 自增）
+     * 确认收款成功：托售商品交由买家处理（3等待确认付款 -> 4待处理，条件更新 + SQL 层 sale_times 自增）
      * <p>
-     * 期望商品状态为 3（等待确认付款），仅匹配时推进为 5；
+     * 期望商品状态为 3（等待确认付款），仅匹配时推进为 4；
+     * 委托人变更为本轮买家（买家成为商品持有者，后续可主动申请委托代卖）；
+     * 委托/审核状态重置为 0（新持有周期开始）；
      * sale_times 使用 UPDATE SET = +1 原子操作，杜绝 Java 层丢失更新。
+     * <p>
+     * 后续闭环：买家在 C 端申请委托代卖（4->5委托代卖,待审核）->
+     * 平台管理员审核通过（5->1挂卖中+上架）进入下一轮抢购。
      */
-    private void promoteConsignGoodsToAgentSaleSafely(Order order, Integer orderBeforeStatus) {
+    private void promoteConsignGoodsToPendingSafely(Order order, Integer orderBeforeStatus) {
         if (order.getGoodsId() == null) {
             return;
         }
@@ -411,9 +418,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Integer expectGoodsStatus = 3;
         int affected = consignGoodsMapper.updateStatusWithCondition(
                 order.getGoodsId(),
-                5,                     // 目标：5 委托代卖
+                OrderConstants.GOODS_STATUS_PENDING,   // 目标：4 待处理（买家持有）
                 expectGoodsStatus,
-                order.getBuyerId()     // 新委托人 = 本轮订单买家
+                order.getBuyerId(),                    // 新委托人 = 本轮订单买家
+                0,                                     // 委托状态重置：0未委托
+                0,                                     // 审核状态重置：0无需审核
+                null
         );
         if (affected == 0) {
             log.warn("[订单管理] 商品并发保护：托售商品状态不匹配预期(3)，可能已被其他流程处理，orderId={}, goodsId={}",
@@ -426,9 +436,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             log.error("[订单管理] sale_times 自增失败：商品行不存在或已删除，orderId={}, goodsId={}",
                     order.getId(), order.getGoodsId());
         }
-        consignGoodsService.recordExternalBizFlow(order.getGoodsId(), expectGoodsStatus, 5,
-                "确认收款进入委托代卖(sale_times+1)，订单号：" + order.getOrderNo());
-        log.info("[订单管理] 订单商品进入委托代卖完成，orderId={}, goodsId={}, status->5, memberId->{}",
+        consignGoodsService.recordExternalBizFlow(order.getGoodsId(), expectGoodsStatus,
+                OrderConstants.GOODS_STATUS_PENDING,
+                "确认收款商品交由买家处理(待处理,可申请委托代卖)(sale_times+1)，订单号：" + order.getOrderNo());
+        log.info("[订单管理] 订单商品交由买家处理完成，orderId={}, goodsId={}, status->4, memberId->{}",
                 order.getId(), order.getGoodsId(), order.getBuyerId());
     }
 
@@ -489,11 +500,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             return Response.fail(500, "买家信息不存在");
         }
         // 6. 商品状态条件更新 1挂卖中 -> 2已抢购待付款（affected=0 即被并发抢走）
+        //    同时重置委托/审核状态为 0：新一轮抢购周期开始，上轮委托审核结果清零
         int affected = consignGoodsMapper.updateStatusWithCondition(
                 goods.getId(),
                 OrderConstants.GOODS_STATUS_RUSHED_WAIT_PAY,
                 OrderConstants.GOODS_STATUS_ON_SALE,
-                null);
+                null,
+                0, 0, null);
         if (affected == 0) {
             return Response.fail(500, "商品已被抢购，请重试");
         }

@@ -1,8 +1,10 @@
 package com.atguigu.meet.config.aop;
 
 import com.atguigu.meet.annotation.RequirePermission;
+import com.atguigu.meet.config.BuiltinSuperAdminIdCache;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.exception.BusinessException;
+import com.atguigu.meet.model.entity.permission.user.AdminUser;
 import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.utils.AdminContext;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +40,9 @@ public class PermissionCheckAspect {
     @Autowired
     private PermissionCacheService permissionCacheService;
 
+    @Autowired
+    private BuiltinSuperAdminIdCache builtinSuperAdminIdCache;
+
     /**
      * 切入点：拦截所有标记 @RequirePermission 的方法或类
      */
@@ -62,8 +67,23 @@ public class PermissionCheckAspect {
             throw new BusinessException(401, "未登录，请先进行身份验证");
         }
 
-        // ====================== 超级管理员直接放行 ======================
-        Set<String> roleCodes = AdminContext.get().getRoleCodes();
+        // ====================== 系统内置超级管理员（DB实时双因子校验通过的 admin 账户）直接放行 ======================
+        // —— 安全说明：放行条件三重判定，缺一不可：
+        //    ① builtinSuperAdmin == true（JwtAuthenticationFilter 从 DB 实时查询写入的可信标记，三因子均通过才为 true）；
+        //    ② userId 命中 BuiltinSuperAdminIdCache 缓存（自增主键永久不变，是最核心的身份锚点）；
+        //    ③ AdminUser.username 仍精确 == "admin"（冗余校验，防御标记被伪造）。
+        //    以上条件确保：即使 JWT 被恶意伪造为 username=admin / userId 伪造 / 其他用户 username 被 DB 直连篡改为 admin，
+        //    只要「userId 不是那条被启动时扫描到的 admin 账户主键」就永远无法跳过权限校验。
+        AdminUser adminUser = AdminContext.get();
+        if (adminUser != null && adminUser.isBuiltinSuperAdmin()
+                && builtinSuperAdminIdCache.isBuiltinAdmin(adminUser.getUserId())
+                && PermissionConst.SUPER_ADMIN_USERNAME.equals(adminUser.getUsername())) {
+            log.info("[权限校验] 内置超级管理员（userId缓存+DB双因子校验通过），直接放行，userId={}", userId);
+            return joinPoint.proceed();
+        }
+
+        // ====================== 超级管理员角色直接放行 ======================
+        Set<String> roleCodes = adminUser.getRoleCodes();
         if (roleCodes != null && roleCodes.contains(PermissionConst.ROLE_SUPER_ADMIN)) {
             log.info("[权限校验] 超级管理员角色，直接放行，userId={}", userId);
             return joinPoint.proceed();

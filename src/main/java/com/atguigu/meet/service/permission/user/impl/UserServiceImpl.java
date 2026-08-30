@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.permission.user.impl;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.config.BuiltinSuperAdminIdCache;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.enums.Gender;
 import com.atguigu.meet.exception.BusinessException;
@@ -91,6 +92,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Autowired
     private SysRoleMapper sysRoleMapper;
 
+    @Autowired
+    private BuiltinSuperAdminIdCache builtinSuperAdminIdCache;
+
     @Override
     @Transactional(rollbackFor = Exception.class) // 所有异常都回滚，保证原子性
     public Response deleteUserByIds(UserDeleteDTO userDeleteDTO) {
@@ -104,6 +108,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                 .collect(Collectors.toList());
         if (!notExistIds.isEmpty()) {
             return Response.fail(500, "用户ID：" + notExistIds + " 不存在，本次全部取消删除");
+        }
+
+        // 系统内置超级管理员账户禁止删除：
+        //  ① userId 命中 BuiltinSuperAdminIdCache（主键不可变，最核心识别）
+        //  ② 保留名大小写不敏感匹配兜底（防止缓存不一致 / 变体绕过）
+        boolean containsSuperAdmin = dbUserList.stream()
+                .anyMatch(u -> builtinSuperAdminIdCache.isBuiltinAdmin(u.getId())
+                        || PermissionConst.isReservedSuperAdminName(u.getUsername()));
+        if (containsSuperAdmin) {
+            return Response.fail(500, "系统内置超级管理员账户不允许删除");
         }
 
         removeByIds(idList);
@@ -120,6 +134,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         SysUser existUsername = getOne(usernameWrapper);
         if (existUsername != null) {
             return Response.fail(500, "用户名已存在");
+        }
+
+        // 1.1 系统保留用户名校验（内置超级管理员账户名不可被占用，大小写不敏感+trim）
+        if (PermissionConst.isReservedSuperAdminName(userCreateDTO.getUsername())) {
+            return Response.fail(500, "该用户名为系统保留，请更换用户名");
         }
 
         // 2. 校验手机号是否已存在
@@ -179,6 +198,22 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (existUser == null) {
             return Response.fail(500, "用户不存在");
         }
+        // 系统保留用户名校验：禁止把任何用户改名为内置超管账户名（大小写不敏感+trim，防ADMIN/Admin变体）
+        if (StringUtils.hasText(userUpdateDTO.getUsername())
+                && PermissionConst.isReservedSuperAdminName(userUpdateDTO.getUsername())
+                && !PermissionConst.SUPER_ADMIN_USERNAME.equals(existUser.getUsername())) {
+            return Response.fail(500, "该用户名为系统保留，请更换用户名");
+        }
+        // 系统内置超级管理员账户禁止修改用户名：
+        //  ① userId 命中 BuiltinSuperAdminIdCache（主键不可变，最核心识别）
+        //  ② username 精确匹配 SUPER_ADMIN_USERNAME 兜底（防御缓存未初始化）
+        boolean isBuiltin = builtinSuperAdminIdCache.isBuiltinAdmin(existUser.getId())
+                || PermissionConst.SUPER_ADMIN_USERNAME.equals(existUser.getUsername());
+        if (isBuiltin
+                && StringUtils.hasText(userUpdateDTO.getUsername())
+                && !PermissionConst.SUPER_ADMIN_USERNAME.equals(userUpdateDTO.getUsername())) {
+            return Response.fail(500, "系统内置超级管理员账户不允许修改用户名");
+        }
         // 图片平台条件校验：传了头像URL就必须传存储平台，避免后续 NPE 导致 500
         if (StringUtils.hasText(userUpdateDTO.getAvatar()) && !StringUtils.hasText(userUpdateDTO.getAvatarPlatform())) {
             return Response.fail(400, "头像存储平台不能为空");
@@ -197,6 +232,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         SysUser existUser = userMapper.selectById(userId);
         if (existUser == null) {
             return Response.fail(500, "用户不存在");
+        }
+        // 系统内置超级管理员账户禁止禁用：
+        //  ① userId 命中 BuiltinSuperAdminIdCache（主键不可变，最核心识别）
+        //  ② 保留名大小写不敏感匹配兜底（保证超管永不可被锁死）
+        if ((builtinSuperAdminIdCache.isBuiltinAdmin(existUser.getId())
+                || PermissionConst.isReservedSuperAdminName(existUser.getUsername()))
+                && !Boolean.TRUE.equals(userStatusDTO.getStatus())) {
+            return Response.fail(500, "系统内置超级管理员账户不允许禁用");
         }
         // 实体字段带内联默认值(gender=0等)，updateById 会把默认值一并写入覆盖真实数据，改用定点更新
         lambdaUpdate()
@@ -248,13 +291,28 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Override
     public Response getList() {
         LambdaQueryWrapper<SysUser> wrapper = Wrappers.lambdaQuery(SysUser.class);
+        // 系统内置超级管理员账号不对外展示（隐身），排除其 userId（主键不可变，唯一精准）
+        Long builtinId = builtinSuperAdminIdCache.get();
+        if (builtinId != null) {
+            wrapper.ne(SysUser::getId, builtinId);
+        }
         List<SysUser> userList = userMapper.selectList(wrapper);
+        // 内存兜底过滤保留名（防止缓存未命中导致 admin 泄露）
+        userList = userList.stream()
+                .filter(u -> !PermissionConst.isReservedSuperAdminName(u.getUsername()))
+                .collect(Collectors.toList());
         return Response.ok(userList);
     }
 
     @Override
     public Response getPageList(UserPageQueryDTO parameter) {
         LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
+
+        // 系统内置超级管理员账号不在前端分页列表展示（隐身），排除其 userId
+        Long builtinId = builtinSuperAdminIdCache.get();
+        if (builtinId != null) {
+            lambdaQueryWrapper.ne(SysUser::getId, builtinId);
+        }
 
         if (parameter.getAge() != null) {
             lambdaQueryWrapper.lt(SysUser::getAge, parameter.getAge());
@@ -271,6 +329,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         IPage<SysUser> result = page(page, lambdaQueryWrapper);
 
         List<SysUser> records = result.getRecords();
+        // 内存兜底：过滤保留名大小写变体（防止缓存未命中 / DB 直连篡改导致 admin 出现在分页列表）
+        records = records.stream()
+                .filter(u -> !PermissionConst.isReservedSuperAdminName(u.getUsername()))
+                .collect(Collectors.toList());
         List<UserVO> voList = new ArrayList<>(records.size());
         if (!records.isEmpty()) {
             // ========== 一次性批量查询本页所有用户的角色信息，避免 N+1 ==========
@@ -350,17 +412,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
         response.setHeader("Content-Disposition", "attachment; filename=user_list.csv");
 
+        // 系统内置超级管理员 userId（不在 CSV 中导出，隐身）
+        Long builtinId = builtinSuperAdminIdCache.get();
+
         try (
                 BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(response.getOutputStream(), StandardCharsets.UTF_8));
                 CSVPrinter csvPrinter = new CSVPrinter(writer, CSVFormat.DEFAULT.withHeader("ID", "用户名", "昵称", "邮箱", "手机号", "性别", "状态"))
         ) {
-            // 2. 构建查询条件：只导出未删除的用户
+            // 2. 构建查询条件：只导出未删除的用户 + 排除内置超管
             LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<>();
+            if (builtinId != null) {
+                wrapper.ne(SysUser::getId, builtinId);
+            }
 //            wrapper.eq(SysUser::getIsDeleted, 0);
 
             // 3. 流式查询 + 边读边写
             this.baseMapper.selectList(wrapper, context -> {
                 SysUser user = context.getResultObject();
+                // 内存兜底：再过滤一次保留名（防止缓存未命中导致 admin 被导出）
+                if (PermissionConst.isReservedSuperAdminName(user.getUsername())) {
+                    return;
+                }
                 try {
                     // 把当前这条数据写入 CSV
                     csvPrinter.printRecord(
@@ -448,7 +520,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         Set<String> userPermissions = currentUser.getPermissions();
 
         Set<String> roleCodes = currentUser.getRoleCodes();
-        boolean isSuperAdmin = roleCodes != null && roleCodes.contains(PermissionConst.ROLE_SUPER_ADMIN);
+        // 内置超级管理员（不关联任何角色）与 SUPER_ADMIN 角色用户同等地位：返回全部菜单
+        // 使用可信标记 builtinSuperAdmin（来自 JwtAuthenticationFilter 每次请求与 DB 实时核对）
+        boolean isSuperAdmin = (roleCodes != null && roleCodes.contains(PermissionConst.ROLE_SUPER_ADMIN))
+                || (currentUser != null && currentUser.isBuiltinSuperAdmin());
 
         // 查询所有启用的目录与菜单（不含按钮权限 type=2），确保包含父级菜单保证树形结构完整
         LambdaQueryWrapper<SysMenu> wrapper = new LambdaQueryWrapper<>();
@@ -481,13 +556,27 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     public Response getUserOptions() {
         LambdaQueryWrapper<SysUser> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysUser::getStatus, "1");
-        // 过滤超级管理员角色
+        // 过滤超级管理员角色用户
         List<Long> superAdminUserIds = getSuperAdminUserIds();
         if (!superAdminUserIds.isEmpty()) {
             wrapper.notIn(SysUser::getId, superAdminUserIds);
         }
+        // 系统内置超级管理员账号不出现在角色分配下拉列表（隐身）：
+        //  ① 用 userId 精确排除（主键不可变，最精准的方式，避免字符串变体）
+        Long builtinId = builtinSuperAdminIdCache.get();
+        if (builtinId != null) {
+            wrapper.ne(SysUser::getId, builtinId);
+        }
+        //  ② 保留名精确不等于 "admin" 兜底（SQL层，排除大小写完全一致的场景）
+        wrapper.ne(SysUser::getUsername, PermissionConst.SUPER_ADMIN_USERNAME);
         wrapper.orderByAsc(SysUser::getId);
         List<SysUser> users = list(wrapper);
+
+        // 内存二次过滤：排除保留名大小写变体（如 ADMIN/Admin/aDmIn/ admin 空格等）
+        users = users.stream()
+                .filter(u -> !PermissionConst.isReservedSuperAdminName(u.getUsername()))
+                .filter(u -> !builtinSuperAdminIdCache.isBuiltinAdmin(u.getId()))
+                .collect(Collectors.toList());
 
         List<OptionVO<Long>> options = new ArrayList<>(users.size());
         for (SysUser u : users) {

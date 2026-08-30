@@ -262,4 +262,13 @@ public final class PermissionConst {
     public static final String ORDER_DELETE = "order:operate:delete";
     /** 管理员确认收款 */
     public static final String ORDER_CONFIRM_RECEIVE = "order:waitConfirm:confirmReceive";
+
+    // ==========================================
+    // 常规管理 -> 用户协议 (sys:agreement:xxx)
+    // 对应 sys_menu: 常规管理目录(id=110) -> 用户协议菜单(id=111) -> 按钮
+    // ==========================================
+    /** 协议查询（后台编辑回显） */
+    public static final String AGREEMENT_QUERY = "sys:agreement:query";
+    /** 协议保存（单例行覆盖更新） */
+    public static final String AGREEMENT_UPDATE = "sys:agreement:update";
 }

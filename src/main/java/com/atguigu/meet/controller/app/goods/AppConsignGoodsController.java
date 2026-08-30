@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * C 端用户托售商品控制器（委托代卖申请）
+ * 委托代卖申请
  * <p>
  * 不走 {@code @RequirePermission}（后台 RBAC），依赖 JWT 登录态；
  * Service 层校验商品持有者归属（goods.member_id == 当前用户），防越权。

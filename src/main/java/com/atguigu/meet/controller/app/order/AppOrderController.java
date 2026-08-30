@@ -12,7 +12,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * C 端用户订单控制器（抢购下单/取消/上传凭证）
+ * 订单操作（抢购下单/取消/上传凭证）
  * <p>
  * 不走 {@code @RequirePermission}（后台 RBAC），依赖 {@link com.atguigu.meet.filter.JwtAuthenticationFilter}
  * 的 token 校验：C 端用户携带 JWT 通过即视为已登录，当前用户 ID 从 {@link AdminContext} 取。

@@ -51,7 +51,7 @@ public final class PermissionConst {
      *   不满足则阻止应用启动，从根源避免数据篡改或初始化错误。
      * </p>
      */
-    public static final long SUPER_ADMIN_USER_ID = 1L;
+    public static final long SUPER_ADMIN_USER_ID = 0L;
 
     /**
      * 判断给定用户名是否匹配内置超级管理员保留名（忽略大小写 + 去两端空格）。

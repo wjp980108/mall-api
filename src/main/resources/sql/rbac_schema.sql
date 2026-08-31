@@ -442,3 +442,42 @@ CREATE TABLE IF NOT EXISTS `t_user_address` (
     KEY `idx_user_default` (`user_id`, `is_default`, `is_deleted`) COMMENT '查询用户地址列表（含默认置顶）',
     CONSTRAINT `fk_user_address_user` FOREIGN KEY (`user_id`) REFERENCES `sys_user` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户收货地址簿';
+
+
+
+-- =============================================
+-- 系统动态配置模块：sys_config + sys_config_log
+-- =============================================
+-- 设计要点：
+--   1. uk_group_key(config_group, config_key) 唯一索引：分组内键唯一，幂等 INSERT IGNORE 依赖此索引
+--   2. config_value 统一存字符串；复选框/键值表格等复杂类型存标准 JSON 字符串（value_type=json）
+--   3. 后端读取优先走 Redis 缓存(key: sys_config:group:{group})，启动时 SysConfigCacheLoader 全量预加载
+--   4. is_deleted/create_time/update_time 对齐项目惯例 NOT NULL DEFAULT（配合 @TableLogic）
+CREATE TABLE IF NOT EXISTS `sys_config` (
+    `id`                BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键id',
+    `config_group`      VARCHAR(64)  NOT NULL COMMENT '配置分组标识:base(基础配置)/member(会员配置)/pay(支付配置)/email(邮件配置)',
+    `config_group_name` VARCHAR(128) NOT NULL COMMENT '分组展示名称:基础配置、会员配置、支付配置',
+    `config_key`        VARCHAR(128) NOT NULL COMMENT '配置键名，对应页面变量名:site.order_number',
+    `config_title`      VARCHAR(256) NOT NULL COMMENT '配置标题(前端页面展示文字):会员下单限制数量',
+    `config_value`      TEXT         COMMENT '配置值，存储字符串、数字、布尔、JSON数组、JSON对象',
+    `value_type`        VARCHAR(32)  NOT NULL DEFAULT 'string' COMMENT '值类型:string、number、boolean、json',
+    `sort`              INT          NOT NULL DEFAULT 0 COMMENT '同分组下排序号，控制页面从上到下展示顺序',
+    `remark`            VARCHAR(512) DEFAULT NULL COMMENT '配置项备注说明',
+    `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`        TINYINT(1)   NOT NULL DEFAULT 0 COMMENT '逻辑删除 0-未删除 1-已删除',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_group_key` (`config_group`, `config_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统动态配置表';
+
+CREATE TABLE IF NOT EXISTS `sys_config_log` (
+    `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
+    `config_group`  VARCHAR(64)  DEFAULT NULL COMMENT '配置分组编码',
+    `config_key`    VARCHAR(128) DEFAULT NULL COMMENT '配置键',
+    `old_value`     TEXT         COMMENT '修改前的值',
+    `new_value`     TEXT         COMMENT '修改后的值',
+    `operator_id`   BIGINT       DEFAULT NULL COMMENT '操作人ID',
+    `operator_name` VARCHAR(64)  DEFAULT NULL COMMENT '操作人名称',
+    `create_time`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '操作时间',
+    PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统配置变更日志表';

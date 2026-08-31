@@ -130,12 +130,6 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         String token = generateUserToken(existUser);
         Map<String, Object> data = new HashMap<>();
         data.put("token", token);
-        // H5 前端展示所需的用户基本信息
-        data.put("userId", existUser.getId());
-        data.put("username", existUser.getUsername());
-        data.put("nickname", existUser.getNickname());
-        data.put("phone", existUser.getPhone());
-        data.put("avatar", existUser.getAvatar());
         return Response.ok(200, "登录成功", data);
     }
 

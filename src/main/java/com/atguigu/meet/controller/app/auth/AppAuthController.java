@@ -35,7 +35,7 @@ public class AppAuthController {
 
     /**
      * H5 端登录
-     * （账号支持手机号/用户名，返回 token + 用户基本信息）
+     * （账号支持手机号/用户名，仅返回 token）
      */
     @PostMapping("login")
     public Response login(@RequestBody @Valid AuthLoginDTO user) {

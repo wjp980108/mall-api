@@ -2,8 +2,8 @@ package com.atguigu.meet.controller.app.user;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.user.AppChangePasswordDTO;
+import com.atguigu.meet.model.dto.user.AppUpdateUserInfoDTO;
 import com.atguigu.meet.service.user.AppUserService;
-import com.atguigu.meet.utils.AdminContext;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,7 +15,7 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * H5 端用户中心
  * <p>
- * 查询当前用户信息、修改密码；当前登录用户从 {@link AdminContext} 获取。
+ * 查询当前用户信息、修改用户信息、修改密码；当前登录用户从 AdminContext 获取。
  */
 @RestController
 @RequestMapping("/app/user")
@@ -30,6 +30,15 @@ public class AppUserController {
     @GetMapping("info")
     public Response info() {
         return appUserService.getCurrentUserInfo();
+    }
+
+    /**
+     * 修改用户信息
+     * （昵称、邮箱、性别、年龄、生日、头像等；未传字段不更新）
+     */
+    @PutMapping("info")
+    public Response updateUserInfo(@RequestBody @Valid AppUpdateUserInfoDTO dto) {
+        return appUserService.updateCurrentUserInfo(dto);
     }
 
     /**

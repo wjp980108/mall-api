@@ -4,6 +4,7 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.enums.Gender;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.model.dto.user.AppChangePasswordDTO;
+import com.atguigu.meet.model.dto.user.AppUpdateUserInfoDTO;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.user.AppUserService;
@@ -41,6 +42,36 @@ public class AppUserServiceImpl extends ServiceImpl<UserMapper, SysUser> impleme
         BeanConvertUtils.copyProperties(user, userVO);
         userVO.setGenderName(Gender.descOf(userVO.getGender()));
         return Response.ok(userVO);
+    }
+
+    @Override
+    public Response updateCurrentUserInfo(AppUpdateUserInfoDTO dto) {
+        Long userId = AdminContext.getLoginUserId();
+        if (userId == null) {
+            return Response.fail(401, "未登录");
+        }
+        SysUser user = getById(userId);
+        if (user == null) {
+            return Response.fail(404, "用户不存在");
+        }
+        // 性别只允许 0/1/2
+        if (dto.getGender() != null && Gender.of(dto.getGender()) == null) {
+            return Response.fail(500, "性别取值不正确");
+        }
+        // 目标字段更新（未传字段不更新），避免实体内联默认值（gender/status）被覆盖
+        lambdaUpdate()
+                .set(dto.getNickname() != null, SysUser::getNickname, dto.getNickname())
+                .set(dto.getEmail() != null, SysUser::getEmail, dto.getEmail())
+                .set(dto.getGender() != null, SysUser::getGender, dto.getGender())
+                .set(dto.getAge() != null, SysUser::getAge, dto.getAge())
+                .set(dto.getBirthday() != null, SysUser::getBirthday, dto.getBirthday())
+                .set(dto.getAvatar() != null, SysUser::getAvatar, dto.getAvatar())
+                .set(dto.getAvatarPlatform() != null, SysUser::getAvatarPlatform, dto.getAvatarPlatform())
+                .eq(SysUser::getId, userId)
+                .update();
+        log.info("[用户中心] H5 修改用户信息成功，userId={}", userId);
+        // 返回更新后的最新用户信息，前端直接刷新展示
+        return getCurrentUserInfo();
     }
 
     @Override

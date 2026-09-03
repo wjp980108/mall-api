@@ -73,4 +73,27 @@ public interface ConsignGoodsService {
      * @param dto 审核参数（商品ID + 通过/驳回 + 备注）
      */
     Response auditEntrust(ConsignGoodsAuditDTO dto);
+
+    // ====================== C 端用户接口（JWT 登录态） ======================
+
+    /**
+     * C 端「我持有的商品」：查 goodsStatus=4待处理 + memberId=当前用户，可发起委托代卖的商品
+     * <p>复用管理端分页查询（memberId + goodsStatus=4 条件），按创建时间倒序。
+     *
+     * @param memberId 当前登录用户ID（商品持有者）
+     * @param pageNum  页码
+     * @param pageSize 每页条数
+     */
+    Response listMyHeld(Long memberId, Integer pageNum, Integer pageSize);
+
+    /**
+     * C 端「在售抢购商品列表」：当前可抢购的商品
+     * <p>过滤条件：上架(onlineStatus=1) + 挂卖中(goodsStatus=1) + 场次开启(sessionStatus=1)
+     * + 当前时间在场次抢购时间窗口内(CURTIME() BETWEEN rushStartTime AND rushEndTime)；
+     * 按场次排序 + 创建时间倒序，含委托人信息 + 场次名。
+     *
+     * @param pageNum  页码
+     * @param pageSize 每页条数
+     */
+    Response listSaleGoods(Integer pageNum, Integer pageSize);
 }

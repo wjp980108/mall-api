@@ -222,6 +222,9 @@ public final class PermissionConst {
     /** 托售商品-委托代卖审核（通过/驳回） */
     public static final String CONSIGN_GOODS_ENTRUST_AUDIT = "goods:consign:entrust:audit";
 
+    /** 委托代卖事件记录查询（履历分页/详情/按商品查） */
+    public static final String CONSIGN_RECORD_QUERY = "goods:consign:record:query";
+
     // ==========================================
     // 抢购场次管理 (session:xxx)
     // 对应 sys_menu: 抢购场次管理菜单 -> 按钮

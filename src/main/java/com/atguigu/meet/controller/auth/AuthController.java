@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * 登录（后台与 H5 端共用同一登录接口，权限差异由 RBAC 角色区分）
+ * 登录
  * @Description
  * @Date 2026-08-12 22:59
  */

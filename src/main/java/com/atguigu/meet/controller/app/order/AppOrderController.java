@@ -12,7 +12,8 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 订单操作（抢购下单/取消/上传凭证）
+ * 订单操作
+ * （抢购下单/取消/上传凭证 + 我的订单查询/详情）
  * <p>
  * 不走 {@code @RequirePermission}（后台 RBAC），依赖 {@link com.atguigu.meet.filter.JwtAuthenticationFilter}
  * 的 token 校验：C 端用户携带 JWT 通过即视为已登录，当前用户 ID 从 {@link AdminContext} 取。
@@ -26,6 +27,26 @@ public class AppOrderController {
 
     @Autowired
     private OrderService orderService;
+
+    /**
+     * 我的订单列表
+     * （按 buyerId 分页，可选 orderStatus 筛选）
+     */
+    @GetMapping("/my-list")
+    public Response listMyOrders(@RequestParam(required = false) Integer orderStatus,
+                                 @RequestParam(defaultValue = "1") Integer pageNum,
+                                 @RequestParam(defaultValue = "10") Integer pageSize) {
+        return orderService.listMyOrders(AdminContext.getLoginUserId(), orderStatus, pageNum, pageSize);
+    }
+
+    /**
+     * 订单详情
+     * （校验订单归属当前买家）
+     */
+    @GetMapping("/{id}")
+    public Response getDetail(@PathVariable Long id) {
+        return orderService.getOrderDetailForUser(id, AdminContext.getLoginUserId());
+    }
 
     /**
      * 抢购下单

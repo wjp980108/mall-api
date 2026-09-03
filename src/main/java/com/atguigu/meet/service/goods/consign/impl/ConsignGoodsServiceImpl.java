@@ -22,6 +22,7 @@ import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.goods.consign.ConsignGoodsVO;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
+import com.atguigu.meet.service.goods.consign.ConsignRecordService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.RequestContextUtil;
@@ -70,6 +71,9 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
 
     @Autowired
     private ConsignGoodsOperateLogMapper consignGoodsOperateLogMapper;
+
+    @Autowired
+    private ConsignRecordService consignRecordService;
 
     @Override
     public Response getPageList(ConsignGoodsPageQueryDTO parameter) {
@@ -191,6 +195,7 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public Response updateOnlineStatus(ConsignGoodsOnlineStatusDTO dto) {
         ConsignGoods existGoods = getById(dto.getId());
         if (existGoods == null) {
@@ -212,9 +217,49 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         after.put("onlineStatus", afterOnlineStatus);
         saveOperateLog(dto.getId(), type, before, after,
                 Collections.singletonList("onlineStatus"), type.getDefaultDesc(), null, null);
+        // 追加：委托代卖未售出下架事件记录（仅下架时；委托代卖已上架商品 recordStatus=2 -> 4）
+        // 非委托代卖商品下架无 recordStatus=2 记录，ConsignRecordService 内部跳过，符合"禁止在非委托节点操作"约束
+        if (!afterOnlineStatus) {
+            consignRecordService.recordDelist(dto.getId(), "后台下架");
+        }
         log.info("[托售商品] 上下架成功，id={}, {}->{}",
                 dto.getId(), beforeOnlineStatus, afterOnlineStatus);
         return Response.ok("上下架成功", null);
+    }
+
+    // ====================== C 端用户接口（JWT 登录态） ======================
+
+    /**
+     * C 端「我持有的商品」：goodsStatus=4待处理 + memberId=当前用户，可发起委托
+     * <p>复用管理端分页查询（memberId + goodsStatus=4 条件）。
+     */
+    @Override
+    public Response listMyHeld(Long memberId, Integer pageNum, Integer pageSize) {
+        if (memberId == null) {
+            return Response.fail(401, "未登录");
+        }
+        ConsignGoodsPageQueryDTO dto = new ConsignGoodsPageQueryDTO();
+        dto.setPageNum(pageNum);
+        dto.setPageSize(pageSize);
+        dto.setMemberId(memberId);
+        dto.setGoodsStatus(GoodsStatus.PENDING.getCode());
+        return getPageList(dto);
+    }
+
+    /**
+     * C 端「在售抢购商品列表」：上架+挂卖中+场次开启+当前在抢购时间窗口内
+     */
+    @Override
+    public Response listSaleGoods(Integer pageNum, Integer pageSize) {
+        Page<ConsignGoodsVO> page = new Page<>(pageNum, pageSize);
+        IPage<ConsignGoodsVO> result = baseMapper.selectSaleGoodsPage(page);
+        // 组装商品业务状态/委托状态/审核状态中文名（VO 层派生字段）
+        result.getRecords().forEach(vo -> {
+            vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
+            vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
+            vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+        });
+        return Response.ok(PageResultVO.of(result));
     }
 
     @Override
@@ -340,6 +385,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         }
         recordExternalBizFlow(goodsId, GoodsStatus.PENDING.getCode(), GoodsStatus.AGENT_SALE.getCode(),
                 "买家申请委托代卖，等待平台审核");
+        // 追加：委托代卖事件记录 - INSERT 一条待审核记录，冻结商品+委托人快照
+        SysUser consignMember = userMapper.selectById(goods.getMemberId());
+        String consignMemberName = pickMemberName(consignMember);
+        consignRecordService.recordApplyConsign(goods, consignMemberName);
         log.info("[托售商品] 买家申请委托代卖成功，goodsId={}, userId={}", goodsId, currentUserId);
         return Response.ok("委托申请已提交，等待平台审核", null);
     }
@@ -386,6 +435,13 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
             return Response.fail(500, "商品状态已变更，请刷新后重试");
         }
         recordExternalBizFlow(dto.getGoodsId(), GoodsStatus.AGENT_SALE.getCode(), toStatus, remark);
+        // 追加：委托代卖事件记录 - UPDATE 该条审核结果（通过=2 / 驳回=5），不动快照
+        String auditOperatorName = AdminContext.get() == null ? null : AdminContext.get().getUsername();
+        if (pass) {
+            consignRecordService.recordAuditPass(dto.getGoodsId(), adminId, auditOperatorName);
+        } else {
+            consignRecordService.recordAuditReject(dto.getGoodsId(), adminId, auditOperatorName, dto.getRemark());
+        }
         log.info("[托售商品] 委托审核完成，goodsId={}, pass={}, 操作人={}", dto.getGoodsId(), pass, adminId);
         return Response.ok(pass ? "审核通过，商品已重新上架" : "已驳回，商品退回待处理", null);
     }
@@ -508,6 +564,14 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
     /** 业务状态中文名称 —— 委托 GoodsStatus 枚举统一维护，避免重复硬编码 */
     private String statusName(Integer status) {
         return GoodsStatus.descOf(status);
+    }
+
+    /** 取会员展示名：优先 nickname，回退 username（与订单模块 pickName 保持一致） */
+    private String pickMemberName(SysUser user) {
+        if (user == null) {
+            return null;
+        }
+        return StringUtils.hasText(user.getNickname()) ? user.getNickname() : user.getUsername();
     }
 
     /**

@@ -91,6 +91,25 @@
     </select>
 
     <!--
+        C 端在售抢购商品分页：
+        上架(online_status=1) + 挂卖中(goods_status=1) + 场次开启(session_status=1)
+        + 当前时间在场次每日抢购时间窗口内(CURTIME() BETWEEN rush_start_time AND rush_end_time)
+        按 s.sort 升序（场次展示顺序）+ g.create_time 倒序
+    -->
+    <select id="selectSaleGoodsPage" resultMap="ConsignGoodsResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM t_consign_goods g
+        LEFT JOIN sys_user u ON g.member_id = u.id AND u.is_deleted = 0
+        INNER JOIN t_session s ON g.session_id = s.id AND s.is_deleted = 0
+        WHERE g.is_deleted = 0
+          AND g.online_status = 1
+          AND g.goods_status = 1
+          AND s.session_status = 1
+          AND CURTIME() BETWEEN s.rush_start_time AND s.rush_end_time
+        ORDER BY s.sort ASC, g.create_time DESC
+    </select>
+
+    <!--
         并发安全的条件更新：仅当 goods_status = expectStatus 时才执行修改
         受影响行数 = 0 表示并发冲突（其他线程已先一步改掉了状态）
         member_id / entrust_status / audit_status / online_status 传 null 表示不修改，非 null 则同时更新

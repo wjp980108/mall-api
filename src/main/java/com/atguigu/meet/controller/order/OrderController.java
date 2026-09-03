@@ -13,7 +13,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
- * 订单管理（抢购商品）控制器
+ * 订单管理（抢购商品）
  * <p>
  * 后台管理菜单共 5 个：
  * - 所有订单：全量订单，支持状态筛选

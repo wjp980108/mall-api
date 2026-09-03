@@ -17,8 +17,10 @@ public interface OrderMapper extends BaseMapper<Order> {
 
     /**
      * 分页查询订单列表（返回VO，手机号原文输出）
+     * <p>buyerId 传 null 时不过滤（管理端）；非 null 时按买家精确过滤（C 端我的订单）
      */
     IPage<OrderVO> selectOrderPage(Page<OrderVO> page,
+                                   @Param("buyerId") Long buyerId,
                                    @Param("orderNo") String orderNo,
                                    @Param("goodsName") String goodsName,
                                    @Param("buyerName") String buyerName,

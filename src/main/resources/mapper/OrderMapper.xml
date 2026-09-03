@@ -43,6 +43,9 @@
         SELECT <include refid="baseColumnList"/>
         FROM t_order o
         WHERE o.is_deleted = 0
+        <if test="buyerId != null">
+            AND o.buyer_id = #{buyerId}
+        </if>
         <if test="orderNo != null and orderNo != ''">
             AND o.order_no LIKE CONCAT('%', #{orderNo}, '%')
         </if>

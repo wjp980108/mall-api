@@ -55,4 +55,22 @@ public interface OrderService {
 
     /** C 端用户上传支付凭证（校验订单归属当前买家，复用上传核心逻辑） */
     Response uploadVoucherByUser(UploadVoucherDTO dto, Long currentUserId);
+
+    /**
+     * C 端「我的订单」：按 buyerId 分页，可选 orderStatus 筛选
+     *
+     * @param buyerId     当前登录用户ID（买家）
+     * @param orderStatus 订单状态筛选（null=全部）
+     * @param pageNum     页码
+     * @param pageSize    每页条数
+     */
+    Response listMyOrders(Long buyerId, Integer orderStatus, Integer pageNum, Integer pageSize);
+
+    /**
+     * C 端订单详情：校验订单归属当前买家，防越权
+     *
+     * @param id           订单ID
+     * @param currentUserId 当前登录用户ID
+     */
+    Response getOrderDetailForUser(Long id, Long currentUserId);
 }

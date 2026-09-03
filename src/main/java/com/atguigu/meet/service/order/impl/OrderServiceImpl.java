@@ -20,10 +20,12 @@ import com.atguigu.meet.model.entity.user.UserAddress;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.order.OrderVO;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
+import com.atguigu.meet.service.goods.consign.ConsignRecordService;
 import com.atguigu.meet.service.order.OrderOperateLogService;
 import com.atguigu.meet.service.order.OrderService;
 import com.atguigu.meet.service.user.UserAddressService;
 import com.atguigu.meet.utils.AdminContext;
+import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.OrderNoUtil;
 import com.atguigu.meet.utils.TimeRangeUtils;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -71,6 +73,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Autowired
     private ConsignGoodsService consignGoodsService;
+
+    @Autowired
+    private ConsignRecordService consignRecordService;
 
     @Autowired
     private SessionMapper sessionMapper;
@@ -135,6 +140,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Page<OrderVO> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
         IPage<OrderVO> result = baseMapper.selectOrderPage(
                 page,
+                null,
                 parameter.getOrderNo(),
                 parameter.getGoodsName(),
                 parameter.getBuyerName(),
@@ -322,6 +328,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         // 商品联动：goods_status -> 4待处理(买家持有), member_id -> buyer, 委托/审核状态重置, sale_times SQL 层自增
         promoteConsignGoodsToPendingSafely(existOrder, beforeStatus);
+
+        // 追加：委托代卖卖出成交事件记录（买家确认收款成为新持有人 = 卖出瞬间）
+        // 查 consignGoodsId 下 recordStatus=2 的记录，UPDATE recordStatus=3 + 成交价/买家快照；不新增；不动其他快照
+        consignRecordService.recordSold(existOrder.getGoodsId(), existOrder.getRushPrice(),
+                existOrder.getBuyerId(), existOrder.getBuyerName(), existOrder.getBuyerPhone());
 
         log.info("[订单管理] 确认收款成功，orderId={}, {}->{}->{}",
                 dto.getId(), beforeStatus, step1After, step2After);
@@ -586,5 +597,41 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             return Response.fail(500, "订单不存在或无权操作");
         }
         return uploadVoucher(dto);
+    }
+
+    /**
+     * C 端「我的订单」：按 buyerId 分页，可选 orderStatus 筛选
+     */
+    @Override
+    public Response listMyOrders(Long buyerId, Integer orderStatus, Integer pageNum, Integer pageSize) {
+        if (buyerId == null) {
+            return Response.fail(401, "未登录");
+        }
+        Page<OrderVO> page = new Page<>(pageNum, pageSize);
+        IPage<OrderVO> result = baseMapper.selectOrderPage(
+                page, buyerId, null, null, null, null, null, null, orderStatus, null, null);
+        result.getRecords().forEach(vo -> vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus())));
+        return Response.ok(PageResultVO.of(result));
+    }
+
+    /**
+     * C 端订单详情：校验订单归属当前买家，防越权
+     */
+    @Override
+    public Response getOrderDetailForUser(Long id, Long currentUserId) {
+        if (currentUserId == null) {
+            return Response.fail(401, "未登录");
+        }
+        Order order = getById(id);
+        if (order == null) {
+            return Response.fail(500, "订单不存在");
+        }
+        if (!Objects.equals(order.getBuyerId(), currentUserId)) {
+            return Response.fail(403, "无权查看该订单");
+        }
+        OrderVO vo = new OrderVO();
+        BeanConvertUtils.copyProperties(order, vo);
+        vo.setOrderStatusName(OrderStatus.descOf(order.getOrderStatus()));
+        return Response.ok(vo);
     }
 }

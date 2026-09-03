@@ -364,6 +364,53 @@ CREATE TABLE IF NOT EXISTS `t_consign_goods_operate_log` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抢购托售商品操作日志表';
 
 -- =============================================
+-- 委托代卖事件全生命周期快照表 t_consign_record
+-- =============================================
+-- 设计要点：
+--   1. 一条记录 = 一次委托事件全生命周期：1待审核 -> 2审核通过已上架 -> 3已卖出(终态) / 4未售出下架(终态) / 5审核驳回(终态)
+--   2. 一次委托申请只 INSERT 一条；后续审核/卖出/下架均 UPDATE 该条，禁止新增第二条
+--   3. 快照字段(member_id/member_name/goods_name/goods_price/cover_img/session_id)发起委托时冻结，永不修改
+--      成交字段(sold_time/sold_price/buyer_*)卖出时冻结；下架字段(delist_time/delist_reason)下架时冻结
+--   4. 商品当前业务状态永远以主表 t_consign_goods 为准；本表仅存历史快照履历，禁止作为业务判断依据
+--   5. 幂等：CREATE TABLE IF NOT EXISTS
+CREATE TABLE IF NOT EXISTS `t_consign_record` (
+    `id`                 BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `consign_goods_id`   BIGINT        NOT NULL COMMENT '主表t_consign_goods主键ID',
+    -- 发起委托时快照（冻结当时数据，永不更新）
+    `member_id`          BIGINT        DEFAULT NULL COMMENT '委托人(本轮卖家)会员ID',
+    `member_name`        VARCHAR(64)   DEFAULT NULL COMMENT '快照-委托人昵称',
+    `goods_name`         VARCHAR(255)  DEFAULT NULL COMMENT '快照-委托时商品名称',
+    `goods_price`        DECIMAL(10,2) DEFAULT NULL COMMENT '快照-委托时商品价格',
+    `cover_img`          VARCHAR(500)  DEFAULT NULL COMMENT '快照-委托时商品缩略图',
+    `session_id`         BIGINT        DEFAULT NULL COMMENT '所属场次ID(冗余)',
+    -- 生命周期状态
+    `record_status`      TINYINT       NOT NULL COMMENT '委托记录状态:1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回',
+    -- 审核字段
+    `reject_reason`      VARCHAR(500)  DEFAULT NULL COMMENT '驳回原因',
+    `apply_time`         DATETIME      NOT NULL COMMENT '发起委托申请时间',
+    `audit_time`         DATETIME      DEFAULT NULL COMMENT '审核时间',
+    `audit_operator_id`  BIGINT        DEFAULT NULL COMMENT '审核管理员ID',
+    `audit_operator_name` VARCHAR(64)  DEFAULT NULL COMMENT '审核管理员名称',
+    -- 成交字段（卖出时快照）
+    `sold_time`          DATETIME      DEFAULT NULL COMMENT '卖出时间',
+    `sold_price`         DECIMAL(10,2) DEFAULT NULL COMMENT '快照-成交价',
+    `buyer_id`           BIGINT        DEFAULT NULL COMMENT '快照-买家ID',
+    `buyer_name`         VARCHAR(64)   DEFAULT NULL COMMENT '快照-买家昵称',
+    `buyer_phone`        VARCHAR(11)   DEFAULT NULL COMMENT '快照-买家手机号',
+    -- 下架字段（未售出下架时）
+    `delist_time`        DATETIME      DEFAULT NULL COMMENT '下架时间',
+    `delist_reason`      VARCHAR(500)  DEFAULT NULL COMMENT '下架原因:超时未售出/卖家主动取消/后台下架等',
+    `remark`             VARCHAR(500)  DEFAULT NULL COMMENT '备注',
+    `create_time`        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time`        DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`         TINYINT       NOT NULL DEFAULT 0 COMMENT '逻辑删除 0正常 1删除',
+    PRIMARY KEY (`id`),
+    KEY `idx_consign_goods_id` (`consign_goods_id`),
+    KEY `idx_member_id` (`member_id`),
+    KEY `idx_record_status` (`record_status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='委托代卖事件全生命周期快照表';
+
+-- =============================================
 -- 订单模块表：t_order / t_order_operate_log
 -- =============================================
 

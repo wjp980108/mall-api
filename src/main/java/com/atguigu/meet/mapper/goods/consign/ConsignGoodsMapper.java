@@ -43,6 +43,13 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
      * 根据ID查询抢购托售商品详情（含委托人信息 + 场次名称）
      */
     ConsignGoodsVO selectConsignGoodsById(@Param("id") Long id);
+
+    /**
+     * C 端在售抢购商品分页：上架(onlineStatus=1) + 挂卖中(goodsStatus=1)
+     * + 场次开启(sessionStatus=1) + 当前时间在场次抢购时间窗口内(CURTIME() BETWEEN rush_start_time AND rush_end_time)
+     * <p>含委托人信息 + 场次名，按场次排序 + 创建时间倒序。
+     */
+    IPage<ConsignGoodsVO> selectSaleGoodsPage(Page<ConsignGoodsVO> page);
     /**
      * 抢购托售商品：按条件更新（用于并发安全的状态推进/回滚，affectedRows 判断冲突）
      * <p>除 id/状态外其余参数传 null 表示不修改该字段。

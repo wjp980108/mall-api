@@ -31,11 +31,34 @@ public class AppConsignGoodsController {
      * 在售抢购商品列表
      * （抢购入口）
      * <p>过滤：上架+挂卖中+场次开启+当前在抢购时间窗口内；含委托人信息+场次名。
+     * <p>可选 sessionId 按场次筛选，对应「场次对应的商品列表」需求。
      */
     @GetMapping("/sale")
-    public Response listSaleGoods(@RequestParam(defaultValue = "1") Integer pageNum,
+    public Response listSaleGoods(@RequestParam(required = false) Long sessionId,
+                                  @RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {
-        return consignGoodsService.listSaleGoods(pageNum, pageSize);
+        return consignGoodsService.listSaleGoods(pageNum, pageSize, sessionId);
+    }
+
+    /**
+     * 首页搜索商品
+     * <p>按商品名称模糊查询上架+挂卖中商品，按销量优先排序。
+     */
+    @GetMapping("/search")
+    public Response searchGoods(@RequestParam(required = false) String keyword,
+                                @RequestParam(defaultValue = "1") Integer pageNum,
+                                @RequestParam(defaultValue = "10") Integer pageSize) {
+        return consignGoodsService.searchGoods(keyword, pageNum, pageSize);
+    }
+
+    /**
+     * 首页商品推荐
+     * <p>返回当前可抢购的热门商品，按 sale_times 倒序（销量优先）。
+     */
+    @GetMapping("/recommend")
+    public Response recommendGoods(@RequestParam(defaultValue = "1") Integer pageNum,
+                                   @RequestParam(defaultValue = "10") Integer pageSize) {
+        return consignGoodsService.recommendGoods(pageNum, pageSize);
     }
 
     /**

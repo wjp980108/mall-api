@@ -90,10 +90,30 @@ public interface ConsignGoodsService {
      * C 端「在售抢购商品列表」：当前可抢购的商品
      * <p>过滤条件：上架(onlineStatus=1) + 挂卖中(goodsStatus=1) + 场次开启(sessionStatus=1)
      * + 当前时间在场次抢购时间窗口内(CURTIME() BETWEEN rushStartTime AND rushEndTime)；
-     * 按场次排序 + 创建时间倒序，含委托人信息 + 场次名。
+     * 按场次排序 + 创建时间倒序，含委托人信息 + 场次名；可选 sessionId 精确过滤。
+     *
+     * @param pageNum  页码
+     * @param pageSize 每页条数
+     * @param sessionId 场次ID（传 null 则不按场次过滤，返回所有当前可抢购商品）
+     */
+    Response listSaleGoods(Integer pageNum, Integer pageSize, Long sessionId);
+
+    /**
+     * C 端首页搜索商品：上架(onlineStatus=1) + 挂卖中(goodsStatus=1)
+     * <p>按商品名称模糊查询，按 sale_times 倒序(销量优先) + 创建时间倒序，含委托人信息 + 场次名。
+     *
+     * @param keyword  搜索关键字（商品名称模糊匹配）
+     * @param pageNum  页码
+     * @param pageSize 每页条数
+     */
+    Response searchGoods(String keyword, Integer pageNum, Integer pageSize);
+
+    /**
+     * C 端首页推荐商品：上架(onlineStatus=1) + 挂卖中(goodsStatus=1) + 场次开启 + 在抢购时间窗口内
+     * <p>按 sale_times 倒序(销量优先) + 创建时间倒序，含委托人信息 + 场次名。
      *
      * @param pageNum  页码
      * @param pageSize 每页条数
      */
-    Response listSaleGoods(Integer pageNum, Integer pageSize);
+    Response recommendGoods(Integer pageNum, Integer pageSize);
 }

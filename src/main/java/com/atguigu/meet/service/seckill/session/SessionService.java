@@ -31,4 +31,10 @@ public interface SessionService {
 
     /** 场次下拉选项列表（仅启用场次） */
     Response getSessionOptions();
+
+    /**
+     * C 端「启用场次列表」：返回所有启用场次完整信息
+     * <p>按 sort 升序 + 创建时间倒序，含抢购时间窗口、背景图、进场控制等，供 H5 首页展示。
+     */
+    Response getAllEnabledSessions();
 }

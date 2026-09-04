@@ -94,7 +94,7 @@
         C 端在售抢购商品分页：
         上架(online_status=1) + 挂卖中(goods_status=1) + 场次开启(session_status=1)
         + 当前时间在场次每日抢购时间窗口内(CURTIME() BETWEEN rush_start_time AND rush_end_time)
-        按 s.sort 升序（场次展示顺序）+ g.create_time 倒序
+        按 s.sort 升序（场次展示顺序）+ g.create_time 倒序；可选 sessionId 精确过滤
     -->
     <select id="selectSaleGoodsPage" resultMap="ConsignGoodsResultMap">
         SELECT <include refid="baseColumnList"/>
@@ -106,7 +106,46 @@
           AND g.goods_status = 1
           AND s.session_status = 1
           AND CURTIME() BETWEEN s.rush_start_time AND s.rush_end_time
+        <if test="sessionId != null">
+            AND g.session_id = #{sessionId}
+        </if>
         ORDER BY s.sort ASC, g.create_time DESC
+    </select>
+
+    <!--
+        C 端首页搜索商品分页：上架(online_status=1) + 挂卖中(goods_status=1)
+        按商品名称模糊查询，按 sale_times 倒序(销量优先) + 创建时间倒序
+    -->
+    <select id="selectSearchGoodsPage" resultMap="ConsignGoodsResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM t_consign_goods g
+        LEFT JOIN sys_user u ON g.member_id = u.id AND u.is_deleted = 0
+        LEFT JOIN t_session s ON g.session_id = s.id
+        WHERE g.is_deleted = 0
+          AND g.online_status = 1
+          AND g.goods_status = 1
+        <if test="goodsName != null and goodsName != ''">
+            AND g.goods_name LIKE CONCAT('%', #{goodsName}, '%')
+        </if>
+        ORDER BY g.sale_times DESC, g.create_time DESC
+    </select>
+
+    <!--
+        C 端首页推荐商品分页：上架(online_status=1) + 挂卖中(goods_status=1)
+        + 场次开启(session_status=1) + 当前时间在场次抢购时间窗口内
+        按 sale_times 倒序(销量优先) + 创建时间倒序
+    -->
+    <select id="selectRecommendGoodsPage" resultMap="ConsignGoodsResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM t_consign_goods g
+        LEFT JOIN sys_user u ON g.member_id = u.id AND u.is_deleted = 0
+        INNER JOIN t_session s ON g.session_id = s.id AND s.is_deleted = 0
+        WHERE g.is_deleted = 0
+          AND g.online_status = 1
+          AND g.goods_status = 1
+          AND s.session_status = 1
+          AND CURTIME() BETWEEN s.rush_start_time AND s.rush_end_time
+        ORDER BY g.sale_times DESC, g.create_time DESC
     </select>
 
     <!--

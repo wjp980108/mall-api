@@ -47,9 +47,26 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
     /**
      * C 端在售抢购商品分页：上架(onlineStatus=1) + 挂卖中(goodsStatus=1)
      * + 场次开启(sessionStatus=1) + 当前时间在场次抢购时间窗口内(CURTIME() BETWEEN rush_start_time AND rush_end_time)
-     * <p>含委托人信息 + 场次名，按场次排序 + 创建时间倒序。
+     * <p>含委托人信息 + 场次名，按场次排序 + 创建时间倒序；可选 sessionId 精确过滤。
+     *
+     * @param sessionId 场次ID（传 null 则不按场次过滤）
      */
-    IPage<ConsignGoodsVO> selectSaleGoodsPage(Page<ConsignGoodsVO> page);
+    IPage<ConsignGoodsVO> selectSaleGoodsPage(Page<ConsignGoodsVO> page, @Param("sessionId") Long sessionId);
+
+    /**
+     * C 端首页搜索商品分页：上架(onlineStatus=1) + 挂卖中(goodsStatus=1)
+     * <p>按商品名称模糊查询，含委托人信息 + 场次名，按 sale_times 倒序 + 创建时间倒序。
+     *
+     * @param goodsName 商品名称关键字（模糊查询）
+     */
+    IPage<ConsignGoodsVO> selectSearchGoodsPage(Page<ConsignGoodsVO> page, @Param("goodsName") String goodsName);
+
+    /**
+     * C 端首页推荐商品分页：上架(onlineStatus=1) + 挂卖中(goodsStatus=1)
+     * + 场次开启(sessionStatus=1) + 当前时间在场次抢购时间窗口内
+     * <p>按 sale_times 倒序（销量优先）+ 创建时间倒序，含委托人信息 + 场次名。
+     */
+    IPage<ConsignGoodsVO> selectRecommendGoodsPage(Page<ConsignGoodsVO> page);
     /**
      * 抢购托售商品：按条件更新（用于并发安全的状态推进/回滚，affectedRows 判断冲突）
      * <p>除 id/状态外其余参数传 null 表示不修改该字段。

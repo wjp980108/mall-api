@@ -247,13 +247,43 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
     }
 
     /**
-     * C 端「在售抢购商品列表」：上架+挂卖中+场次开启+当前在抢购时间窗口内
+     * C 端「在售抢购商品列表」：上架+挂卖中+场次开启+当前在抢购时间窗口内；可选 sessionId 过滤
      */
     @Override
-    public Response listSaleGoods(Integer pageNum, Integer pageSize) {
+    public Response listSaleGoods(Integer pageNum, Integer pageSize, Long sessionId) {
         Page<ConsignGoodsVO> page = new Page<>(pageNum, pageSize);
-        IPage<ConsignGoodsVO> result = baseMapper.selectSaleGoodsPage(page);
+        IPage<ConsignGoodsVO> result = baseMapper.selectSaleGoodsPage(page, sessionId);
         // 组装商品业务状态/委托状态/审核状态中文名（VO 层派生字段）
+        result.getRecords().forEach(vo -> {
+            vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
+            vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
+            vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+        });
+        return Response.ok(PageResultVO.of(result));
+    }
+
+    /**
+     * C 端首页搜索商品：上架+挂卖中，按商品名称模糊查询，按 sale_times 倒序
+     */
+    @Override
+    public Response searchGoods(String keyword, Integer pageNum, Integer pageSize) {
+        Page<ConsignGoodsVO> page = new Page<>(pageNum, pageSize);
+        IPage<ConsignGoodsVO> result = baseMapper.selectSearchGoodsPage(page, keyword);
+        result.getRecords().forEach(vo -> {
+            vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
+            vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
+            vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+        });
+        return Response.ok(PageResultVO.of(result));
+    }
+
+    /**
+     * C 端首页推荐商品：上架+挂卖中+场次开启+在抢购时间窗口内，按 sale_times 倒序
+     */
+    @Override
+    public Response recommendGoods(Integer pageNum, Integer pageSize) {
+        Page<ConsignGoodsVO> page = new Page<>(pageNum, pageSize);
+        IPage<ConsignGoodsVO> result = baseMapper.selectRecommendGoodsPage(page);
         result.getRecords().forEach(vo -> {
             vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
             vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));

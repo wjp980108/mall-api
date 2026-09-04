@@ -150,4 +150,18 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         }
         return Response.ok(options);
     }
+
+    /**
+     * C 端「启用场次列表」：返回所有启用场次完整信息
+     * <p>按 sort 升序 + 创建时间倒序，含抢购时间窗口、背景图、进场控制等，供 H5 首页展示。
+     */
+    @Override
+    public Response getAllEnabledSessions() {
+        LambdaQueryWrapper<Session> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Session::getSessionStatus, 1);
+        wrapper.orderByAsc(Session::getSort);
+        wrapper.orderByDesc(Session::getCreateTime);
+        List<Session> sessions = list(wrapper);
+        return Response.ok(sessions);
+    }
 }

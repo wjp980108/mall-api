@@ -14,10 +14,13 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 委托商品接口
- * （抢购浏览 / 我持有的 / 商品详情 / 申请委托）
+ * （商品详情 / 我持有的 / 申请委托）
  * <p>
  * 不走 {@code @RequirePermission}（后台 RBAC），依赖 JWT 登录态；
  * Service 层校验商品持有者归属（goods.member_id == 当前用户），防越权。
+ * <p>
+ * 首页推荐/搜索见 {@code AppHomeController}（/app/home），抢购在售商品列表见
+ * {@code AppSessionController}（/app/session/sale-goods）。
  */
 @RestController
 @RequestMapping("/app/consign-goods")
@@ -26,40 +29,6 @@ public class AppConsignGoodsController {
 
     @Autowired
     private ConsignGoodsService consignGoodsService;
-
-    /**
-     * 在售抢购商品列表
-     * （抢购入口）
-     * <p>过滤：上架+挂卖中+场次开启+当前在抢购时间窗口内；含委托人信息+场次名。
-     * <p>可选 sessionId 按场次筛选，对应「场次对应的商品列表」需求。
-     */
-    @GetMapping("/sale")
-    public Response listSaleGoods(@RequestParam(required = false) Long sessionId,
-                                  @RequestParam(defaultValue = "1") Integer pageNum,
-                                  @RequestParam(defaultValue = "10") Integer pageSize) {
-        return consignGoodsService.listSaleGoods(pageNum, pageSize, sessionId);
-    }
-
-    /**
-     * 首页搜索商品
-     * <p>按商品名称模糊查询上架+挂卖中商品，按销量优先排序。
-     */
-    @GetMapping("/search")
-    public Response searchGoods(@RequestParam(required = false) String keyword,
-                                @RequestParam(defaultValue = "1") Integer pageNum,
-                                @RequestParam(defaultValue = "10") Integer pageSize) {
-        return consignGoodsService.searchGoods(keyword, pageNum, pageSize);
-    }
-
-    /**
-     * 首页商品推荐
-     * <p>返回当前可抢购的热门商品，按 sale_times 倒序（销量优先）。
-     */
-    @GetMapping("/recommend")
-    public Response recommendGoods(@RequestParam(defaultValue = "1") Integer pageNum,
-                                   @RequestParam(defaultValue = "10") Integer pageSize) {
-        return consignGoodsService.recommendGoods(pageNum, pageSize);
-    }
 
     /**
      * 商品详情

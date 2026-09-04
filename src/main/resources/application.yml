@@ -23,7 +23,7 @@ jwt:
       - /auth/login
       - /app/auth/login
       - /app/auth/register
-      - /app/user/password
+      - /app/user/forgot-password
       - /app/agreement
       - /upload/**
 #      - /user/update

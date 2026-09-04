@@ -13,6 +13,7 @@ import com.atguigu.meet.model.dto.goods.list.GoodsUpdateDTO;
 import com.atguigu.meet.model.entity.goods.list.Goods;
 import com.atguigu.meet.model.entity.goods.list.GoodsOperateLog;
 import com.atguigu.meet.model.vo.PageResultVO;
+import com.atguigu.meet.model.vo.goods.home.AppHomeGoodsVO;
 import com.atguigu.meet.service.goods.list.GoodsService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
@@ -239,7 +240,53 @@ public class GoodsServiceImpl extends ServiceImpl<GoodsMapper, Goods> implements
         return Response.ok("成功删除" + idList.size() + "个商品", null);
     }
 
+    // ====================== C 端首页接口（基于 t_goods） ======================
+
+    @Override
+    public Response recommendGoods(Integer pageNum, Integer pageSize) {
+        LambdaQueryWrapper<Goods> wrapper = homeBaseWrapper()
+                .orderByDesc(Goods::getSales)
+                .orderByDesc(Goods::getId);
+        IPage<Goods> result = page(new Page<>(pageNum, pageSize), wrapper);
+        return Response.ok(PageResultVO.of(toHomeVOPage(result)));
+    }
+
+    @Override
+    public Response searchGoods(String keyword, Integer pageNum, Integer pageSize) {
+        LambdaQueryWrapper<Goods> wrapper = homeBaseWrapper();
+        if (StringUtils.hasText(keyword)) {
+            wrapper.like(Goods::getGoodsName, keyword.trim());
+        }
+        wrapper.orderByDesc(Goods::getSales)
+                .orderByDesc(Goods::getId);
+        IPage<Goods> result = page(new Page<>(pageNum, pageSize), wrapper);
+        return Response.ok(PageResultVO.of(toHomeVOPage(result)));
+    }
+
     // ====================== 私有方法 ======================
+
+    /**
+     * C 端首页查询基础条件：仅取展示列 + 已上架(status=1)；is_deleted 由 @TableLogic 自动过滤
+     */
+    private LambdaQueryWrapper<Goods> homeBaseWrapper() {
+        return new LambdaQueryWrapper<Goods>()
+                .select(Goods::getId, Goods::getGoodsName, Goods::getCategoryName,
+                        Goods::getGoodsThumb, Goods::getPrice, Goods::getStock, Goods::getSales)
+                .eq(Goods::getStatus, 1);
+    }
+
+    /**
+     * Goods 分页结果转 C 端首页 VO 分页（仅暴露 C 端展示字段，不透出后台管理字段）
+     */
+    private Page<AppHomeGoodsVO> toHomeVOPage(IPage<Goods> result) {
+        Page<AppHomeGoodsVO> voPage = new Page<>(result.getCurrent(), result.getSize(), result.getTotal());
+        voPage.setRecords(result.getRecords().stream().map(goods -> {
+            AppHomeGoodsVO vo = new AppHomeGoodsVO();
+            BeanConvertUtils.copyProperties(goods, vo);
+            return vo;
+        }).collect(Collectors.toList()));
+        return voPage;
+    }
 
     /**
      * 货号唯一性校验（排除指定商品ID，新增时传 null）

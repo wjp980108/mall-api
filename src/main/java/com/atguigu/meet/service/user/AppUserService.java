@@ -2,10 +2,11 @@ package com.atguigu.meet.service.user;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.user.AppChangePasswordDTO;
+import com.atguigu.meet.model.dto.user.AppForgotPasswordDTO;
 import com.atguigu.meet.model.dto.user.AppUpdateUserInfoDTO;
 
 /**
- * H5 端用户中心 Service（当前用户信息、修改用户信息、修改密码）
+ * H5 端用户中心 Service（当前用户信息、修改用户信息、修改密码、忘记密码）
  */
 public interface AppUserService {
 
@@ -17,4 +18,7 @@ public interface AppUserService {
 
     /** 修改当前登录用户密码（仅需手机号 + 新密码，手机号须与登录用户一致） */
     Response changePassword(AppChangePasswordDTO dto);
+
+    /** 忘记密码/重置密码（无需登录，凭注册手机号 + 新密码重置） */
+    Response forgotPassword(AppForgotPasswordDTO dto);
 }

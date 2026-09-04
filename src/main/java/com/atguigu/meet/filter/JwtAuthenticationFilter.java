@@ -78,6 +78,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             HttpServletRequest request,
             HttpServletResponse response,
             FilterChain filterChain) throws ServletException, IOException {
+        // —— 请求进入前先清理上一个请求残留的 ThreadLocal（Tomcat 线程池复用会导致越权串号）。
+        //    即使是白名单路径，也必须先清理再放行，防止上一个已登录请求的 AdminUser 泄漏到本请求被业务读到。
+        SecurityContextHolder.clearContext();
+        AdminContext.remove();
+
         // ====================== 1. 判断接口 uri 是否无需 token, 无 token 直接放行, 交给 Security 拦截
         // ======================
         // 注意:getRequestURI() 含 context-path(如 /api/auth/login),而 public-paths 配的是不含
@@ -89,20 +94,22 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (StringUtils.hasText(contextPath) && uri.startsWith(contextPath)) {
             pathForMatch = uri.substring(contextPath.length());
         } else {
-            pathForMatch = "";
+            // 未配置 context-path 或 uri 不带前缀时，直接用整个 uri 参与白名单匹配（否则会被设为 ""，所有白名单都失效）
+            pathForMatch = uri;
         }
         if (jwtSecurityProperties
                 .getPublicPaths()
                 .stream()
                 .anyMatch(pattern -> pathMatcher.match(pattern, pathForMatch))) {
+            // 白名单直接放行：不读取 token、不写 AdminContext / SecurityContext
             filterChain.doFilter(request, response);
             return;
         }
         // ====================== 2. 需要 token ======================
         String token = getTokenFormRequest(request);
         log.info("[JWT] Processing request - URI: {}, Token: {}", uri, token);
-        if (token != null && !"undefined".equals(token)) {
-            try {
+        try {
+            if (token != null && !"undefined".equals(token)) {
                 // ====================== 3. 校验 Token 是否合法 ======================
                 boolean isValid = jwtUtil.isTokenValid(token);
                 if (!isValid) {
@@ -174,16 +181,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 adminUser.setRoleCodes(roleCodes);
                 AdminContext.set(adminUser);
                 log.info("[JWT] 用户上下文已设置，userId={}, builtinSuperAdmin={}", userId, isBuiltinSuper);
-            } catch (Exception ex) {
-                // 任何异常都清空认证信息，避免上下文泄漏
-                SecurityContextHolder.clearContext();
-                AdminContext.remove();
-                log.error("[JWT] 令牌验证失败: {}", ex.getMessage(), ex);
-                authenticationEntryPoint.commence(request, response,
-                        new AuthenticationServiceException("令牌验证失败: " + ex.getMessage()));
-                return;
             }
+            filterChain.doFilter(request, response);
+        } catch (Exception ex) {
+            // 任何异常都清空认证信息，避免上下文泄漏
+            SecurityContextHolder.clearContext();
+            AdminContext.remove();
+            log.error("[JWT] 令牌验证失败: {}", ex.getMessage(), ex);
+            authenticationEntryPoint.commence(request, response,
+                    new AuthenticationServiceException("令牌验证失败: " + ex.getMessage()));
+            return;
+        } finally {
+            // ====================== 7. 请求结束务必清理 ThreadLocal，防止 Tomcat 线程池复用导致
+            //    上一个请求的登录身份 / 权限 串号到下一个请求（表现为"有时候 401，有时候手机号/账号不一致"）。
+            SecurityContextHolder.clearContext();
+            AdminContext.remove();
         }
-        filterChain.doFilter(request, response);
     }
 }

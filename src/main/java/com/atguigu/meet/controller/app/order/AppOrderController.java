@@ -29,7 +29,7 @@ public class AppOrderController {
     private OrderService orderService;
 
     /**
-     * 我的订单列表
+     * 我的买方仓库
      * （按 buyerId 分页，可选 orderStatus 筛选）
      */
     @GetMapping("/my-list")

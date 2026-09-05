@@ -84,7 +84,10 @@
 
     <!-- 根据ID查询详情：JOIN sys_user 实时获取委托人信息 -->
     <select id="selectConsignGoodsById" resultMap="ConsignGoodsResultMap">
-        SELECT <include refid="baseColumnList"/>
+        SELECT <include refid="baseColumnList"/>,
+               CASE WHEN s.session_status = 1 
+                    AND CURTIME() BETWEEN s.rush_start_time AND s.rush_end_time 
+                    THEN 1 ELSE 0 END AS can_purchase
         FROM t_consign_goods g
         LEFT JOIN sys_user u ON g.member_id = u.id AND u.is_deleted = 0
         LEFT JOIN t_session s ON g.session_id = s.id

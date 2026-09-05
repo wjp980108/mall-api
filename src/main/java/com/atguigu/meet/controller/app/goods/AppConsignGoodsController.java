@@ -47,12 +47,12 @@ public class AppConsignGoodsController {
      * 我持有的商品
      * （goodsStatus=4待处理 + memberId=当前用户，委托前置）
      */
-    @GetMapping("/my-held")
+    /*@GetMapping("/my-held")
     @Operation(summary = "我持有的商品", description = "查询当前用户持有的商品")
     public Response listMyHeld(@RequestParam(defaultValue = "1") Integer pageNum,
                                @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignGoodsService.listMyHeld(AdminContext.getLoginUserId(), pageNum, pageSize);
-    }
+    }*/
 
     /**
      * 申请委托代卖

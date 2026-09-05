@@ -54,6 +54,9 @@ public class ConsignGoodsVO {
     /** 场次名称（JOIN t_session 获取） */
     private String sessionName;
 
+    /** 是否可购买（场次开启且当前时间在抢购时间窗口内） */
+    private Boolean canPurchase;
+
     /**
      * 委托人简要信息
      * 每次 JOIN sys_user 查询最新数据，用户表更新后自动同步

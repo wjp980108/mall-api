@@ -43,10 +43,10 @@ public class AppConsignRecordController {
      * 我的买入记录
      * （作为买家已成交的委托记录，按卖出时间倒序）
      */
-    @GetMapping("/my-bought")
+    /*@GetMapping("/my-bought")
     @Operation(summary = "我的买入记录", description = "查询当前用户的买入记录")
     public Response listMyBought(@RequestParam(defaultValue = "1") Integer pageNum,
                                  @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignRecordService.listMyBought(AdminContext.getLoginUserId(), pageNum, pageSize);
-    }
+    }*/
 }

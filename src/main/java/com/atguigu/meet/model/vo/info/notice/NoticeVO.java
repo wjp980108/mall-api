@@ -13,6 +13,7 @@ public class NoticeVO {
     private Long id;
     private String title;
     private String content;
+    private String position;
     private Integer sort;
     private Boolean status;
     private LocalDateTime createTime;

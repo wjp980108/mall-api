@@ -30,8 +30,8 @@ public class AppNoticeController {
      */
     @GetMapping("/enabled")
     @Operation(summary = "启用公告列表", description = "获取所有启用的公告列表")
-    public Response listEnabled() {
-        return noticeService.getAllEnabledNotices();
+    public Response listEnabled(String position) {
+        return noticeService.getAllEnabledNotices(position);
     }
 
     /**

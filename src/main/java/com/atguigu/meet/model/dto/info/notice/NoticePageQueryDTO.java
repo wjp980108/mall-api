@@ -29,6 +29,10 @@ public class NoticePageQueryDTO {
     @Schema(description = "状态", example = "1", allowableValues = {"0", "1"})
     private Integer status;
     
+    /** 公告位置：home=首页 */
+    @Schema(description = "公告位置", example = "home")
+    private String position;
+    
     /**
      * 创建时间范围，格式 yyyy-MM-dd
      * <p>数组第一项为开始日期（补 00:00:00），第二项为结束日期（补 23:59:59）</p>

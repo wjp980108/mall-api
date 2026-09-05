@@ -19,6 +19,9 @@ public class NoticeSaveDTO {
     @NotBlank(message = "公告内容不能为空")
     private String content;
 
+    @Schema(description = "公告位置", example = "home")
+    private String position;
+
     /** 排序，数值越大越靠前展示 */
     @Schema(description = "排序", example = "100")
     private Integer sort;

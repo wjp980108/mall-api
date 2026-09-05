@@ -17,7 +17,7 @@ public interface NoticeService {
     Response getNoticeById(Long id);
 
     /** 所有启用公告（C端展示/下拉用） */
-    Response getAllEnabledNotices();
+    Response getAllEnabledNotices(String position);
 
     /** 新增公告 */
     Response addNotice(NoticeSaveDTO dto);

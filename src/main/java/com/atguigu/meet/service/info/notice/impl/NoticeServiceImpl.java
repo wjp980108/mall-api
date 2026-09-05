@@ -51,6 +51,9 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
         if (parameter.getStatus() != null) {
             wrapper.eq(Notice::getStatus, parameter.getStatus());
         }
+        if (StringUtils.hasText(parameter.getPosition())) {
+            wrapper.eq(Notice::getPosition, parameter.getPosition());
+        }
         // 解析时间范围：timeRange[0] -> 当天 00:00:00，timeRange[1] -> 当天 23:59:59
         List<String> timeRange = parameter.getTimeRange();
         if (timeRange != null && !timeRange.isEmpty()) {
@@ -95,9 +98,12 @@ public class NoticeServiceImpl extends ServiceImpl<NoticeMapper, Notice> impleme
     }
 
     @Override
-    public Response getAllEnabledNotices() {
+    public Response getAllEnabledNotices(String position) {
         LambdaQueryWrapper<Notice> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(Notice::getStatus, 1);
+        if (StringUtils.hasText(position)) {
+            wrapper.eq(Notice::getPosition, position);
+        }
         wrapper.orderByDesc(Notice::getSort);
         wrapper.orderByDesc(Notice::getCreateTime);
         List<Notice> notices = list(wrapper);

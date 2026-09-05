@@ -28,6 +28,9 @@ public class Notice extends Model<Notice> {
     /** 富文本公告内容 */
     private String content;
 
+    /** 公告位置：home=首页 */
+    private String position;
+
     /** 排序，数值越大越靠前展示 */
     private Integer sort = 0;
 

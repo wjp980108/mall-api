@@ -161,6 +161,7 @@ CREATE TABLE IF NOT EXISTS `t_notice` (
     `id`          bigint       NOT NULL AUTO_INCREMENT COMMENT '公告ID，主键',
     `title`       varchar(200) NOT NULL COMMENT '公告标题',
     `content`     longtext     NOT NULL COMMENT '富文本公告内容',
+    `position`    varchar(32)  NOT NULL DEFAULT 'home' COMMENT '公告位置：home=首页',
     `sort`        int          DEFAULT 0 COMMENT '排序，数值越大越靠前展示',
     `status`      tinyint      NOT NULL DEFAULT 1 COMMENT '状态：0-禁用，1-启用',
     `is_deleted`  tinyint      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0未删 1已删',
@@ -169,6 +170,7 @@ CREATE TABLE IF NOT EXISTS `t_notice` (
     `create_by`   bigint       DEFAULT NULL COMMENT '操作人ID(管理员id)',
     `update_by`   bigint       DEFAULT NULL COMMENT '更新人ID',
     PRIMARY KEY (`id`),
+    KEY `idx_position` (`position`),
     KEY `idx_status_deleted` (`status`,`is_deleted`) COMMENT '查询C端公告联合索引'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='平台公告表';
 

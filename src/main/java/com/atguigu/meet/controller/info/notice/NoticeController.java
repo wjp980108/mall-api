@@ -37,8 +37,8 @@ public class NoticeController {
     @GetMapping("/enabled")
     @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "所有启用公告", description = "获取所有启用的公告（C端展示/下拉用）")
-    public Response getAllEnabledNotices() {
-        return noticeService.getAllEnabledNotices();
+    public Response getAllEnabledNotices(String position) {
+        return noticeService.getAllEnabledNotices(position);
     }
 
     /** 根据ID查公告（含阅读次数） */

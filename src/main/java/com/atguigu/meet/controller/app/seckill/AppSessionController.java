@@ -3,6 +3,8 @@ package com.atguigu.meet.controller.app.seckill;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.seckill.session.SessionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -18,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/app/session")
+@Tag(name = "H5抢购", description = "H5端抢购场次与商品查询")
 public class AppSessionController {
 
     @Autowired
@@ -31,6 +34,7 @@ public class AppSessionController {
      * （C 端首页展示，按 sort 升序 + 创建时间倒序，返回完整字段含时间窗口/背景图）
      */
     @GetMapping("/enabled")
+    @Operation(summary = "启用场次列表", description = "获取所有启用的抢购场次")
     public Response listEnabled() {
         return sessionService.getAllEnabledSessions();
     }
@@ -42,6 +46,7 @@ public class AppSessionController {
      * <p>可选 sessionId 按场次筛选。
      */
     @GetMapping("/sale-goods")
+    @Operation(summary = "在售抢购商品列表", description = "获取在售的抢购商品列表")
     public Response listSaleGoods(@RequestParam(required = false) Long sessionId,
                                   @RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {

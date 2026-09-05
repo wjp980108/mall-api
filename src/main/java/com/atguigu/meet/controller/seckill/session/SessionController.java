@@ -9,6 +9,8 @@ import com.atguigu.meet.model.dto.seckill.session.SessionStatusDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionUpdateDTO;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.seckill.session.SessionService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -21,6 +23,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RestController
 @RequestMapping("/sessions")
 @Validated
+@Tag(name = "抢购场次管理", description = "抢购场次CRUD及背景图管理")
 public class SessionController {
     @Autowired
     private SessionService sessionService;
@@ -34,6 +37,7 @@ public class SessionController {
      */
     @PostMapping("/bgImg")
     @RequirePermission(PermissionConst.SESSION_BG_UPLOAD)
+    @Operation(summary = "上传场次背景图", description = "上传抢购场次背景图")
     public Response uploadBgImg(@RequestParam("file") MultipartFile file,
                                 @RequestParam(value = "platform", required = false) String platform) {
         try {
@@ -46,6 +50,7 @@ public class SessionController {
     /** 分页列表 */
     @GetMapping
     @RequirePermission(PermissionConst.SESSION_QUERY)
+    @Operation(summary = "场次分页列表", description = "分页查询抢购场次列表")
     public Response getPageList(@Valid SessionPageQueryDTO parameter) {
         return sessionService.getPageList(parameter);
     }
@@ -53,6 +58,7 @@ public class SessionController {
     /** 场次下拉选项列表（仅启用场次） */
     @GetMapping("/options")
     @RequirePermission(PermissionConst.SESSION_QUERY)
+    @Operation(summary = "场次下拉选项", description = "获取启用的场次下拉选项列表")
     public Response getSessionOptions() {
         return sessionService.getSessionOptions();
     }
@@ -60,6 +66,7 @@ public class SessionController {
     /** 根据ID查场次 */
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.SESSION_QUERY)
+    @Operation(summary = "场次详情", description = "根据ID查询场次详情")
     public Response getSessionById(@PathVariable Long id) {
         return sessionService.getSessionById(id);
     }
@@ -67,6 +74,7 @@ public class SessionController {
     /** 新增场次 */
     @PostMapping
     @RequirePermission(PermissionConst.SESSION_ADD)
+    @Operation(summary = "新增场次", description = "创建新抢购场次")
     public Response addSession(@RequestBody @Valid SessionSaveDTO dto) {
         return sessionService.addSession(dto);
     }
@@ -74,6 +82,7 @@ public class SessionController {
     /** 修改场次 */
     @PutMapping
     @RequirePermission(PermissionConst.SESSION_UPDATE)
+    @Operation(summary = "修改场次", description = "更新场次信息")
     public Response updateSession(@RequestBody @Valid SessionUpdateDTO dto) {
         return sessionService.updateSession(dto);
     }
@@ -81,6 +90,7 @@ public class SessionController {
     /** 删除场次（逻辑删除） */
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.SESSION_DELETE)
+    @Operation(summary = "删除场次", description = "逻辑删除抢购场次")
     public Response deleteSession(@PathVariable Long id) {
         return sessionService.deleteSession(id);
     }
@@ -88,6 +98,7 @@ public class SessionController {
     /** 场次启用/禁用 */
     @PatchMapping("/status")
     @RequirePermission(PermissionConst.SESSION_STATUS)
+    @Operation(summary = "更新场次状态", description = "启用或禁用抢购场次")
     public Response updateStatus(@RequestBody @Valid SessionStatusDTO dto) {
         return sessionService.updateStatus(dto);
     }

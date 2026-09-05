@@ -1,5 +1,6 @@
 package com.atguigu.meet.model.dto.permission.user;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 
@@ -19,6 +20,7 @@ import java.util.List;
  * 角色由前端传入：roleIds（可选，为空时不分配角色）
  */
 @Data
+@Schema(description = "后台创建用户参数")
 public class UserCreateDTO extends UserBaseDTO {
 
     public UserCreateDTO() {
@@ -53,17 +55,20 @@ public class UserCreateDTO extends UserBaseDTO {
         }
     }
 
+    @Schema(description = "用户名", example = "zhangsan", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "用户名不能为空")
     @Override
     public String getUsername() {
         return super.getUsername();
     }
 
+    @Schema(description = "密码", example = "123456")
     @Override
     public String getPassword() {
         return super.getPassword();
     }
 
+    @Schema(description = "手机号", example = "13800138000", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "手机号不能为空")
     @Override
     public String getPhone() {
@@ -71,6 +76,7 @@ public class UserCreateDTO extends UserBaseDTO {
     }
 
     /** 角色ID列表（由前端传入，可选，为空时不分配角色） */
+    @Schema(description = "角色ID列表", example = "[1, 2]")
     private List<Long> roleIds;
 
 }

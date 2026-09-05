@@ -4,6 +4,8 @@ import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.service.file.FileService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -16,6 +18,7 @@ import org.springframework.web.multipart.MultipartFile;
  */
 @RestController
 @RequestMapping("/file")
+@Tag(name = "文件管理", description = "文件上传与删除接口")
 public class FileController {
     @Autowired
     public FileService fileService;
@@ -34,6 +37,7 @@ public class FileController {
      */
     @PostMapping("/upload")
     @RequirePermission(PermissionConst.FILE_UPLOAD)
+    @Operation(summary = "上传文件", description = "通用文件上传接口")
     public Response upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "bizType", required = false) String bizType,
@@ -52,6 +56,7 @@ public class FileController {
      */
     @DeleteMapping
     @RequirePermission(PermissionConst.FILE_DELETE)
+    @Operation(summary = "删除文件", description = "删除文件状态")
     public Response delete(@RequestParam("url") String url) {
         return fileService.delete(url);
     }

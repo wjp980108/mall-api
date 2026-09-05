@@ -3,6 +3,8 @@ package com.atguigu.meet.controller.app.goods;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
 import com.atguigu.meet.utils.AdminContext;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/app/consign-record")
 @Validated
+@Tag(name = "H5委托记录", description = "H5端我的委托/买入记录查询")
 public class AppConsignRecordController {
 
     @Autowired
@@ -30,6 +33,7 @@ public class AppConsignRecordController {
      * （作为委托人发起的委托履历，按申请时间倒序）
      */
     @GetMapping("/my-consign")
+    @Operation(summary = "我的委托记录", description = "查询当前用户的委托履历")
     public Response listMyConsign(@RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignRecordService.listMyConsign(AdminContext.getLoginUserId(), pageNum, pageSize);
@@ -40,6 +44,7 @@ public class AppConsignRecordController {
      * （作为买家已成交的委托记录，按卖出时间倒序）
      */
     @GetMapping("/my-bought")
+    @Operation(summary = "我的买入记录", description = "查询当前用户的买入记录")
     public Response listMyBought(@RequestParam(defaultValue = "1") Integer pageNum,
                                  @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignRecordService.listMyBought(AdminContext.getLoginUserId(), pageNum, pageSize);

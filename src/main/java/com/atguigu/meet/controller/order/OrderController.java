@@ -7,6 +7,8 @@ import com.atguigu.meet.model.dto.order.AllOrderQueryDTO;
 import com.atguigu.meet.model.dto.order.OrderOperateDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
 import com.atguigu.meet.service.order.OrderService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -30,6 +32,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/order")
 @Validated
+@Tag(name = "订单管理", description = "订单查询、操作管理接口")
 public class OrderController {
 
     @Autowired
@@ -40,6 +43,7 @@ public class OrderController {
     /**
      * 1. 所有订单分页列表（全量订单，支持状态筛选）
      */
+    @Operation(summary = "所有订单列表", description = "全量订单分页查询，支持状态筛选")
     @GetMapping("/list/all")
     @RequirePermission(PermissionConst.ORDER_ALL_QUERY)
     public Response listAll(@Valid AllOrderQueryDTO parameter) {
@@ -49,6 +53,7 @@ public class OrderController {
     /**
      * 2. 待付款订单列表（status=1，内部固定，支持【上传凭证、取消订单、删除订单】）
      */
+    @Operation(summary = "待付款订单列表", description = "查询待付款订单，支持上传凭证、取消订单、删除订单")
     @GetMapping("/list/waitPay")
     @RequirePermission(PermissionConst.ORDER_WAIT_PAY_QUERY)
     public Response listWaitPay(@Valid AllOrderQueryDTO parameter) {
@@ -58,6 +63,7 @@ public class OrderController {
     /**
      * 3. 待确认收款订单列表（status=2，内部固定，支持【确认收款、取消订单】）
      */
+    @Operation(summary = "待确认收款订单列表", description = "查询待确认收款订单，支持确认收款、取消订单")
     @GetMapping("/list/waitConfirm")
     @RequirePermission(PermissionConst.ORDER_WAIT_CONFIRM_QUERY)
     public Response listWaitConfirm(@Valid AllOrderQueryDTO parameter) {
@@ -67,6 +73,7 @@ public class OrderController {
     /**
      * 4. 代售记录列表（status=4，已完成委托代售，终态）
      */
+    @Operation(summary = "代售记录列表", description = "查询已完成委托代售的订单")
     @GetMapping("/list/agentSale")
     @RequirePermission(PermissionConst.ORDER_AGENT_SALE_QUERY)
     public Response listAgentSale(@Valid AllOrderQueryDTO parameter) {
@@ -76,6 +83,7 @@ public class OrderController {
     /**
      * 5. 已取消订单列表（status=5，仅查询不可操作）
      */
+    @Operation(summary = "已取消订单列表", description = "查询已取消的订单，仅查询不可操作")
     @GetMapping("/list/cancel")
     @RequirePermission(PermissionConst.ORDER_CANCEL_QUERY)
     public Response listCancel(@Valid AllOrderQueryDTO parameter) {
@@ -88,6 +96,7 @@ public class OrderController {
      * 6. 待付款订单上传支付凭证
      * <p>订单状态：1待付款 → 2已付款</p>
      */
+    @Operation(summary = "上传支付凭证", description = "待付款订单上传支付凭证，状态变为已付款")
     @PostMapping("/uploadVoucher")
     @RequirePermission(PermissionConst.ORDER_UPLOAD_VOUCHER)
     public Response uploadVoucher(@RequestBody @Valid UploadVoucherDTO dto) {
@@ -98,6 +107,7 @@ public class OrderController {
      * 7. 取消订单
      * <p>允许场景：待付款 / 已付款 → 已取消</p>
      */
+    @Operation(summary = "取消订单", description = "取消待付款或已付款订单")
     @PostMapping("/cancel")
     @RequirePermission(PermissionConst.ORDER_CANCEL)
     public Response cancelOrder(@RequestBody @Valid OrderOperateDTO dto) {
@@ -109,6 +119,7 @@ public class OrderController {
      * <p>允许场景：仅待付款订单</p>
      * <p>商品联动：重置初始状态，二次销售商品回滚至上一个售卖会员</p>
      */
+    @Operation(summary = "删除订单", description = "逻辑删除待付款订单，商品回滚")
     @PostMapping("/delete")
     @RequirePermission(PermissionConst.ORDER_DELETE)
     public Response deleteOrder(@RequestBody @Valid OrderOperateDTO dto) {
@@ -120,6 +131,7 @@ public class OrderController {
      * <p>订单状态：2已付款 → 3已确认 → 4已代售（系统自动流转至已代售）</p>
      * <p>商品联动：托售商品状态推进至 4待处理（交由买家持有，买家可在C端申请委托代卖），委托人变更为本次买家</p>
      */
+    @Operation(summary = "确认收款", description = "管理员确认收款，订单状态流转至已代售")
     @PostMapping("/confirmReceive")
     @RequirePermission(PermissionConst.ORDER_CONFIRM_RECEIVE)
     public Response confirmReceive(@RequestBody @Valid OrderOperateDTO dto) {

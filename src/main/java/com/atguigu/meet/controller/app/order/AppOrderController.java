@@ -6,6 +6,8 @@ import com.atguigu.meet.model.dto.order.PlaceOrderDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
 import com.atguigu.meet.service.order.OrderService;
 import com.atguigu.meet.utils.AdminContext;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -23,6 +25,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/app/order")
 @Validated
+@Tag(name = "H5订单", description = "H5端订单操作与查询")
 public class AppOrderController {
 
     @Autowired
@@ -33,6 +36,7 @@ public class AppOrderController {
      * （按 buyerId 分页，可选 orderStatus 筛选）
      */
     @GetMapping("/my-list")
+    @Operation(summary = "我的订单列表", description = "查询当前用户的订单列表")
     public Response listMyOrders(@RequestParam(required = false) Integer orderStatus,
                                  @RequestParam(defaultValue = "1") Integer pageNum,
                                  @RequestParam(defaultValue = "10") Integer pageSize) {
@@ -44,6 +48,7 @@ public class AppOrderController {
      * （校验订单归属当前买家）
      */
     @GetMapping("/{id}")
+    @Operation(summary = "订单详情", description = "查询订单详情")
     public Response getDetail(@PathVariable Long id) {
         return orderService.getOrderDetailForUser(id, AdminContext.getLoginUserId());
     }
@@ -53,6 +58,7 @@ public class AppOrderController {
      * <p>商品状态 1挂卖中 -> 2已抢购待付款；订单状态 -> 1待付款；pay_deadline = now + 30min
      */
     @PostMapping("/place")
+    @Operation(summary = "抢购下单", description = "创建抢购订单")
     public Response placeOrder(@RequestBody @Valid PlaceOrderDTO dto) {
         return orderService.placeOrder(dto, AdminContext.getLoginUserId());
     }
@@ -62,6 +68,7 @@ public class AppOrderController {
      * <p>订单状态 待付款/已付款 -> 5已取消；商品状态回滚至 1挂卖中
      */
     @PostMapping("/cancel")
+    @Operation(summary = "取消订单", description = "用户取消订单")
     public Response cancelOrder(@RequestBody @Valid OrderOperateDTO dto) {
         return orderService.cancelOrderByUser(dto, AdminContext.getLoginUserId());
     }
@@ -71,6 +78,7 @@ public class AppOrderController {
      * <p>订单状态 1待付款 -> 2已付款；商品状态 2已抢购待付款 -> 3等待确认付款
      */
     @PostMapping("/uploadVoucher")
+    @Operation(summary = "上传支付凭证", description = "用户上传订单支付凭证")
     public Response uploadVoucher(@RequestBody @Valid UploadVoucherDTO dto) {
         return orderService.uploadVoucherByUser(dto, AdminContext.getLoginUserId());
     }

@@ -4,6 +4,8 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.auth.AuthLoginDTO;
 import com.atguigu.meet.model.dto.auth.AuthRegisterDTO;
 import com.atguigu.meet.service.auth.AuthService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -19,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/app/auth")
+@Tag(name = "H5端注册登录", description = "H5端用户注册、登录接口")
 public class AppAuthController {
 
     @Autowired
@@ -28,6 +31,7 @@ public class AppAuthController {
      * H5 端注册
      * （默认绑定 id=3 的 MEMBER 角色，支持选填邀请码）
      */
+    @Operation(summary = "H5端注册", description = "用户注册，默认绑定MEMBER角色，支持选填邀请码")
     @PostMapping("register")
     public Response register(@RequestBody @Valid AuthRegisterDTO user) {
         return authService.register(user);
@@ -37,6 +41,7 @@ public class AppAuthController {
      * H5 端登录
      * （账号支持手机号/用户名，仅返回 token）
      */
+    @Operation(summary = "H5端登录", description = "使用账号密码登录，返回token")
     @PostMapping("login")
     public Response login(@RequestBody @Valid AuthLoginDTO user) {
         return authService.appLogin(user);

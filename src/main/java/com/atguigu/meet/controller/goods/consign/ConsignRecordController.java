@@ -5,6 +5,8 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.goods.consign.ConsignRecordPageQueryDTO;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -20,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/consign-record")
 @Validated
+@Tag(name = "委托记录管理", description = "委托代卖事件记录查询（履历）")
 public class ConsignRecordController {
 
     @Autowired
@@ -28,6 +31,7 @@ public class ConsignRecordController {
     /** 分页查询委托代卖事件记录（支持 商品ID/商品名/委托人/买家/状态/时间 筛选） */
     @GetMapping
     @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
+    @Operation(summary = "委托记录分页列表", description = "分页查询委托代卖事件记录")
     public Response getPageList(@Valid ConsignRecordPageQueryDTO parameter) {
         return consignRecordService.getPageList(parameter);
     }
@@ -35,6 +39,7 @@ public class ConsignRecordController {
     /** 按商品ID查询委托履历列表（商品全部委托代卖历史，按申请时间倒序） */
     @GetMapping("/goods/{consignGoodsId}")
     @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
+    @Operation(summary = "查询商品委托履历", description = "按商品ID查询委托履历列表")
     public Response listByConsignGoodsId(@PathVariable Long consignGoodsId) {
         return consignRecordService.listByConsignGoodsId(consignGoodsId);
     }
@@ -42,6 +47,7 @@ public class ConsignRecordController {
     /** 根据记录ID查详情（单条委托记录完整生命周期快照） */
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
+    @Operation(summary = "委托记录详情", description = "查询单条委托记录完整生命周期快照")
     public Response getRecordById(@PathVariable Long id) {
         return consignRecordService.getRecordById(id);
     }

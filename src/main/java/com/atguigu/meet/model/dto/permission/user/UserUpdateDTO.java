@@ -1,5 +1,6 @@
 package com.atguigu.meet.model.dto.permission.user;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -11,7 +12,9 @@ import lombok.Data;
  * - id 为必传字段（@NotNull）
  */
 @Data
+@Schema(description = "用户更新参数")
 public class UserUpdateDTO extends UserBaseDTO {
+    @Schema(description = "用户ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "用户 id 不能为空")
     private Long id;
 

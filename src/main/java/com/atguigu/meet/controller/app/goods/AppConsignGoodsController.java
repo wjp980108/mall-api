@@ -3,6 +3,8 @@ package com.atguigu.meet.controller.app.goods;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.utils.AdminContext;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,6 +27,7 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @RequestMapping("/app/consign-goods")
 @Validated
+@Tag(name = "H5委托商品", description = "H5端委托商品查询与申请")
 public class AppConsignGoodsController {
 
     @Autowired
@@ -35,6 +38,7 @@ public class AppConsignGoodsController {
      * （C 端，复用管理端详情查询，含委托人信息+场次名）
      */
     @GetMapping("/{id}")
+    @Operation(summary = "商品详情", description = "查询委托商品详情")
     public Response getDetail(@PathVariable Long id) {
         return consignGoodsService.getConsignGoodsById(id);
     }
@@ -44,6 +48,7 @@ public class AppConsignGoodsController {
      * （goodsStatus=4待处理 + memberId=当前用户，委托前置）
      */
     @GetMapping("/my-held")
+    @Operation(summary = "我持有的商品", description = "查询当前用户持有的商品")
     public Response listMyHeld(@RequestParam(defaultValue = "1") Integer pageNum,
                                @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignGoodsService.listMyHeld(AdminContext.getLoginUserId(), pageNum, pageSize);
@@ -56,6 +61,7 @@ public class AppConsignGoodsController {
      * 审核通过后商品重新上架（1挂卖中）进入下一轮抢购。
      */
     @PostMapping("/entrust/{goodsId}")
+    @Operation(summary = "申请委托代卖", description = "申请委托代卖商品")
     public Response entrust(@PathVariable Long goodsId) {
         return consignGoodsService.entrustByOwner(goodsId, AdminContext.getLoginUserId());
     }

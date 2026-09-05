@@ -1,6 +1,7 @@
 package com.atguigu.meet.model.dto.auth;
 
 import com.atguigu.meet.model.dto.permission.user.UserBaseDTO;
+import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Pattern;
 import lombok.Data;
@@ -25,6 +26,7 @@ import lombok.Data;
  * - 只在 getter 上加 @NotBlank，确保只有三个必传字段
  */
 @Data
+@Schema(description = "用户注册请求参数")
 public class AuthRegisterDTO extends UserBaseDTO {
 
     public AuthRegisterDTO() {
@@ -58,18 +60,21 @@ public class AuthRegisterDTO extends UserBaseDTO {
         }
     }
 
+    @Schema(description = "用户名", example = "zhangsan", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "用户名不能为空")
     @Override
     public String getUsername() {
         return super.getUsername();
     }
 
+    @Schema(description = "密码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "密码不能为空")
     @Override
     public String getPassword() {
         return super.getPassword();
     }
 
+    @Schema(description = "手机号", example = "13800138000", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotBlank(message = "手机号不能为空")
     @Override
     public String getPhone() {
@@ -80,6 +85,7 @@ public class AuthRegisterDTO extends UserBaseDTO {
      * 邀请码（非必填，8位，区分大小写，数字+字母）
      * 未传或传空时跳过邀请码校验与邀请流水处理，inviterId 置空。
      */
+    @Schema(description = "邀请码（8位数字+字母，非必填）", example = "ABCD1234")
     @Pattern(regexp = "^$|^[A-Za-z0-9]{8}$", message = "邀请码格式不正确")
     private String inviteCode;
 

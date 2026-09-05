@@ -7,6 +7,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -39,11 +40,21 @@ public class AppHomeController {
     }
 
     /**
+     * 首页查看商品详情
+     * <p>根据商品ID获取商品详细信息。
+     */
+    @GetMapping("/goods/{id}")
+    @Operation(summary = "首页查看商品详情", description = "根据ID获取商品详细信息")
+    public Response getGoodsDetail(@PathVariable Long id) {
+        return goodsService.getGoodsById(id);
+    }
+
+    /**
      * 首页搜索商品
      * <p>按商品名称模糊查询已上架商品（status=1），按销量优先排序。
      */
     @GetMapping("/search")
-    @Operation(summary = "搜索商品", description = "按关键词搜索已上架商品")
+    @Operation(summary = "首页搜索商品", description = "按关键词搜索已上架商品")
     public Response searchGoods(@RequestParam(required = false) String keyword,
                                 @RequestParam(defaultValue = "1") Integer pageNum,
                                 @RequestParam(defaultValue = "10") Integer pageSize) {

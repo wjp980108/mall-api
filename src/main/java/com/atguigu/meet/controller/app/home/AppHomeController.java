@@ -1,8 +1,13 @@
 package com.atguigu.meet.controller.app.home;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.vo.goods.home.AppHomeGoodsVO;
+import com.atguigu.meet.model.entity.goods.list.Goods;
 import com.atguigu.meet.service.goods.list.GoodsService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -34,7 +39,8 @@ public class AppHomeController {
      */
     @GetMapping("/recommend")
     @Operation(summary = "首页商品推荐", description = "获取首页推荐商品（销量优先）")
-    public Response recommendGoods(@RequestParam(defaultValue = "1") Integer pageNum,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = AppHomeGoodsVO.class)))
+    public Response<AppHomeGoodsVO> recommendGoods(@RequestParam(defaultValue = "1") Integer pageNum,
                                    @RequestParam(defaultValue = "10") Integer pageSize) {
         return goodsService.recommendGoods(pageNum, pageSize);
     }
@@ -45,7 +51,8 @@ public class AppHomeController {
      */
     @GetMapping("/goods/{id}")
     @Operation(summary = "首页查看商品详情", description = "根据ID获取商品详细信息")
-    public Response getGoodsDetail(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Goods.class)))
+    public Response<Goods> getGoodsDetail(@PathVariable Long id) {
         return goodsService.getGoodsById(id);
     }
 
@@ -55,7 +62,8 @@ public class AppHomeController {
      */
     @GetMapping("/search")
     @Operation(summary = "首页搜索商品", description = "按关键词搜索已上架商品")
-    public Response searchGoods(@RequestParam(required = false) String keyword,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = AppHomeGoodsVO.class)))
+    public Response<AppHomeGoodsVO> searchGoods(@RequestParam(required = false) String keyword,
                                 @RequestParam(defaultValue = "1") Integer pageNum,
                                 @RequestParam(defaultValue = "10") Integer pageSize) {
         return goodsService.searchGoods(keyword, pageNum, pageSize);

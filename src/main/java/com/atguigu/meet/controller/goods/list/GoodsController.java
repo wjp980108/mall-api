@@ -8,9 +8,13 @@ import com.atguigu.meet.model.dto.goods.list.GoodsPageQueryDTO;
 import com.atguigu.meet.model.dto.goods.list.GoodsSaveDTO;
 import com.atguigu.meet.model.dto.goods.list.GoodsStatusDTO;
 import com.atguigu.meet.model.dto.goods.list.GoodsUpdateDTO;
+import com.atguigu.meet.model.entity.goods.list.Goods;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.goods.list.GoodsService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +40,7 @@ public class GoodsController {
     @PostMapping("/coverImg")
     @RequirePermission(PermissionConst.GOODS_COVER_IMG_UPLOAD)
     @Operation(summary = "上传商品缩略图", description = "上传商品缩略图")
-    public Response uploadCoverImg(@RequestParam("file") MultipartFile file,
+    public Response<Void> uploadCoverImg(@RequestParam("file") MultipartFile file,
                                    @RequestParam(value = "platform", required = false) String platform) {
         try {
             return fileService.upload(file, "goodsCover", platform);
@@ -49,7 +53,7 @@ public class GoodsController {
     @PostMapping("/detailImg")
     @RequirePermission(PermissionConst.GOODS_DETAIL_IMG_UPLOAD)
     @Operation(summary = "上传商品详情图", description = "上传商品详情图")
-    public Response uploadDetailImg(@RequestParam("file") MultipartFile file,
+    public Response<Void> uploadDetailImg(@RequestParam("file") MultipartFile file,
                                     @RequestParam(value = "platform", required = false) String platform) {
         try {
             return fileService.upload(file, "goodsDetail", platform);
@@ -62,7 +66,8 @@ public class GoodsController {
     @GetMapping
     @RequirePermission(PermissionConst.GOODS_QUERY)
     @Operation(summary = "商品分页列表", description = "分页查询商品列表")
-    public Response getPageList(@Valid GoodsPageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Goods.class)))
+    public Response<Goods> getPageList(@Valid GoodsPageQueryDTO parameter) {
         return goodsService.getPageList(parameter);
     }
 
@@ -70,7 +75,8 @@ public class GoodsController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.GOODS_QUERY)
     @Operation(summary = "商品详情", description = "根据ID查询商品详情")
-    public Response getGoodsById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Goods.class)))
+    public Response<Goods> getGoodsById(@PathVariable Long id) {
         return goodsService.getGoodsById(id);
     }
 
@@ -78,7 +84,7 @@ public class GoodsController {
     @PostMapping
     @RequirePermission(PermissionConst.GOODS_ADD)
     @Operation(summary = "新增商品", description = "创建新商品")
-    public Response addGoods(@RequestBody @Valid GoodsSaveDTO dto) {
+    public Response<Void> addGoods(@RequestBody @Valid GoodsSaveDTO dto) {
         return goodsService.addGoods(dto);
     }
 
@@ -86,7 +92,7 @@ public class GoodsController {
     @PutMapping
     @RequirePermission(PermissionConst.GOODS_UPDATE)
     @Operation(summary = "修改商品", description = "更新商品信息")
-    public Response updateGoods(@RequestBody @Valid GoodsUpdateDTO dto) {
+    public Response<Void> updateGoods(@RequestBody @Valid GoodsUpdateDTO dto) {
         return goodsService.updateGoods(dto);
     }
 
@@ -94,7 +100,7 @@ public class GoodsController {
     @PatchMapping("/status")
     @RequirePermission(PermissionConst.GOODS_SHELF)
     @Operation(summary = "商品上下架", description = "更新商品上下架状态")
-    public Response updateStatus(@RequestBody @Valid GoodsStatusDTO dto) {
+    public Response<Void> updateStatus(@RequestBody @Valid GoodsStatusDTO dto) {
         return goodsService.updateStatus(dto);
     }
 
@@ -102,7 +108,7 @@ public class GoodsController {
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.GOODS_DELETE)
     @Operation(summary = "删除商品", description = "删除商品")
-    public Response deleteGoods(@PathVariable Long id) {
+    public Response<Void> deleteGoods(@PathVariable Long id) {
         return goodsService.deleteGoods(id);
     }
 
@@ -110,7 +116,7 @@ public class GoodsController {
     @DeleteMapping("/batch")
     @RequirePermission(PermissionConst.GOODS_DELETE)
     @Operation(summary = "批量删除商品", description = "批量删除商品")
-    public Response deleteGoodsBatch(@RequestBody @Valid GoodsDeleteDTO dto) {
+    public Response<Void> deleteGoodsBatch(@RequestBody @Valid GoodsDeleteDTO dto) {
         return goodsService.deleteGoodsBatch(dto);
     }
 }

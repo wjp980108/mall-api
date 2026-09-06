@@ -1,9 +1,13 @@
 package com.atguigu.meet.controller.app.goods;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.vo.goods.consign.ConsignRecordVO;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
 import com.atguigu.meet.utils.AdminContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -34,7 +38,8 @@ public class AppConsignRecordController {
      */
     @GetMapping("/my-consign")
     @Operation(summary = "我的委托记录", description = "查询当前用户的委托履历")
-    public Response listMyConsign(@RequestParam(defaultValue = "1") Integer pageNum,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
+    public Response<ConsignRecordVO> listMyConsign(@RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignRecordService.listMyConsign(AdminContext.getLoginUserId(), pageNum, pageSize);
     }
@@ -45,7 +50,8 @@ public class AppConsignRecordController {
      */
     /*@GetMapping("/my-bought")
     @Operation(summary = "我的买入记录", description = "查询当前用户的买入记录")
-    public Response listMyBought(@RequestParam(defaultValue = "1") Integer pageNum,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
+    public Response<ConsignRecordVO> listMyBought(@RequestParam(defaultValue = "1") Integer pageNum,
                                  @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignRecordService.listMyBought(AdminContext.getLoginUserId(), pageNum, pageSize);
     }*/

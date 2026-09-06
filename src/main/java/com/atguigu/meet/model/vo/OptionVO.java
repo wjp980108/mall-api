@@ -1,5 +1,6 @@
 package com.atguigu.meet.model.vo;
 
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -14,9 +15,12 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Schema(description = "下拉选项数据")
 public class OptionVO<T> {
     /** 选项标签 */
+    @Schema(description = "选项标签")
     private String label;
     /** 选项值 */
+    @Schema(description = "选项值")
     private T value;
 }

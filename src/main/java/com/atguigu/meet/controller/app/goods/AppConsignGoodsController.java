@@ -1,9 +1,13 @@
 package com.atguigu.meet.controller.app.goods;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.vo.goods.consign.ConsignGoodsVO;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.utils.AdminContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -39,7 +43,8 @@ public class AppConsignGoodsController {
      */
     @GetMapping("/{id}")
     @Operation(summary = "商品详情", description = "查询委托商品详情")
-    public Response getDetail(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
+    public Response<ConsignGoodsVO> getDetail(@PathVariable Long id) {
         return consignGoodsService.getConsignGoodsById(id);
     }
 
@@ -49,7 +54,8 @@ public class AppConsignGoodsController {
      */
     /*@GetMapping("/my-held")
     @Operation(summary = "我持有的商品", description = "查询当前用户持有的商品")
-    public Response listMyHeld(@RequestParam(defaultValue = "1") Integer pageNum,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
+    public Response<ConsignGoodsVO> listMyHeld(@RequestParam(defaultValue = "1") Integer pageNum,
                                @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignGoodsService.listMyHeld(AdminContext.getLoginUserId(), pageNum, pageSize);
     }*/
@@ -62,7 +68,7 @@ public class AppConsignGoodsController {
      */
     @PostMapping("/entrust/{goodsId}")
     @Operation(summary = "申请委托代卖", description = "申请委托代卖商品")
-    public Response entrust(@PathVariable Long goodsId) {
+    public Response<Void> entrust(@PathVariable Long goodsId) {
         return consignGoodsService.entrustByOwner(goodsId, AdminContext.getLoginUserId());
     }
 }

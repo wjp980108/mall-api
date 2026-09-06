@@ -38,7 +38,7 @@ public class FileController {
     @PostMapping("/upload")
     @RequirePermission(PermissionConst.FILE_UPLOAD)
     @Operation(summary = "上传文件", description = "通用文件上传接口")
-    public Response upload(
+    public Response<Void> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "bizType", required = false) String bizType,
             @RequestParam(value = "platform", required = false) String platform) {
@@ -57,7 +57,7 @@ public class FileController {
     @DeleteMapping
     @RequirePermission(PermissionConst.FILE_DELETE)
     @Operation(summary = "删除文件", description = "删除文件状态")
-    public Response delete(@RequestParam("url") String url) {
+    public Response<Void> delete(@RequestParam("url") String url) {
         return fileService.delete(url);
     }
 }

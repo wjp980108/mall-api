@@ -7,9 +7,14 @@ import com.atguigu.meet.model.dto.seckill.session.SessionPageQueryDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionSaveDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionStatusDTO;
 import com.atguigu.meet.model.dto.seckill.session.SessionUpdateDTO;
+import com.atguigu.meet.model.entity.seckill.session.Session;
+import com.atguigu.meet.model.vo.OptionVO;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.seckill.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -38,7 +43,7 @@ public class SessionController {
     @PostMapping("/bgImg")
     @RequirePermission(PermissionConst.SESSION_BG_UPLOAD)
     @Operation(summary = "上传场次背景图", description = "上传抢购场次背景图")
-    public Response uploadBgImg(@RequestParam("file") MultipartFile file,
+    public Response<Void> uploadBgImg(@RequestParam("file") MultipartFile file,
                                 @RequestParam(value = "platform", required = false) String platform) {
         try {
             return fileService.upload(file, "sessionBg", platform);
@@ -51,7 +56,8 @@ public class SessionController {
     @GetMapping
     @RequirePermission(PermissionConst.SESSION_QUERY)
     @Operation(summary = "场次分页列表", description = "分页查询抢购场次列表")
-    public Response getPageList(@Valid SessionPageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Session.class)))
+    public Response<Session> getPageList(@Valid SessionPageQueryDTO parameter) {
         return sessionService.getPageList(parameter);
     }
 
@@ -59,7 +65,8 @@ public class SessionController {
     @GetMapping("/options")
     @RequirePermission(PermissionConst.SESSION_QUERY)
     @Operation(summary = "场次下拉选项", description = "获取启用的场次下拉选项列表")
-    public Response getSessionOptions() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OptionVO.class)))
+    public Response<OptionVO<Long>> getSessionOptions() {
         return sessionService.getSessionOptions();
     }
 
@@ -67,7 +74,8 @@ public class SessionController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.SESSION_QUERY)
     @Operation(summary = "场次详情", description = "根据ID查询场次详情")
-    public Response getSessionById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Session.class)))
+    public Response<Session> getSessionById(@PathVariable Long id) {
         return sessionService.getSessionById(id);
     }
 
@@ -75,7 +83,7 @@ public class SessionController {
     @PostMapping
     @RequirePermission(PermissionConst.SESSION_ADD)
     @Operation(summary = "新增场次", description = "创建新抢购场次")
-    public Response addSession(@RequestBody @Valid SessionSaveDTO dto) {
+    public Response<Void> addSession(@RequestBody @Valid SessionSaveDTO dto) {
         return sessionService.addSession(dto);
     }
 
@@ -83,7 +91,7 @@ public class SessionController {
     @PutMapping
     @RequirePermission(PermissionConst.SESSION_UPDATE)
     @Operation(summary = "修改场次", description = "更新场次信息")
-    public Response updateSession(@RequestBody @Valid SessionUpdateDTO dto) {
+    public Response<Void> updateSession(@RequestBody @Valid SessionUpdateDTO dto) {
         return sessionService.updateSession(dto);
     }
 
@@ -91,7 +99,7 @@ public class SessionController {
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.SESSION_DELETE)
     @Operation(summary = "删除场次", description = "逻辑删除抢购场次")
-    public Response deleteSession(@PathVariable Long id) {
+    public Response<Void> deleteSession(@PathVariable Long id) {
         return sessionService.deleteSession(id);
     }
 
@@ -99,7 +107,7 @@ public class SessionController {
     @PatchMapping("/status")
     @RequirePermission(PermissionConst.SESSION_STATUS)
     @Operation(summary = "更新场次状态", description = "启用或禁用抢购场次")
-    public Response updateStatus(@RequestBody @Valid SessionStatusDTO dto) {
+    public Response<Void> updateStatus(@RequestBody @Valid SessionStatusDTO dto) {
         return sessionService.updateStatus(dto);
     }
 }

@@ -4,8 +4,12 @@ import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.general.config.SysConfigGroupSaveDTO;
+import com.atguigu.meet.model.vo.general.config.SysConfigVO;
 import com.atguigu.meet.service.general.config.SysConfigService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
@@ -40,7 +44,8 @@ public class SysConfigController {
     @GetMapping
     @RequirePermission(PermissionConst.SYS_CONFIG_QUERY)
     @Operation(summary = "查询分组配置", description = "按分组查询配置列表")
-    public Response listByGroup(@RequestParam("configGroup")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysConfigVO.class)))
+    public Response<SysConfigVO> listByGroup(@RequestParam("configGroup")
                                 @NotBlank(message = "配置分组不能为空") String configGroup) {
         return sysConfigService.getGroupConfigs(configGroup);
     }
@@ -51,7 +56,7 @@ public class SysConfigController {
     @PutMapping
     @RequirePermission(PermissionConst.SYS_CONFIG_UPDATE)
     @Operation(summary = "保存分组配置", description = "全量保存分组配置")
-    public Response saveGroup(@RequestBody @Valid SysConfigGroupSaveDTO dto) {
+    public Response<Void> saveGroup(@RequestBody @Valid SysConfigGroupSaveDTO dto) {
         return sysConfigService.saveGroup(dto);
     }
 }

@@ -8,8 +8,14 @@ import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
+import com.atguigu.meet.model.vo.OptionVO;
+import com.atguigu.meet.model.vo.permission.user.UserLoginVO;
+import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.permission.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,7 +42,7 @@ public class UserController {
     @PostMapping
     @RequirePermission(PermissionConst.USER_ADD)
     @Operation(summary = "创建用户", description = "创建新用户（角色由前端传入）")
-    public Response createUser(@RequestBody @Valid UserCreateDTO userCreateDTO) {
+    public Response<Void> createUser(@RequestBody @Valid UserCreateDTO userCreateDTO) {
         return userService.createUser(userCreateDTO);
     }
 
@@ -46,7 +52,8 @@ public class UserController {
     @GetMapping
     @RequirePermission(PermissionConst.USER_QUERY)
     @Operation(summary = "用户分页列表", description = "分页查询用户列表")
-    public Response pageList(@Valid UserPageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserVO.class)))
+    public Response<UserVO> pageList(@Valid UserPageQueryDTO parameter) {
         return userService.getPageList(parameter);
     }
 
@@ -56,7 +63,8 @@ public class UserController {
     @GetMapping("/options")
     @RequirePermission(PermissionConst.USER_QUERY)
     @Operation(summary = "用户下拉选项", description = "获取启用的用户下拉选项列表")
-    public Response getUserOptions() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OptionVO.class)))
+    public Response<OptionVO<Long>> getUserOptions() {
         return userService.getUserOptions();
     }
 
@@ -66,7 +74,7 @@ public class UserController {
     @DeleteMapping
     @RequirePermission(PermissionConst.USER_DELETE)
     @Operation(summary = "批量删除用户", description = "批量删除用户")
-    public Response deleteUser(@RequestBody @Valid UserDeleteDTO userDeleteDTO) {
+    public Response<Void> deleteUser(@RequestBody @Valid UserDeleteDTO userDeleteDTO) {
         return userService.deleteUserByIds(userDeleteDTO);
     }
 
@@ -76,7 +84,7 @@ public class UserController {
     @PutMapping
     @RequirePermission(PermissionConst.USER_UPDATE)
     @Operation(summary = "更新用户", description = "更新用户信息")
-    public Response updateUser(@RequestBody @Valid UserUpdateDTO userUpdateDTO) {
+    public Response<Void> updateUser(@RequestBody @Valid UserUpdateDTO userUpdateDTO) {
         return userService.updateUser(userUpdateDTO);
     }
 
@@ -86,7 +94,7 @@ public class UserController {
     @PatchMapping("/status")
     @RequirePermission(PermissionConst.USER_STATUS)
     @Operation(summary = "更新用户状态", description = "启用或禁用用户")
-    public Response updateStatus(@RequestBody @Valid UserStatusDTO userStatusDTO) {
+    public Response<Void> updateStatus(@RequestBody @Valid UserStatusDTO userStatusDTO) {
         return userService.updateStatus(userStatusDTO);
     }
 
@@ -99,7 +107,7 @@ public class UserController {
     @PostMapping("avatar")
     @RequirePermission(PermissionConst.USER_UPDATE)
     @Operation(summary = "上传用户头像", description = "上传当前登录用户头像")
-    public Response uploadUserAvatar(@RequestParam("file") MultipartFile file,
+    public Response<Void> uploadUserAvatar(@RequestParam("file") MultipartFile file,
                                      @RequestParam(value = "platform", required = false) String platform) {
         return userService.uploadUserAvatar(file, platform);
     }
@@ -109,7 +117,8 @@ public class UserController {
      */
     @GetMapping("user-info")
     @Operation(summary = "当前用户信息", description = "获取当前登录用户的信息")
-    public Response getCurrentUserInfo() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserLoginVO.class)))
+    public Response<UserLoginVO> getCurrentUserInfo() {
         return userService.getCurrentUserInfo();
     }
 
@@ -118,7 +127,8 @@ public class UserController {
      */
     @GetMapping("user-menus")
     @Operation(summary = "当前用户菜单", description = "获取当前登录用户的菜单权限")
-    public Response getCurrentUserMenus() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuVO.class)))
+    public Response<MenuVO> getCurrentUserMenus() {
         return userService.getCurrentUserMenus();
     }
 }

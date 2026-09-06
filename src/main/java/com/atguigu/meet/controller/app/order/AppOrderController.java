@@ -4,9 +4,13 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.order.OrderOperateDTO;
 import com.atguigu.meet.model.dto.order.PlaceOrderDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
+import com.atguigu.meet.model.vo.order.OrderVO;
 import com.atguigu.meet.service.order.OrderService;
 import com.atguigu.meet.utils.AdminContext;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,7 +41,8 @@ public class AppOrderController {
      */
     @GetMapping("/my-list")
     @Operation(summary = "我的订单列表", description = "查询当前用户的订单列表")
-    public Response listMyOrders(@RequestParam(required = false) Integer orderStatus,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> listMyOrders(@RequestParam(required = false) Integer orderStatus,
                                  @RequestParam(defaultValue = "1") Integer pageNum,
                                  @RequestParam(defaultValue = "10") Integer pageSize) {
         return orderService.listMyOrders(AdminContext.getLoginUserId(), orderStatus, pageNum, pageSize);
@@ -49,7 +54,8 @@ public class AppOrderController {
      */
     @GetMapping("/{id}")
     @Operation(summary = "订单详情", description = "查询订单详情")
-    public Response getDetail(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> getDetail(@PathVariable Long id) {
         return orderService.getOrderDetailForUser(id, AdminContext.getLoginUserId());
     }
 
@@ -59,7 +65,7 @@ public class AppOrderController {
      */
     @PostMapping("/place")
     @Operation(summary = "抢购下单", description = "创建抢购订单")
-    public Response placeOrder(@RequestBody @Valid PlaceOrderDTO dto) {
+    public Response<Void> placeOrder(@RequestBody @Valid PlaceOrderDTO dto) {
         return orderService.placeOrder(dto, AdminContext.getLoginUserId());
     }
 
@@ -69,7 +75,7 @@ public class AppOrderController {
      */
     @PostMapping("/cancel")
     @Operation(summary = "取消订单", description = "用户取消订单")
-    public Response cancelOrder(@RequestBody @Valid OrderOperateDTO dto) {
+    public Response<Void> cancelOrder(@RequestBody @Valid OrderOperateDTO dto) {
         return orderService.cancelOrderByUser(dto, AdminContext.getLoginUserId());
     }
 
@@ -79,7 +85,7 @@ public class AppOrderController {
      */
     @PostMapping("/uploadVoucher")
     @Operation(summary = "上传支付凭证", description = "用户上传订单支付凭证")
-    public Response uploadVoucher(@RequestBody @Valid UploadVoucherDTO dto) {
+    public Response<Void> uploadVoucher(@RequestBody @Valid UploadVoucherDTO dto) {
         return orderService.uploadVoucherByUser(dto, AdminContext.getLoginUserId());
     }
 }

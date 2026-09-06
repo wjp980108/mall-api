@@ -4,6 +4,9 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.permission.userRole.UserAssignRoleDTO;
 import com.atguigu.meet.service.permission.userRole.UserRoleService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,14 +27,15 @@ public class UserRoleController {
     /** 查询用户已分配的角色ID列表 */
     @GetMapping("/{userId}/roles")
     @Operation(summary = "查询用户角色", description = "查询用户已分配的角色ID列表")
-    public Response getUserRoleIds(@PathVariable Long userId) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Long.class)))
+    public Response<Long> getUserRoleIds(@PathVariable Long userId) {
         return userRoleService.getUserRoleIds(userId);
     }
 
     /** 给用户分配角色（全量覆盖） */
     @PutMapping("/roles")
     @Operation(summary = "分配用户角色", description = "给用户分配角色（全量覆盖）")
-    public Response assignRoles(@RequestBody @Valid UserAssignRoleDTO dto) {
+    public Response<Void> assignRoles(@RequestBody @Valid UserAssignRoleDTO dto) {
         return userRoleService.assignRoles(dto);
     }
 }

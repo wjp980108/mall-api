@@ -1,8 +1,12 @@
 package com.atguigu.meet.controller.app.general.agreement;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.entity.general.agreement.SysUserAgreement;
 import com.atguigu.meet.service.general.agreement.SysUserAgreementService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,7 +29,8 @@ public class AppUserAgreementController {
     /** 获取最新用户协议 */
     @GetMapping
     @Operation(summary = "获取最新协议", description = "获取最新版本的用户协议")
-    public Response getLatest() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysUserAgreement.class)))
+    public Response<SysUserAgreement> getLatest() {
         return agreementService.getLatest();
     }
 }

@@ -6,8 +6,12 @@ import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.info.notice.NoticePageQueryDTO;
 import com.atguigu.meet.model.dto.info.notice.NoticeSaveDTO;
 import com.atguigu.meet.model.dto.info.notice.NoticeUpdateDTO;
+import com.atguigu.meet.model.vo.info.notice.NoticeVO;
 import com.atguigu.meet.service.info.notice.NoticeService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +33,8 @@ public class NoticeController {
     @GetMapping
     @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "公告分页列表", description = "分页查询公告列表")
-    public Response getPageList(@Valid NoticePageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
+    public Response<NoticeVO> getPageList(@Valid NoticePageQueryDTO parameter) {
         return noticeService.getPageList(parameter);
     }
 
@@ -37,7 +42,8 @@ public class NoticeController {
     @GetMapping("/enabled")
     @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "所有启用公告", description = "获取所有启用的公告（C端展示/下拉用）")
-    public Response getAllEnabledNotices(String position) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
+    public Response<NoticeVO> getAllEnabledNotices(String position) {
         return noticeService.getAllEnabledNotices(position);
     }
 
@@ -45,7 +51,8 @@ public class NoticeController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "公告详情", description = "根据ID查询公告详情（含阅读次数）")
-    public Response getNoticeById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
+    public Response<NoticeVO> getNoticeById(@PathVariable Long id) {
         return noticeService.getNoticeById(id);
     }
 
@@ -53,7 +60,7 @@ public class NoticeController {
     @PostMapping
     @RequirePermission(PermissionConst.NOTICE_ADD)
     @Operation(summary = "新增公告", description = "创建新公告")
-    public Response addNotice(@RequestBody @Valid NoticeSaveDTO dto) {
+    public Response<Void> addNotice(@RequestBody @Valid NoticeSaveDTO dto) {
         return noticeService.addNotice(dto);
     }
 
@@ -61,7 +68,7 @@ public class NoticeController {
     @PutMapping
     @RequirePermission(PermissionConst.NOTICE_UPDATE)
     @Operation(summary = "修改公告", description = "更新公告信息")
-    public Response updateNotice(@RequestBody @Valid NoticeUpdateDTO dto) {
+    public Response<Void> updateNotice(@RequestBody @Valid NoticeUpdateDTO dto) {
         return noticeService.updateNotice(dto);
     }
 
@@ -69,7 +76,7 @@ public class NoticeController {
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.NOTICE_DELETE)
     @Operation(summary = "删除公告", description = "逻辑删除公告")
-    public Response deleteNotice(@PathVariable Long id) {
+    public Response<Void> deleteNotice(@PathVariable Long id) {
         return noticeService.deleteNotice(id);
     }
 }

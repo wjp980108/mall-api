@@ -8,8 +8,13 @@ import com.atguigu.meet.model.dto.permission.role.RolePageQueryDTO;
 import com.atguigu.meet.model.dto.permission.role.RoleSaveDTO;
 import com.atguigu.meet.model.dto.permission.role.RoleStatusDTO;
 import com.atguigu.meet.model.dto.permission.role.RoleUpdateDTO;
+import com.atguigu.meet.model.vo.OptionVO;
+import com.atguigu.meet.model.vo.permission.role.RoleVO;
 import com.atguigu.meet.service.permission.role.RoleService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +36,8 @@ public class RoleController {
     @GetMapping
     @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "角色分页列表", description = "分页查询角色列表")
-    public Response getPageList(@Valid RolePageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RoleVO.class)))
+    public Response<RoleVO> getPageList(@Valid RolePageQueryDTO parameter) {
         return roleService.getPageList(parameter);
     }
 
@@ -39,7 +45,8 @@ public class RoleController {
     @GetMapping("/all")
     @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "所有启用角色", description = "获取所有启用的角色（下拉框用）")
-    public Response getAllRoles() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OptionVO.class)))
+    public Response<OptionVO<Long>> getAllRoles() {
         return roleService.getAllRoles();
     }
 
@@ -47,7 +54,8 @@ public class RoleController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "角色详情", description = "根据ID查询角色详情（含已分配菜单ID列表）")
-    public Response getRoleById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RoleVO.class)))
+    public Response<RoleVO> getRoleById(@PathVariable Long id) {
         return roleService.getRoleById(id);
     }
 
@@ -55,7 +63,7 @@ public class RoleController {
     @PostMapping
     @RequirePermission(PermissionConst.ROLE_ADD)
     @Operation(summary = "新增角色", description = "创建新角色")
-    public Response addRole(@RequestBody @Valid RoleSaveDTO dto) {
+    public Response<Void> addRole(@RequestBody @Valid RoleSaveDTO dto) {
         return roleService.addRole(dto);
     }
 
@@ -63,7 +71,7 @@ public class RoleController {
     @PutMapping
     @RequirePermission(PermissionConst.ROLE_UPDATE)
     @Operation(summary = "修改角色", description = "更新角色信息")
-    public Response updateRole(@RequestBody @Valid RoleUpdateDTO dto) {
+    public Response<Void> updateRole(@RequestBody @Valid RoleUpdateDTO dto) {
         return roleService.updateRole(dto);
     }
 
@@ -71,7 +79,7 @@ public class RoleController {
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.ROLE_DELETE)
     @Operation(summary = "删除角色", description = "删除角色")
-    public Response deleteRole(@PathVariable Long id) {
+    public Response<Void> deleteRole(@PathVariable Long id) {
         return roleService.deleteRole(id);
     }
 
@@ -79,7 +87,7 @@ public class RoleController {
     @PatchMapping("/status")
     @RequirePermission(PermissionConst.ROLE_STATUS)
     @Operation(summary = "更新角色状态", description = "启用或禁用角色")
-    public Response updateStatus(@RequestBody @Valid RoleStatusDTO dto) {
+    public Response<Void> updateStatus(@RequestBody @Valid RoleStatusDTO dto) {
         return roleService.updateStatus(dto);
     }
 
@@ -87,7 +95,7 @@ public class RoleController {
     @GetMapping("/{roleId}/menus")
     @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "查询角色菜单", description = "查询角色已分配的菜单ID列表")
-    public Response getRoleMenuIds(@PathVariable Long roleId) {
+    public Response<Long> getRoleMenuIds(@PathVariable Long roleId) {
         return roleService.getRoleMenuIds(roleId);
     }
 
@@ -95,7 +103,7 @@ public class RoleController {
     @PutMapping("/menus")
     @RequirePermission(PermissionConst.ROLE_ASSIGN_MENU)
     @Operation(summary = "分配角色菜单", description = "给角色分配菜单（全量覆盖）")
-    public Response assignMenus(@RequestBody @Valid RoleAssignMenuDTO dto) {
+    public Response<Void> assignMenus(@RequestBody @Valid RoleAssignMenuDTO dto) {
         return roleService.assignMenus(dto);
     }
 }

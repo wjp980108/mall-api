@@ -1,8 +1,12 @@
 package com.atguigu.meet.controller.app.info;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.vo.info.notice.NoticeVO;
 import com.atguigu.meet.service.info.notice.NoticeService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,7 +34,8 @@ public class AppNoticeController {
      */
     @GetMapping("/enabled")
     @Operation(summary = "启用公告列表", description = "获取所有启用的公告列表")
-    public Response listEnabled(String position) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
+    public Response<NoticeVO> listEnabled(String position) {
         return noticeService.getAllEnabledNotices(position);
     }
 
@@ -40,7 +45,8 @@ public class AppNoticeController {
      */
     @GetMapping("/{id}")
     @Operation(summary = "公告详情", description = "查询公告详情（含阅读次数）")
-    public Response getDetail(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
+    public Response<NoticeVO> getDetail(@PathVariable Long id) {
         return noticeService.getNoticeById(id);
     }
 }

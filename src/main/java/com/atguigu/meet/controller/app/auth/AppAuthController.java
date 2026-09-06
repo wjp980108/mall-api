@@ -3,8 +3,12 @@ package com.atguigu.meet.controller.app.auth;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.auth.AuthLoginDTO;
 import com.atguigu.meet.model.dto.auth.AuthRegisterDTO;
+import com.atguigu.meet.model.vo.permission.user.UserLoginVO;
 import com.atguigu.meet.service.auth.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,9 +35,9 @@ public class AppAuthController {
      * H5 端注册
      * （默认绑定 id=3 的 MEMBER 角色，支持选填邀请码）
      */
+    @PostMapping("/register")
     @Operation(summary = "H5端注册", description = "用户注册，默认绑定MEMBER角色，支持选填邀请码")
-    @PostMapping("register")
-    public Response register(@RequestBody @Valid AuthRegisterDTO user) {
+    public Response<Void> register(@RequestBody @Valid AuthRegisterDTO user) {
         return authService.register(user);
     }
 
@@ -42,8 +46,9 @@ public class AppAuthController {
      * （账号支持手机号/用户名，仅返回 token）
      */
     @Operation(summary = "H5端登录", description = "使用账号密码登录，返回token")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserLoginVO.class)))
     @PostMapping("login")
-    public Response login(@RequestBody @Valid AuthLoginDTO user) {
+    public Response<UserLoginVO> login(@RequestBody @Valid AuthLoginDTO user) {
         return authService.appLogin(user);
     }
 }

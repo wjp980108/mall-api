@@ -12,7 +12,7 @@ public class Response<T> {
     // 提示信息
     private String msg;
     // 返回给前端的数据
-    private Object data;
+    private T data;
 
     public Response() {
     }
@@ -79,11 +79,11 @@ public class Response<T> {
         this.msg = msg;
     }
 
-    public Object getData() {
+    public T getData() {
         return data;
     }
 
-    public void setData(Object data) {
+    public void setData(T data) {
         this.data = data;
     }
 }

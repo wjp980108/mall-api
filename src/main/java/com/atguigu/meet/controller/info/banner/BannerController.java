@@ -6,8 +6,12 @@ import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.info.banner.BannerPageQueryDTO;
 import com.atguigu.meet.model.dto.info.banner.BannerSaveDTO;
 import com.atguigu.meet.model.dto.info.banner.BannerUpdateDTO;
+import com.atguigu.meet.model.entity.info.banner.Banner;
 import com.atguigu.meet.service.info.banner.BannerService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,14 +33,16 @@ public class BannerController {
     @GetMapping
     @RequirePermission(PermissionConst.BANNER_QUERY)
     @Operation(summary = "轮播图分页列表", description = "分页查询轮播图列表")
-    public Response getPageList(@Valid BannerPageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Banner.class)))
+    public Response<Banner> getPageList(@Valid BannerPageQueryDTO parameter) {
         return bannerService.getPageList(parameter);
     }
 
     /** 按位置获取启用轮播图（C端展示用） */
     @GetMapping("/enabled")
     @Operation(summary = "启用轮播图", description = "按位置获取启用的轮播图（C端展示用）")
-    public Response getEnabledBanners(@RequestParam(required = false) String position) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Banner.class)))
+    public Response<Banner> getEnabledBanners(@RequestParam(required = false) String position) {
         return bannerService.getEnabledBannersByPosition(position);
     }
 
@@ -44,7 +50,8 @@ public class BannerController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.BANNER_QUERY)
     @Operation(summary = "轮播图详情", description = "根据ID查询轮播图详情")
-    public Response getBannerById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Banner.class)))
+    public Response<Banner> getBannerById(@PathVariable Long id) {
         return bannerService.getBannerById(id);
     }
 
@@ -52,7 +59,7 @@ public class BannerController {
     @PostMapping
     @RequirePermission(PermissionConst.BANNER_ADD)
     @Operation(summary = "新增轮播图", description = "创建新轮播图")
-    public Response addBanner(@RequestBody @Valid BannerSaveDTO dto) {
+    public Response<Void> addBanner(@RequestBody @Valid BannerSaveDTO dto) {
         return bannerService.addBanner(dto);
     }
 
@@ -60,7 +67,7 @@ public class BannerController {
     @PutMapping
     @RequirePermission(PermissionConst.BANNER_UPDATE)
     @Operation(summary = "修改轮播图", description = "更新轮播图信息")
-    public Response updateBanner(@RequestBody @Valid BannerUpdateDTO dto) {
+    public Response<Void> updateBanner(@RequestBody @Valid BannerUpdateDTO dto) {
         return bannerService.updateBanner(dto);
     }
 
@@ -68,7 +75,7 @@ public class BannerController {
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.BANNER_DELETE)
     @Operation(summary = "删除轮播图", description = "逻辑删除轮播图")
-    public Response deleteBanner(@PathVariable Long id) {
+    public Response<Void> deleteBanner(@PathVariable Long id) {
         return bannerService.deleteBanner(id);
     }
 }

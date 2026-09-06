@@ -1,9 +1,14 @@
 package com.atguigu.meet.controller.app.seckill;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.entity.seckill.session.Session;
+import com.atguigu.meet.model.vo.goods.consign.ConsignGoodsVO;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.seckill.session.SessionService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -35,7 +40,8 @@ public class AppSessionController {
      */
     @GetMapping("/enabled")
     @Operation(summary = "启用场次列表", description = "获取所有启用的抢购场次")
-    public Response listEnabled() {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Session.class)))
+    public Response<Session> listEnabled() {
         return sessionService.getAllEnabledSessions();
     }
 
@@ -47,7 +53,8 @@ public class AppSessionController {
      */
     @GetMapping("/sale-goods")
     @Operation(summary = "在售抢购商品列表", description = "获取在售的抢购商品列表")
-    public Response listSaleGoods(@RequestParam(required = false) Long sessionId,
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
+    public Response<ConsignGoodsVO> listSaleGoods(@RequestParam(required = false) Long sessionId,
                                   @RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {
         return consignGoodsService.listSaleGoods(pageNum, pageSize, sessionId);

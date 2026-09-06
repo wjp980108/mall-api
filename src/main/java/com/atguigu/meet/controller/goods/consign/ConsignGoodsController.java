@@ -10,9 +10,13 @@ import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsOnlineStatusDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsPageQueryDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsSaveDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsUpdateDTO;
+import com.atguigu.meet.model.vo.goods.consign.ConsignGoodsVO;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +44,7 @@ public class ConsignGoodsController {
     @PostMapping("/coverImg")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_COVER_IMG_UPLOAD)
     @Operation(summary = "上传商品缩略图", description = "上传托售商品缩略图")
-    public Response uploadCoverImg(@RequestParam("file") MultipartFile file,
+    public Response<Void> uploadCoverImg(@RequestParam("file") MultipartFile file,
                                    @RequestParam(value = "platform", required = false) String platform) {
         try {
             return fileService.upload(file, "consignCover", platform);
@@ -53,7 +57,7 @@ public class ConsignGoodsController {
     @PostMapping("/detailImg")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_DETAIL_IMG_UPLOAD)
     @Operation(summary = "上传商品详情图", description = "上传托售商品详情图")
-    public Response uploadDetailImg(@RequestParam("file") MultipartFile file,
+    public Response<Void> uploadDetailImg(@RequestParam("file") MultipartFile file,
                                     @RequestParam(value = "platform", required = false) String platform) {
         try {
             return fileService.upload(file, "consignDetail", platform);
@@ -66,7 +70,8 @@ public class ConsignGoodsController {
     @GetMapping
     @RequirePermission(PermissionConst.CONSIGN_GOODS_QUERY)
     @Operation(summary = "托售商品分页列表", description = "分页查询托售商品列表")
-    public Response getPageList(@Valid ConsignGoodsPageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
+    public Response<ConsignGoodsVO> getPageList(@Valid ConsignGoodsPageQueryDTO parameter) {
         return consignGoodsService.getPageList(parameter);
     }
 
@@ -74,7 +79,8 @@ public class ConsignGoodsController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_QUERY)
     @Operation(summary = "托售商品详情", description = "根据ID查询托售商品详情（含委托人信息+场次名称）")
-    public Response getConsignGoodsById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
+    public Response<ConsignGoodsVO> getConsignGoodsById(@PathVariable Long id) {
         return consignGoodsService.getConsignGoodsById(id);
     }
 
@@ -82,7 +88,7 @@ public class ConsignGoodsController {
     @PostMapping
     @RequirePermission(PermissionConst.CONSIGN_GOODS_ADD)
     @Operation(summary = "新增托售商品", description = "创建托售商品")
-    public Response addConsignGoods(@RequestBody @Valid ConsignGoodsSaveDTO dto) {
+    public Response<Void> addConsignGoods(@RequestBody @Valid ConsignGoodsSaveDTO dto) {
         return consignGoodsService.addConsignGoods(dto);
     }
 
@@ -90,7 +96,7 @@ public class ConsignGoodsController {
     @PutMapping
     @RequirePermission(PermissionConst.CONSIGN_GOODS_UPDATE)
     @Operation(summary = "修改托售商品", description = "更新托售商品信息")
-    public Response updateConsignGoods(@RequestBody @Valid ConsignGoodsUpdateDTO dto) {
+    public Response<Void> updateConsignGoods(@RequestBody @Valid ConsignGoodsUpdateDTO dto) {
         return consignGoodsService.updateConsignGoods(dto);
     }
 
@@ -98,7 +104,7 @@ public class ConsignGoodsController {
     @PatchMapping("/online-status")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_SHELF)
     @Operation(summary = "更新上下架状态", description = "更新托售商品上下架状态")
-    public Response updateOnlineStatus(@RequestBody @Valid ConsignGoodsOnlineStatusDTO dto) {
+    public Response<Void> updateOnlineStatus(@RequestBody @Valid ConsignGoodsOnlineStatusDTO dto) {
         return consignGoodsService.updateOnlineStatus(dto);
     }
 
@@ -106,7 +112,7 @@ public class ConsignGoodsController {
     @PatchMapping("/biz-status")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_BIZ_STATUS)
     @Operation(summary = "更新业务状态", description = "托售商品业务状态流转")
-    public Response updateBizStatus(@RequestBody @Valid ConsignGoodsBizStatusDTO dto) {
+    public Response<Void> updateBizStatus(@RequestBody @Valid ConsignGoodsBizStatusDTO dto) {
         return consignGoodsService.updateBizStatus(dto);
     }
 
@@ -114,7 +120,7 @@ public class ConsignGoodsController {
     @PatchMapping("/entrust-audit")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_ENTRUST_AUDIT)
     @Operation(summary = "委托代卖审核", description = "审核委托代卖申请（通过/驳回）")
-    public Response auditEntrust(@RequestBody @Valid ConsignGoodsAuditDTO dto) {
+    public Response<Void> auditEntrust(@RequestBody @Valid ConsignGoodsAuditDTO dto) {
         return consignGoodsService.auditEntrust(dto);
     }
 
@@ -122,7 +128,7 @@ public class ConsignGoodsController {
     @DeleteMapping("/{id}")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_DELETE)
     @Operation(summary = "删除托售商品", description = "删除托售商品")
-    public Response deleteConsignGoods(@PathVariable Long id) {
+    public Response<Void> deleteConsignGoods(@PathVariable Long id) {
         return consignGoodsService.deleteConsignGoods(id);
     }
 
@@ -130,7 +136,7 @@ public class ConsignGoodsController {
     @DeleteMapping("/batch")
     @RequirePermission(PermissionConst.CONSIGN_GOODS_DELETE)
     @Operation(summary = "批量删除托售商品", description = "批量删除托售商品")
-    public Response deleteConsignGoodsBatch(@RequestBody @Valid ConsignGoodsDeleteDTO dto) {
+    public Response<Void> deleteConsignGoodsBatch(@RequestBody @Valid ConsignGoodsDeleteDTO dto) {
         return consignGoodsService.deleteConsignGoodsBatch(dto);
     }
 }

@@ -2,8 +2,12 @@ package com.atguigu.meet.controller.auth;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.auth.AuthLoginDTO;
+import com.atguigu.meet.model.vo.permission.user.UserLoginVO;
 import com.atguigu.meet.service.auth.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +33,8 @@ public class AuthController {
      */
     @Operation(summary = "后台登录", description = "管理员使用账号密码登录后台")
     @PostMapping("login")
-    public Response login(@RequestBody @Valid AuthLoginDTO user) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserLoginVO.class)))
+    public Response<UserLoginVO> login(@RequestBody @Valid AuthLoginDTO user) {
         return authService.login(user);
     }
 }

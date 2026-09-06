@@ -4,8 +4,12 @@ import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.goods.consign.ConsignRecordPageQueryDTO;
+import com.atguigu.meet.model.vo.goods.consign.ConsignRecordVO;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -32,7 +36,8 @@ public class ConsignRecordController {
     @GetMapping
     @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
     @Operation(summary = "委托记录分页列表", description = "分页查询委托代卖事件记录")
-    public Response getPageList(@Valid ConsignRecordPageQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
+    public Response<ConsignRecordVO> getPageList(@Valid ConsignRecordPageQueryDTO parameter) {
         return consignRecordService.getPageList(parameter);
     }
 
@@ -40,7 +45,8 @@ public class ConsignRecordController {
     @GetMapping("/goods/{consignGoodsId}")
     @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
     @Operation(summary = "查询商品委托履历", description = "按商品ID查询委托履历列表")
-    public Response listByConsignGoodsId(@PathVariable Long consignGoodsId) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
+    public Response<ConsignRecordVO> listByConsignGoodsId(@PathVariable Long consignGoodsId) {
         return consignRecordService.listByConsignGoodsId(consignGoodsId);
     }
 
@@ -48,7 +54,8 @@ public class ConsignRecordController {
     @GetMapping("/{id}")
     @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
     @Operation(summary = "委托记录详情", description = "查询单条委托记录完整生命周期快照")
-    public Response getRecordById(@PathVariable Long id) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
+    public Response<ConsignRecordVO> getRecordById(@PathVariable Long id) {
         return consignRecordService.getRecordById(id);
     }
 }

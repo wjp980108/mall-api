@@ -6,8 +6,12 @@ import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.order.AllOrderQueryDTO;
 import com.atguigu.meet.model.dto.order.OrderOperateDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
+import com.atguigu.meet.model.vo.order.OrderVO;
 import com.atguigu.meet.service.order.OrderService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,7 +50,8 @@ public class OrderController {
     @Operation(summary = "所有订单列表", description = "全量订单分页查询，支持状态筛选")
     @GetMapping("/list/all")
     @RequirePermission(PermissionConst.ORDER_ALL_QUERY)
-    public Response listAll(@Valid AllOrderQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> listAll(@Valid AllOrderQueryDTO parameter) {
         return orderService.listAll(parameter);
     }
 
@@ -56,7 +61,8 @@ public class OrderController {
     @Operation(summary = "待付款订单列表", description = "查询待付款订单，支持上传凭证、取消订单、删除订单")
     @GetMapping("/list/waitPay")
     @RequirePermission(PermissionConst.ORDER_WAIT_PAY_QUERY)
-    public Response listWaitPay(@Valid AllOrderQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> listWaitPay(@Valid AllOrderQueryDTO parameter) {
         return orderService.listWaitPay(parameter);
     }
 
@@ -66,7 +72,8 @@ public class OrderController {
     @Operation(summary = "待确认收款订单列表", description = "查询待确认收款订单，支持确认收款、取消订单")
     @GetMapping("/list/waitConfirm")
     @RequirePermission(PermissionConst.ORDER_WAIT_CONFIRM_QUERY)
-    public Response listWaitConfirm(@Valid AllOrderQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> listWaitConfirm(@Valid AllOrderQueryDTO parameter) {
         return orderService.listWaitConfirm(parameter);
     }
 
@@ -76,7 +83,8 @@ public class OrderController {
     @Operation(summary = "代售记录列表", description = "查询已完成委托代售的订单")
     @GetMapping("/list/agentSale")
     @RequirePermission(PermissionConst.ORDER_AGENT_SALE_QUERY)
-    public Response listAgentSale(@Valid AllOrderQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> listAgentSale(@Valid AllOrderQueryDTO parameter) {
         return orderService.listAgentSale(parameter);
     }
 
@@ -86,7 +94,8 @@ public class OrderController {
     @Operation(summary = "已取消订单列表", description = "查询已取消的订单，仅查询不可操作")
     @GetMapping("/list/cancel")
     @RequirePermission(PermissionConst.ORDER_CANCEL_QUERY)
-    public Response listCancel(@Valid AllOrderQueryDTO parameter) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
+    public Response<OrderVO> listCancel(@Valid AllOrderQueryDTO parameter) {
         return orderService.listCancel(parameter);
     }
 
@@ -99,7 +108,7 @@ public class OrderController {
     @Operation(summary = "上传支付凭证", description = "待付款订单上传支付凭证，状态变为已付款")
     @PostMapping("/uploadVoucher")
     @RequirePermission(PermissionConst.ORDER_UPLOAD_VOUCHER)
-    public Response uploadVoucher(@RequestBody @Valid UploadVoucherDTO dto) {
+    public Response<Void> uploadVoucher(@RequestBody @Valid UploadVoucherDTO dto) {
         return orderService.uploadVoucher(dto);
     }
 
@@ -110,7 +119,7 @@ public class OrderController {
     @Operation(summary = "取消订单", description = "取消待付款或已付款订单")
     @PostMapping("/cancel")
     @RequirePermission(PermissionConst.ORDER_CANCEL)
-    public Response cancelOrder(@RequestBody @Valid OrderOperateDTO dto) {
+    public Response<Void> cancelOrder(@RequestBody @Valid OrderOperateDTO dto) {
         return orderService.cancelOrder(dto);
     }
 
@@ -122,7 +131,7 @@ public class OrderController {
     @Operation(summary = "删除订单", description = "逻辑删除待付款订单，商品回滚")
     @PostMapping("/delete")
     @RequirePermission(PermissionConst.ORDER_DELETE)
-    public Response deleteOrder(@RequestBody @Valid OrderOperateDTO dto) {
+    public Response<Void> deleteOrder(@RequestBody @Valid OrderOperateDTO dto) {
         return orderService.deleteOrder(dto);
     }
 
@@ -134,7 +143,7 @@ public class OrderController {
     @Operation(summary = "确认收款", description = "管理员确认收款，订单状态流转至已代售")
     @PostMapping("/confirmReceive")
     @RequirePermission(PermissionConst.ORDER_CONFIRM_RECEIVE)
-    public Response confirmReceive(@RequestBody @Valid OrderOperateDTO dto) {
+    public Response<Void> confirmReceive(@RequestBody @Valid OrderOperateDTO dto) {
         return orderService.confirmReceive(dto);
     }
 }

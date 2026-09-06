@@ -1,8 +1,12 @@
 package com.atguigu.meet.controller.app.info;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.entity.info.banner.Banner;
 import com.atguigu.meet.service.info.banner.BannerService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,7 +34,8 @@ public class AppBannerController {
      */
     @GetMapping("/enabled")
     @Operation(summary = "启用轮播图列表", description = "获取启用的轮播图列表")
-    public Response listEnabled(@RequestParam(required = false) String position) {
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Banner.class)))
+    public Response<Banner> listEnabled(@RequestParam(required = false) String position) {
         return bannerService.getEnabledBannersByPosition(position);
     }
 }

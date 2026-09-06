@@ -4,8 +4,12 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.user.AppChangePasswordDTO;
 import com.atguigu.meet.model.dto.user.AppForgotPasswordDTO;
 import com.atguigu.meet.model.dto.user.AppUpdateUserInfoDTO;
+import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.user.AppUserService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -33,8 +37,9 @@ public class AppUserController {
      * 查询当前登录用户信息
      */
     @Operation(summary = "查询当前用户信息", description = "获取当前登录用户的详细信息")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserVO.class)))
     @GetMapping("info")
-    public Response info() {
+    public Response<UserVO> info() {
         return appUserService.getCurrentUserInfo();
     }
 
@@ -42,9 +47,9 @@ public class AppUserController {
      * 修改用户信息
      * （昵称、邮箱、性别、年龄、生日、头像等；未传字段不更新）
      */
-    @Operation(summary = "修改用户信息", description = "修改当前用户的昵称、邮箱、性别、年龄、生日、头像等信息")
     @PutMapping("info")
-    public Response updateUserInfo(@RequestBody @Valid AppUpdateUserInfoDTO dto) {
+    @Operation(summary = "修改用户信息", description = "修改当前用户的昵称、邮箱、性别、年龄、生日、头像等信息")
+    public Response<Void> updateUserInfo(@RequestBody @Valid AppUpdateUserInfoDTO dto) {
         return appUserService.updateCurrentUserInfo(dto);
     }
 
@@ -52,9 +57,9 @@ public class AppUserController {
      * 修改密码
      * （仅需手机号 + 新密码；手机号须与当前登录用户一致，防越权）
      */
-    @Operation(summary = "修改密码", description = "修改当前用户密码，需验证手机号与当前登录用户一致")
     @PutMapping("password")
-    public Response changePassword(@RequestBody @Valid AppChangePasswordDTO dto) {
+    @Operation(summary = "修改密码", description = "修改当前用户密码，需验证手机号与当前登录用户一致")
+    public Response<Void> changePassword(@RequestBody @Valid AppChangePasswordDTO dto) {
         return appUserService.changePassword(dto);
     }
 
@@ -64,9 +69,9 @@ public class AppUserController {
      * @param dto 忘记密码请求参数（手机号 + 新密码）
      * @return 重置结果提示
      */
-    @Operation(summary = "忘记密码", description = "凭注册手机号 + 新密码直接重置，无需登录")
     @PutMapping("forgot-password")
-    public Response forgotPassword(@RequestBody @Valid AppForgotPasswordDTO dto) {
+    @Operation(summary = "忘记密码", description = "凭注册手机号 + 新密码直接重置，无需登录")
+    public Response<Void> forgotPassword(@RequestBody @Valid AppForgotPasswordDTO dto) {
         return appUserService.forgotPassword(dto);
     }
 }

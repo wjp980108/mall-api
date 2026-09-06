@@ -244,6 +244,30 @@ public final class PermissionConst {
     public static final String SESSION_BG_UPLOAD = "session:bg:upload";
 
     // ==========================================
+    // 场次商品关联管理 (session:product:xxx)
+    // 对应 sys_menu: 场次商品管理菜单 -> 按钮
+    // 模块=session，页面=product（controller.seckill.sessionproduct）
+    // ==========================================
+    /** 场次商品查询 */
+    public static final String SESSION_PRODUCT_QUERY = "session:product:query";
+    /** 场次商品新增（关联商品并设置该场次库存） */
+    public static final String SESSION_PRODUCT_ADD = "session:product:add";
+    /** 场次商品修改 */
+    public static final String SESSION_PRODUCT_UPDATE = "session:product:update";
+    /** 场次商品删除（解除关联） */
+    public static final String SESSION_PRODUCT_DELETE = "session:product:delete";
+
+    // ==========================================
+    // 场次商品库存管理 (session:stock:xxx)
+    // 对应 sys_menu: 场次商品库存菜单 -> 按钮
+    // 模块=session，页面=stock（controller.seckill.sessionproductstock）
+    // ==========================================
+    /** 场次商品库存查询 */
+    public static final String SESSION_PRODUCT_STOCK_QUERY = "session:stock:query";
+    /** 场次商品库存设置 */
+    public static final String SESSION_PRODUCT_STOCK_UPDATE = "session:stock:update";
+
+    // ==========================================
     // 订单管理 (order:xxx)
     // 对应 sys_menu: 订单管理目录 -> 5个菜单 -> 按钮权限
     // ==========================================

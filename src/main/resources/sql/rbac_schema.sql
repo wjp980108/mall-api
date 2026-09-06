@@ -523,7 +523,7 @@ CREATE TABLE IF NOT EXISTS `sys_config` (
 CREATE TABLE IF NOT EXISTS `sys_config_log` (
     `id`            BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键',
     `config_group`  VARCHAR(64)  DEFAULT NULL COMMENT '配置分组编码',
-    `config_key`    VARCHAR(128) DEFAULT NULL COMMENT '配置键',
+    `config_key`    VARCHAR(128) NOT NULL COMMENT '配置键',
     `old_value`     TEXT         COMMENT '修改前的值',
     `new_value`     TEXT         COMMENT '修改后的值',
     `operator_id`   BIGINT       DEFAULT NULL COMMENT '操作人ID',

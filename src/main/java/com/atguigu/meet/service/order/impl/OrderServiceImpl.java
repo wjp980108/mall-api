@@ -687,7 +687,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             uw.eq(Order::getId, order.getId())
               .eq(Order::getOrderStatus, OrderStatus.WAIT_PAY.getCode())
               .set(Order::getOrderStatus, OrderStatus.CANCEL.getCode())
-              .set(Order::getCancelSource, CancelSource.WAIT_PAY_CANCEL.getCode());
+              .set(Order::getCancelSource, CancelSource.TIMEOUT_CANCEL.getCode());
             if (baseMapper.update(null, uw) == 0) {
                 continue;
             }

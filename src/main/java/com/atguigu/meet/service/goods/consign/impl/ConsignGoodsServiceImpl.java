@@ -27,6 +27,7 @@ import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.RequestContextUtil;
 import com.atguigu.meet.utils.TimeRangeUtils;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -98,6 +99,7 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 parameter.getMemberId(),
                 parameter.getSessionId(),
                 parameter.getGoodsStatus(),
+                null,
                 parameter.getEntrustStatus(),
                 parameter.getAuditStatus(),
                 parameter.getOnlineStatus(),
@@ -231,19 +233,40 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
     // ====================== C 端用户接口（JWT 登录态） ======================
 
     /**
-     * C 端「我持有的商品」：goodsStatus=4待处理 + memberId=当前用户，可发起委托
-     * <p>复用管理端分页查询（memberId + goodsStatus=4 条件）。
+     * C 端「我的卖方仓库」：memberId=当前用户，按状态筛选持仓商品
+     * <p>goodsStatus 传值：4待处理 / 5委托审核中 / 1挂卖中(配合 onlineStatus 区分在售/已下架)；
+     * 不传：查全部持有中 goodsStatus IN (1,4,5)，交易中间态 2/3（被抢购待付款/等待确认付款）
+     * 期间持有者仍是卖家但不属于卖方仓库展示范围（买方订单列表兜底）。
+     * <p>复用管理端分页查询（memberId + 状态条件），按创建时间倒序。
      */
     @Override
-    public Response listMyHeld(Long memberId, Integer pageNum, Integer pageSize) {
+    public Response listMyHeld(Long memberId, Integer goodsStatus, Integer onlineStatus, Integer pageNum, Integer pageSize) {
         if (memberId == null) {
             return Response.fail(401, "未登录");
         }
+        // 上下架筛选仅在有 goodsStatus=1（挂卖中）时有意义，其他状态强制忽略防误过滤
+        Integer onlineFilter = Integer.valueOf(GoodsStatus.ON_SALE.getCode()).equals(goodsStatus) ? onlineStatus : null;
         ConsignGoodsPageQueryDTO dto = new ConsignGoodsPageQueryDTO();
         dto.setPageNum(pageNum);
         dto.setPageSize(pageSize);
         dto.setMemberId(memberId);
-        dto.setGoodsStatus(GoodsStatus.PENDING.getCode());
+        dto.setGoodsStatus(goodsStatus);
+        dto.setOnlineStatus(onlineFilter);
+        if (goodsStatus == null) {
+            // 全部持有中：1挂卖中(在售/已下架) + 4待处理 + 5委托审核中
+            Page<ConsignGoodsVO> page = new Page<>(pageNum, pageSize);
+            IPage<ConsignGoodsVO> result = baseMapper.selectConsignGoodsPage(
+                    page, null, memberId, null, null,
+                    Arrays.asList(GoodsStatus.ON_SALE.getCode(), GoodsStatus.PENDING.getCode(),
+                            GoodsStatus.AGENT_SALE.getCode()),
+                    null, null, onlineFilter, null, null);
+            result.getRecords().forEach(vo -> {
+                vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
+                vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
+                vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+            });
+            return Response.ok(PageResultVO.of(result));
+        }
         return getPageList(dto);
     }
 
@@ -483,6 +506,46 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         return Response.ok(pass ? "审核通过，商品已重新上架" : "已驳回，商品退回待处理", null);
     }
 
+    /**
+     * C 端用户撤销委托申请
+     * <p>
+     * 前置校验（持有者 + 5委托代卖 + 1待审核）+ 条件更新（5->4待处理，entrust=0，audit=0），
+     * affected=0 即并发冲突（后台已审核/状态已变更）；成功后补商品审计日志 + 委托记录 1->6用户撤销。
+     * <p>撤销后 update_time 刷新为 now，当天可重新申请；当天未再委托则 23:59 定时任务照常下架。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response cancelEntrustByOwner(Long goodsId, Long currentUserId) {
+        if (currentUserId == null) {
+            return Response.fail(401, "未登录");
+        }
+        ConsignGoods goods = getById(goodsId);
+        if (goods == null) {
+            return Response.fail(500, "商品不存在");
+        }
+        if (!Objects.equals(goods.getMemberId(), currentUserId)) {
+            return Response.fail(500, "仅商品持有者可撤销委托申请");
+        }
+        if (!Integer.valueOf(GoodsStatus.AGENT_SALE.getCode()).equals(goods.getGoodsStatus())
+                || !Integer.valueOf(AuditStatus.WAIT_AUDIT.getCode()).equals(goods.getAuditStatus())) {
+            return Response.fail(500, "商品不在委托待审核状态，无法撤销");
+        }
+        // 条件更新：5委托代卖 -> 4待处理 + 委托状态0未委托 + 审核状态0无需审核（update_time 刷新为 NOW()）
+        int affected = baseMapper.updateStatusWithCondition(goodsId,
+                GoodsStatus.PENDING.getCode(), GoodsStatus.AGENT_SALE.getCode(),
+                null, EntrustStatus.NOT_ENTRUST.getCode(), AuditStatus.NONE.getCode(), null);
+        if (affected == 0) {
+            return Response.fail(500, "商品状态已变更，请刷新后重试");
+        }
+        recordExternalBizFlow(goodsId, GoodsStatus.AGENT_SALE.getCode(), GoodsStatus.PENDING.getCode(),
+                "用户撤销委托申请，商品退回待处理");
+        // 委托记录：1待审核 -> 6用户撤销（操作人=当前用户）
+        SysUser cancelUser = userMapper.selectById(currentUserId);
+        consignRecordService.recordCancelConsign(goodsId, currentUserId, pickMemberName(cancelUser));
+        log.info("[托售商品] 用户撤销委托申请成功，goodsId={}, userId={}", goodsId, currentUserId);
+        return Response.ok("已撤销委托申请", null);
+    }
+
     // ====================== 私有方法 ======================
 
     /**
@@ -643,5 +706,48 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         log.info("[定时任务] 批量下架当日未委托商品成功，共 {} 件", affected);
         // 为每件下架商品写入委托下架记录（recordStatus=4 未售出下架）
         // 由于是批量操作，这里只记录日志，不逐条写 ConsignRecord（避免大量 INSERT）
+    }
+
+    /**
+     * 定时任务：每天 23:59:59 下架"当日上架仍未卖出"的委托商品（上架当日必须卖出，未卖出退回终结）
+     * <p>判定：goods_status=1挂卖中 + online_status=1上架 + entrust_status=1委托代卖中 + 当日进入上架(update_time，
+     * 审核通过 updateStatusWithCondition 固定刷新 update_time=NOW())。
+     * <p>逐件条件更新下架（防竞态：上架瞬间被抢/后台手动下架则 affected=0 跳过），
+     * 下架成功后委托记录 2已上架 → 4未售出下架（recordDelist，含下架时间/原因，无活跃记录时安全跳过）。
+     * 商品保持持有者不变，进入 1挂卖中+下架 终态，此后不可再委托（与"未委托下架"终点一致）。
+     *
+     * @return 本次实际下架件数
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int scheduledDelistUnsoldListedGoods() {
+        LocalDateTime dayStart = LocalDate.now().atStartOfDay();
+        List<ConsignGoods> unsoldList = list(new LambdaQueryWrapper<ConsignGoods>()
+                .eq(ConsignGoods::getGoodsStatus, GoodsStatus.ON_SALE.getCode())
+                .eq(ConsignGoods::getOnlineStatus, 1)
+                .eq(ConsignGoods::getEntrustStatus, EntrustStatus.ENTRUSTING.getCode())
+                .ge(ConsignGoods::getUpdateTime, dayStart)
+                .lt(ConsignGoods::getUpdateTime, dayStart.plusDays(1)));
+        if (unsoldList.isEmpty()) {
+            log.info("[定时任务] 当日无需下架的上架未卖出商品");
+            return 0;
+        }
+        int count = 0;
+        for (ConsignGoods goods : unsoldList) {
+            // 条件更新：仅当仍处于 1挂卖中+上架 时下架（防竞态：刚被抢购/已被手动下架则跳过）
+            LambdaUpdateWrapper<ConsignGoods> uw = new LambdaUpdateWrapper<>();
+            uw.eq(ConsignGoods::getId, goods.getId())
+              .eq(ConsignGoods::getGoodsStatus, GoodsStatus.ON_SALE.getCode())
+              .eq(ConsignGoods::getOnlineStatus, 1)
+              .set(ConsignGoods::getOnlineStatus, 0);
+            if (baseMapper.update(null, uw) == 0) {
+                continue;
+            }
+            // 委托记录 2已上架 -> 4未售出下架
+            consignRecordService.recordDelist(goods.getId(), "上架当日未卖出，系统自动下架");
+            count++;
+        }
+        log.info("[定时任务] 批量下架当日上架未卖出商品成功，共 {} 件", count);
+        return count;
     }
 }

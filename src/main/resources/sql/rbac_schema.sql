@@ -386,7 +386,7 @@ CREATE TABLE IF NOT EXISTS `t_consign_record` (
     `cover_img`          VARCHAR(500)  DEFAULT NULL COMMENT '快照-委托时商品缩略图',
     `session_id`         BIGINT        DEFAULT NULL COMMENT '所属场次ID(冗余)',
     -- 生命周期状态
-    `record_status`      TINYINT       NOT NULL COMMENT '委托记录状态:1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回',
+    `record_status`      TINYINT       NOT NULL COMMENT '委托记录状态:1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回 6用户撤销',
     -- 审核字段
     `reject_reason`      VARCHAR(500)  DEFAULT NULL COMMENT '驳回原因',
     `apply_time`         DATETIME      NOT NULL COMMENT '发起委托申请时间',
@@ -432,7 +432,7 @@ CREATE TABLE IF NOT EXISTS `t_order` (
     `rush_price`        decimal(18,2) NOT NULL COMMENT '抢购成交价格',
     `receive_address`   varchar(512) DEFAULT NULL COMMENT '收货地址完整拼接字符串',
     `order_status`      tinyint      NOT NULL COMMENT '订单状态：1待付款 2已付款 3已确认 4已完成 5已取消',
-    `cancel_source`     tinyint      DEFAULT NULL COMMENT '取消来源：1待付款取消 2已付款取消 3代售中取消',
+    `cancel_source`     tinyint      DEFAULT NULL COMMENT '取消来源：1待付款取消 2已付款取消 3代售中取消 4超时自动取消',
     `put_commission`    decimal(18,2) DEFAULT 0.00 COMMENT '上架手续费',
     `coupon_amount`     decimal(18,2) DEFAULT 0.00 COMMENT '优惠券抵扣金额',
     `pay_voucher_url`        varchar(255) DEFAULT NULL COMMENT '支付凭证图片地址',

@@ -39,8 +39,8 @@ public class ConsignRecordPageQueryDTO {
     @Schema(description = "买家ID", example = "2")
     private Long buyerId;
     
-    /** 记录状态 1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回 */
-    @Schema(description = "记录状态", example = "1", allowableValues = {"1", "2", "3", "4", "5"})
+    /** 记录状态 1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回 6用户撤销 */
+    @Schema(description = "记录状态", example = "1", allowableValues = {"1", "2", "3", "4", "5", "6"})
     private Integer recordStatus;
     
     /**

@@ -7,6 +7,8 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
 
+import java.util.List;
+
 /**
  * 抢购托售商品 Mapper
  * <p>
@@ -21,7 +23,8 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
      * @param goodsName 商品名称（模糊）
      * @param memberId  委托人ID
      * @param sessionId 场次ID
-     * @param goodsStatus 业务状态
+     * @param goodsStatus 业务状态（单值；与 goodsStatusList 同时传入时以两者交集为准）
+     * @param goodsStatusList 业务状态集合（IN 查询；C 端卖方仓库"全部持有"场景用，传 null 忽略）
      * @param entrustStatus 委托状态 0未委托 1委托代卖中
      * @param auditStatus   审核状态 0无需审核 1待审核 2通过 3驳回
      * @param onlineStatus 上下架状态
@@ -33,6 +36,7 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
                                                  @Param("memberId") Long memberId,
                                                  @Param("sessionId") Long sessionId,
                                                  @Param("goodsStatus") Integer goodsStatus,
+                                                 @Param("goodsStatusList") List<Integer> goodsStatusList,
                                                  @Param("entrustStatus") Integer entrustStatus,
                                                  @Param("auditStatus") Integer auditStatus,
                                                  @Param("onlineStatus") Integer onlineStatus,

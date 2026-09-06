@@ -51,6 +51,18 @@ public interface ConsignRecordService {
     void recordAuditReject(Long consignGoodsId, Long auditOperatorId, String auditOperatorName, String rejectReason);
 
     /**
+     * 节点3.5 用户撤销委托：UPDATE 该条 recordStatus=6 + 撤销快照
+     * <p>查 consignGoodsId 下 recordStatus=1 的记录，更新 recordStatus=6、auditTime=撤销时间、
+     * auditOperatorId/auditOperatorName=撤销操作人（C 端用户）、rejectReason=撤销原因；
+     * 不新增；不动快照。
+     *
+     * @param consignGoodsId 主表商品ID
+     * @param operatorId     撤销操作人ID（C 端用户）
+     * @param operatorName   撤销操作人名称
+     */
+    void recordCancelConsign(Long consignGoodsId, Long operatorId, String operatorName);
+
+    /**
      * 节点4 卖出成交：UPDATE 该条 recordStatus=3 + 成交快照
      * <p>查 consignGoodsId 下 recordStatus=2 的记录，更新 recordStatus=3、soldTime=now、soldPrice=成交价、
      * buyerId/buyerName/buyerPhone=新买家快照；不新增；不动其他快照。

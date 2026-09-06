@@ -38,10 +38,10 @@ public class ConsignRecordVO {
 
     // ====================== 生命周期状态 ======================
     /**
-     * 委托记录状态 1待审核 2审核通过·已上架 3已卖出 4未售出下架 5审核驳回
+     * 委托记录状态 1待审核 2审核通过·已上架 3已卖出 4未售出下架 5审核驳回 6用户撤销
      * @see com.atguigu.meet.enums.RecordStatus
      */
-    @Schema(description = "委托记录状态 1待审核 2审核通过·已上架 3已卖出 4未售出下架 5审核驳回")
+    @Schema(description = "委托记录状态 1待审核 2审核通过·已上架 3已卖出 4未售出下架 5审核驳回 6用户撤销")
     private Integer recordStatus;
     /** 记录状态中文名（由 Service 层通过枚举组装） */
     @Schema(description = "记录状态中文名")

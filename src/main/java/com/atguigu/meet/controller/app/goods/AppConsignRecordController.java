@@ -38,10 +38,10 @@ public class AppConsignRecordController {
     /**
      * 我的委托记录
      * <p>作为委托人(memberId)查询自己发起的委托履历，按申请时间(applyTime)倒序分页；
-     * 展示委托代卖事件全生命周期快照：1待审核 → 2审核通过·已上架 → 3已卖出/4未售出下架/5审核驳回。
+     * 展示委托代卖事件全生命周期快照：1待审核 → 2审核通过·已上架 → 3已卖出/4未售出下架/5审核驳回/6用户撤销。
      */
     @GetMapping("/my-consign")
-    @Operation(summary = "我的委托记录", description = "作为委托人(memberId)查询自己发起的委托履历，按申请时间(applyTime)倒序分页；展示委托代卖事件全生命周期快照：1待审核 → 2审核通过·已上架 → 3已卖出/4未售出下架/5审核驳回")
+    @Operation(summary = "我的委托记录", description = "作为委托人(memberId)查询自己发起的委托履历，按申请时间(applyTime)倒序分页；展示委托代卖事件全生命周期快照：1待审核 → 2审核通过·已上架 → 3已卖出/4未售出下架/5审核驳回/6用户撤销")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
     public Response<ConsignRecordVO> listMyConsign(@RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {

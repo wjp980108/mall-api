@@ -4,14 +4,15 @@ import lombok.Getter;
 
 /**
  * 订单取消来源枚举
- * 1待付款取消 2已付款取消 3代售中取消
+ * 1待付款取消 2已付款取消 3代售中取消 4超时自动取消
  */
 @Getter
 public enum CancelSource {
 
     WAIT_PAY_CANCEL(1, "待付款取消"),
     PAID_CANCEL(2, "已付款取消"),
-    AGENT_SALE_CANCEL(3, "代售中取消");
+    AGENT_SALE_CANCEL(3, "代售中取消"),
+    TIMEOUT_CANCEL(4, "超时自动取消");
 
     private final int code;
     private final String desc;

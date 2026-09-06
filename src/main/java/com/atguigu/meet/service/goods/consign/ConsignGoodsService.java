@@ -74,17 +74,30 @@ public interface ConsignGoodsService {
      */
     Response auditEntrust(ConsignGoodsAuditDTO dto);
 
+    /**
+     * C 端用户撤销委托申请（商品 5委托代卖 -> 4待处理，委托状态=0未委托，审核状态=0无需审核）
+     * <p>校验：仅商品当前委托人可撤销；商品必须处于 5委托代卖 + 1待审核；
+     * 撤销后当天可重新申请（update_time 刷新），当天未再委托则 23:59 定时任务照常下架。
+     *
+     * @param goodsId       托售商品ID
+     * @param currentUserId 当前登录用户ID（商品持有者）
+     */
+    Response cancelEntrustByOwner(Long goodsId, Long currentUserId);
+
     // ====================== C 端用户接口（JWT 登录态） ======================
 
     /**
-     * C 端「我持有的商品」：查 goodsStatus=4待处理 + memberId=当前用户，可发起委托代卖的商品
-     * <p>复用管理端分页查询（memberId + goodsStatus=4 条件），按创建时间倒序。
+     * C 端「我的卖方仓库」：memberId=当前用户，按状态筛选持仓商品
+     * <p>goodsStatus 传值：4待处理(可申请委托) / 5委托审核中 / 1挂卖中(配合 onlineStatus 区分在售/已下架)；
+     * goodsStatus 不传：查全部持有中商品 goodsStatus IN (1,4,5)（交易中间态 2/3 不属于卖方仓库展示范围）。
      *
-     * @param memberId 当前登录用户ID（商品持有者）
-     * @param pageNum  页码
-     * @param pageSize 每页条数
+     * @param memberId     当前登录用户ID（商品持有者）
+     * @param goodsStatus  业务状态筛选（可空）
+     * @param onlineStatus 上下架筛选（可空，仅 goodsStatus=1 时有意义）
+     * @param pageNum      页码
+     * @param pageSize     每页条数
      */
-    Response listMyHeld(Long memberId, Integer pageNum, Integer pageSize);
+    Response listMyHeld(Long memberId, Integer goodsStatus, Integer onlineStatus, Integer pageNum, Integer pageSize);
 
     /**
      * C 端「在售抢购商品列表」：当前可抢购的商品
@@ -125,4 +138,13 @@ public interface ConsignGoodsService {
      * 批量更新为 goods_status=1(挂卖中) + online_status=0(下架)，并写入委托下架记录。
      */
     void scheduledDelistUnentrustedGoods();
+
+    /**
+     * 定时任务：下架"当日上架仍未卖出"的委托商品（上架当日必须卖出，未卖出退回终结）
+     * <p>判定 goods_status=1挂卖中 + online_status=1 + entrust_status=1委托代卖中 + 当日进入上架(update_time)；
+     * 逐件条件更新下架，成功后委托记录 2已上架 → 4未售出下架。
+     *
+     * @return 本次实际下架件数
+     */
+    int scheduledDelistUnsoldListedGoods();
 }

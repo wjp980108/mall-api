@@ -64,6 +64,12 @@
         <if test="goodsStatus != null">
             AND g.goods_status = #{goodsStatus}
         </if>
+        <if test="goodsStatusList != null and goodsStatusList.size() > 0">
+            AND g.goods_status IN
+            <foreach collection="goodsStatusList" item="gs" open="(" separator="," close=")">
+                #{gs}
+            </foreach>
+        </if>
         <if test="entrustStatus != null">
             AND g.entrust_status = #{entrustStatus}
         </if>

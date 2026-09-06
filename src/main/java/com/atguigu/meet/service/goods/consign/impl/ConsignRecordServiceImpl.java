@@ -40,12 +40,13 @@ import java.util.stream.Collectors;
 @Slf4j
 public class ConsignRecordServiceImpl extends ServiceImpl<ConsignRecordMapper, ConsignRecord> implements ConsignRecordService {
 
-    // 委托记录状态常量：1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回
+    // 委托记录状态常量：1待审核 2审核通过已上架 3已卖出 4未售出下架 5审核驳回 6用户撤销
     private static final int STATUS_PENDING_AUDIT = 1;
     private static final int STATUS_ON_SHELF = 2;
     private static final int STATUS_SOLD = 3;
     private static final int STATUS_DELIST = 4;
     private static final int STATUS_REJECTED = 5;
+    private static final int STATUS_CANCELLED = 6;
 
     /**
      * 节点1 发起委托：INSERT 一条待审核记录，冻结商品+委托人快照
@@ -131,6 +132,36 @@ public class ConsignRecordServiceImpl extends ServiceImpl<ConsignRecordMapper, C
         }
         log.info("[委托记录] 审核驳回已记录，recordId={}, consignGoodsId={}, operator={}, rejectReason={}",
                 record.getId(), consignGoodsId, auditOperatorName, rejectReason);
+    }
+
+    /**
+     * 节点3.5 用户撤销委托：UPDATE 该条 recordStatus=6 + 撤销快照，不动其他快照
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordCancelConsign(Long consignGoodsId, Long operatorId, String operatorName) {
+        ConsignRecord record = findLatestByGoodsAndStatus(consignGoodsId, STATUS_PENDING_AUDIT);
+        if (record == null) {
+            log.warn("[委托记录] 撤销委托更新跳过：未找到 consignGoodsId={} 下 recordStatus={} 的记录",
+                    consignGoodsId, STATUS_PENDING_AUDIT);
+            return;
+        }
+        LambdaUpdateWrapper<ConsignRecord> uw = new LambdaUpdateWrapper<>();
+        uw.eq(ConsignRecord::getId, record.getId())
+          .eq(ConsignRecord::getRecordStatus, STATUS_PENDING_AUDIT)  // 双保险：仍是待审核
+          .set(ConsignRecord::getRecordStatus, STATUS_CANCELLED)
+          .set(ConsignRecord::getAuditTime, LocalDateTime.now())
+          .set(ConsignRecord::getAuditOperatorId, operatorId)
+          .set(ConsignRecord::getAuditOperatorName, operatorName)
+          .set(ConsignRecord::getRejectReason, "用户主动撤销委托申请");
+        int affected = baseMapper.update(null, uw);
+        if (affected == 0) {
+            log.warn("[委托记录] 撤销委托更新未命中(并发已变更)，recordId={}, consignGoodsId={}",
+                    record.getId(), consignGoodsId);
+            return;
+        }
+        log.info("[委托记录] 撤销委托已记录，recordId={}, consignGoodsId={}, operator={}",
+                record.getId(), consignGoodsId, operatorName);
     }
 
     /**

@@ -40,12 +40,17 @@ public class AppOrderController {
 
     /**
      * 我的买方仓库
-     * <p>展示已抢购的订单列表（按 buyerId 分页），可选 orderStatus 筛选；
+     * <p>展示已抢购的订单列表（按 buyerId 分页）：
+     * <ul>
+     *   <li>不传 orderStatus（默认）：只查 1待付款、2已付款、5已取消 的进行中/已取消订单；
+     *       4已完成 不在默认列表（成交后商品进入卖方仓库，买入履历见 /app/consign-record/my-bought）</li>
+     *   <li>传 orderStatus：按该状态精确筛选（如 orderStatus=4 可查已完成订单）</li>
+     * </ul>
      * 订单右下角显示「去付款」按钮，点击进入付款页面，上传图片凭证后才可以点击确定付款。
      * <p>订单状态流转：1待付款 → 上传凭证 → 2已付款 → 后台确认收款 → 4已完成
      */
     @GetMapping("/my-list")
-    @Operation(summary = "我的订单列表", description = "我的买方仓库：展示已抢购的订单列表，按 buyerId 分页，可选 orderStatus 筛选；订单右下角显示「去付款」按钮，点击后进入付款页面，上传图片凭证后才可以点击确定付款。订单状态流转：1待付款 → 上传凭证 → 2已付款 → 后台确认收款 → 4已完成")
+    @Operation(summary = "我的订单列表", description = "我的买方仓库：展示已抢购的订单列表，按 buyerId 分页。不传 orderStatus 时默认只查 1待付款/2已付款/5已取消（4已完成不在默认列表，成交后商品进入卖方仓库、买入履历见 /app/consign-record/my-bought）；传 orderStatus 时按该状态精确筛选（如 orderStatus=4 查已完成）。订单右下角显示「去付款」按钮，点击后进入付款页面，上传图片凭证后才可以点击确定付款。订单状态流转：1待付款 → 上传凭证 → 2已付款 → 后台确认收款 → 4已完成")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
     public Response<OrderVO> listMyOrders(@RequestParam(required = false) Integer orderStatus,
                                  @RequestParam(defaultValue = "1") Integer pageNum,

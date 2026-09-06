@@ -60,10 +60,11 @@ public interface OrderService {
     Response uploadVoucherByUser(UploadVoucherDTO dto, Long currentUserId);
 
     /**
-     * C 端「我的订单」：按 buyerId 分页，可选 orderStatus 筛选
+     * C 端「我的订单」：按 buyerId 分页
      *
      * @param buyerId     当前登录用户ID（买家）
-     * @param orderStatus 订单状态筛选（null=全部）
+     * @param orderStatus 订单状态筛选：null=默认状态集（1待付款/2已付款/5已取消，不含4已完成）；
+     *                    非 null=按该状态精确筛选（如传 4 可查已完成）
      * @param pageNum     页码
      * @param pageSize    每页条数
      */

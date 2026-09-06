@@ -150,6 +150,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 parameter.getSellerName(),
                 parameter.getSellerPhone(),
                 status,
+                null,
                 startTime,
                 endTime
         );
@@ -628,9 +629,13 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (buyerId == null) {
             return Response.fail(401, "未登录");
         }
+        // 未传 orderStatus 时默认只查 1待付款/2已付款/5已取消（4已完成不在买方仓库默认列表，显式传 orderStatus 仍可精确筛选）
+        List<Integer> defaultStatusList = orderStatus == null
+                ? List.of(OrderStatus.WAIT_PAY.getCode(), OrderStatus.PAID.getCode(), OrderStatus.CANCEL.getCode())
+                : null;
         Page<OrderVO> page = new Page<>(pageNum, pageSize);
         IPage<OrderVO> result = baseMapper.selectOrderPage(
-                page, buyerId, null, null, null, null, null, null, orderStatus, null, null);
+                page, buyerId, null, null, null, null, null, null, orderStatus, defaultStatusList, null, null);
         result.getRecords().forEach(vo -> {
             vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus()));
             vo.setCancelSourceName(CancelSource.descOf(vo.getCancelSource()));

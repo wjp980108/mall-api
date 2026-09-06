@@ -67,6 +67,12 @@
         <if test="orderStatus != null">
             AND o.order_status = #{orderStatus}
         </if>
+        <if test="orderStatusList != null and orderStatusList.size() > 0">
+            AND o.order_status IN
+            <foreach collection="orderStatusList" item="os" open="(" separator="," close=")">
+                #{os}
+            </foreach>
+        </if>
         <if test="startTime != null">
             AND o.create_time &gt;= #{startTime}
         </if>

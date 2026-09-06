@@ -9,6 +9,7 @@ import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 订单 Mapper
@@ -18,6 +19,9 @@ public interface OrderMapper extends BaseMapper<Order> {
     /**
      * 分页查询订单列表（返回VO，手机号原文输出）
      * <p>buyerId 传 null 时不过滤（管理端）；非 null 时按买家精确过滤（C 端我的订单）
+     *
+     * @param orderStatus     订单状态（单值精确匹配；与 orderStatusList 同时传入时取两者交集）
+     * @param orderStatusList 订单状态集合（IN 查询；C 端买方仓库默认状态集用，传 null 忽略）
      */
     IPage<OrderVO> selectOrderPage(Page<OrderVO> page,
                                    @Param("buyerId") Long buyerId,
@@ -28,6 +32,7 @@ public interface OrderMapper extends BaseMapper<Order> {
                                    @Param("sellerName") String sellerName,
                                    @Param("sellerPhone") String sellerPhone,
                                    @Param("orderStatus") Integer orderStatus,
+                                   @Param("orderStatusList") List<Integer> orderStatusList,
                                    @Param("startTime") LocalDateTime startTime,
                                    @Param("endTime") LocalDateTime endTime);
 

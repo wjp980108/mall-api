@@ -28,19 +28,19 @@ public class SysUserAgreementController {
     @Autowired
     private SysUserAgreementService agreementService;
 
-    /** 获取最新协议（编辑回显） */
+    /** 根据类型获取协议 */
     @GetMapping
     @RequirePermission(PermissionConst.AGREEMENT_QUERY)
-    @Operation(summary = "获取最新协议", description = "获取最新版本的用户协议（编辑回显）")
+    @Operation(summary = "根据类型获取协议", description = "协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysUserAgreement.class)))
-    public Response<SysUserAgreement> getLatest() {
-        return agreementService.getLatest();
+    public Response<SysUserAgreement> getByType(Integer type) {
+        return agreementService.getByType(type);
     }
 
-    /** 保存协议（仅保留一份最新版本） */
+    /** 保存协议 */
     @PutMapping
     @RequirePermission(PermissionConst.AGREEMENT_UPDATE)
-    @Operation(summary = "保存协议", description = "保存用户协议（仅保留一份最新版本）")
+    @Operation(summary = "保存协议", description = "保存用户协议（根据type区分协议类型）")
     public Response<Void> save(@RequestBody @Valid AgreementSaveDTO dto) {
         return agreementService.saveAgreement(dto);
     }

@@ -496,6 +496,26 @@ CREATE TABLE IF NOT EXISTS `t_user_address` (
 
 
 -- =============================================
+-- 用户协议模块表：sys_user_agreement
+-- =============================================
+-- 设计要点：
+--   1. 按 type 区分不同协议：1-用户协议 2-隐私协议 3-委托协议 4-分销说明
+--   2. 每种协议仅维护一份最新版本，按 type 覆盖更新
+CREATE TABLE IF NOT EXISTS `sys_user_agreement` (
+    `id`          BIGINT       NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `title`       VARCHAR(200) NOT NULL COMMENT '协议标题',
+    `type`        INT          NOT NULL COMMENT '协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明',
+    `content`     LONGTEXT     NOT NULL COMMENT '协议富文本内容(html)',
+    `create_by`   VARCHAR(50)  DEFAULT NULL COMMENT '创建人(用户名)',
+    `update_by`   VARCHAR(50)  DEFAULT NULL COMMENT '更新人(用户名)',
+    `create_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `update_time` DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `is_deleted`  TINYINT      NOT NULL DEFAULT 0 COMMENT '逻辑删除 0未删 1已删',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_type` (`type`, `is_deleted`) COMMENT '每种类型仅一条生效记录'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='用户协议表';
+
+-- =============================================
 -- 系统动态配置模块：sys_config + sys_config_log
 -- =============================================
 -- 设计要点：

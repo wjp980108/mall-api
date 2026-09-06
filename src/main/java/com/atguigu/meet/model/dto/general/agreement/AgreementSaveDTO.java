@@ -6,11 +6,15 @@ import jakarta.validation.constraints.Size;
 import lombok.Data;
 
 /**
- * 用户协议保存DTO（表内仅一条生效记录，新增/修改共用）
+ * 用户协议保存DTO
  */
 @Data
 @Schema(description = "用户协议保存参数")
 public class AgreementSaveDTO {
+
+    /** 协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明 */
+    @Schema(description = "协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明", requiredMode = Schema.RequiredMode.REQUIRED)
+    private Integer type;
 
     /** 协议标题 */
     @Schema(description = "协议标题", example = "用户注册协议", requiredMode = Schema.RequiredMode.REQUIRED)

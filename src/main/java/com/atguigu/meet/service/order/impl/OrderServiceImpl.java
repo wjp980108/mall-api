@@ -2,6 +2,7 @@ package com.atguigu.meet.service.order.impl;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.OrderConstants;
+import com.atguigu.meet.enums.CancelSource;
 import com.atguigu.meet.enums.OrderOperateType;
 import com.atguigu.meet.enums.OrderStatus;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
@@ -28,6 +29,7 @@ import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.OrderNoUtil;
 import com.atguigu.meet.utils.TimeRangeUtils;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -107,8 +109,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Override
     public Response listAgentSale(AllOrderQueryDTO parameter) {
-        parameter.setOrderStatus(OrderStatus.AGENT_SALE.getCode());
-        return doListPage(parameter, OrderStatus.AGENT_SALE.getCode());
+        parameter.setOrderStatus(OrderStatus.FINISHED.getCode());
+        return doListPage(parameter, OrderStatus.FINISHED.getCode());
     }
 
     @Override
@@ -152,7 +154,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 endTime
         );
         // 组装订单状态中文名（VO 层派生字段，数据库不存）
-        result.getRecords().forEach(vo -> vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus())));
+        result.getRecords().forEach(vo -> {
+            vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus()));
+            vo.setCancelSourceName(CancelSource.descOf(vo.getCancelSource()));
+        });
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -221,11 +226,20 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         }
 
         Integer afterStatus = OrderStatus.CANCEL.getCode();
+        // 根据取消前状态确定取消来源
+        Integer cancelSource;
+        if (Objects.equals(OrderStatus.WAIT_PAY.getCode(), beforeStatus)) {
+            cancelSource = CancelSource.WAIT_PAY_CANCEL.getCode();
+        } else {
+            cancelSource = CancelSource.PAID_CANCEL.getCode();
+        }
+
         // 条件更新：只允许 WAIT_PAY / PAID 两种 beforeStatus 进入 CANCEL
         LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<>();
         uw.eq(Order::getId, dto.getId())
           .eq(Order::getOrderStatus, beforeStatus)
-          .set(Order::getOrderStatus, afterStatus);
+          .set(Order::getOrderStatus, afterStatus)
+          .set(Order::getCancelSource, cancelSource);
         int affected = baseMapper.update(null, uw);
         if (affected == 0) {
             return Response.fail(500, "订单状态已变更，请刷新后重试");
@@ -236,7 +250,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
         orderOperateLogService.writeOperateLog(dto.getId(), beforeStatus, afterStatus,
                 OrderOperateType.CANCEL_ORDER, dto.getRemark());
-        log.info("[订单管理] 取消订单成功，orderId={}, {}->{}", dto.getId(), beforeStatus, afterStatus);
+        log.info("[订单管理] 取消订单成功，orderId={}, {}->{}, cancelSource={}", dto.getId(), beforeStatus, afterStatus, cancelSource);
         return Response.ok("取消订单成功", null);
     }
 
@@ -262,7 +276,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<>();
         uw.eq(Order::getId, dto.getId())
           .eq(Order::getOrderStatus, beforeStatus)
-          // 逻辑删除由 MyBatis-Plus @TableLogic 负责转换为 SET is_deleted=1
+          .set(Order::getOrderStatus, OrderStatus.CANCEL.getCode())
+          .set(Order::getCancelSource, CancelSource.WAIT_PAY_CANCEL.getCode())
           .set(Order::getIsDeleted, 1);
         int affected = baseMapper.update(null, uw);
         if (affected == 0) {
@@ -281,7 +296,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
     /**
      * 管理员确认收款（仅待确认可用）
      * <p>
-     * 状态流转：2(已付款) -> 3(已确认) -> 4(已代售)，两步各一次条件更新；
+     * 状态流转：2(已付款) -> 3(已确认) -> 4(已完成)，两步各一次条件更新；
      * 商品联动：goods_status 3 -> 5 条件更新 + sale_times SQL 层自增。
      */
     @Override
@@ -309,8 +324,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         orderOperateLogService.writeOperateLog(dto.getId(), beforeStatus, step1After,
                 OrderOperateType.CONFIRM_RECEIVE, dto.getRemark());
 
-        // 第二步：CONFIRMED(3) -> AGENT_SALE(4) 系统自动流转
-        Integer step2After = OrderStatus.AGENT_SALE.getCode();
+        // 第二步：CONFIRMED(3) -> FINISHED(4) 系统自动流转
+        Integer step2After = OrderStatus.FINISHED.getCode();
         LambdaUpdateWrapper<Order> uw2 = new LambdaUpdateWrapper<>();
         uw2.eq(Order::getId, dto.getId())
            .eq(Order::getOrderStatus, step1After)
@@ -321,17 +336,19 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
             throw new IllegalStateException("订单 3->4 自动流转失败：状态不匹配");
         }
         String step2Remark = StringUtils.hasText(dto.getRemark())
-                ? dto.getRemark() + "；系统自动流转至已代售"
-                : "系统自动流转至已代售";
+                ? dto.getRemark() + "；系统自动流转至已完成"
+                : "系统自动流转至已完成";
         orderOperateLogService.writeOperateLog(dto.getId(), step1After, step2After,
                 OrderOperateType.CONFIRM_RECEIVE, step2Remark);
 
         // 商品联动：goods_status -> 4待处理(买家持有), member_id -> buyer, 委托/审核状态重置, sale_times SQL 层自增
-        promoteConsignGoodsToPendingSafely(existOrder, beforeStatus);
+        ConsignGoods goods = promoteConsignGoodsToPendingSafely(existOrder, beforeStatus);
 
-        // 追加：委托代卖卖出成交事件记录（买家确认收款成为新持有人 = 卖出瞬间）
-        // 查 consignGoodsId 下 recordStatus=2 的记录，UPDATE recordStatus=3 + 成交价/买家快照；不新增；不动其他快照
-        consignRecordService.recordSold(existOrder.getGoodsId(), existOrder.getRushPrice(),
+        // 追加：委托代卖卖出成交事件记录（确认收款即视为卖出，直接写入 ConsignRecord）
+        // 直接 INSERT 一条 recordStatus=3 的卖出记录，冻结商品快照 + 卖家快照(成交前持有者=订单 seller 快照) + 买家快照
+        // 注意：卖家取订单快照而非 goods.getMemberId()，此时商品持有者已被 promote 更新为本轮买家
+        consignRecordService.recordSoldDirect(goods, existOrder.getRushPrice(),
+                existOrder.getSellerId(), existOrder.getSellerName(),
                 existOrder.getBuyerId(), existOrder.getBuyerName(), existOrder.getBuyerPhone());
 
         log.info("[订单管理] 确认收款成功，orderId={}, {}->{}->{}",
@@ -420,10 +437,12 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
      * <p>
      * 后续闭环：买家在 C 端申请委托代卖（4->5委托代卖,待审核）->
      * 平台管理员审核通过（5->1挂卖中+上架）进入下一轮抢购。
+     *
+     * @return 更新后的商品实体（供调用方写入 ConsignRecord 快照）
      */
-    private void promoteConsignGoodsToPendingSafely(Order order, Integer orderBeforeStatus) {
+    private ConsignGoods promoteConsignGoodsToPendingSafely(Order order, Integer orderBeforeStatus) {
         if (order.getGoodsId() == null) {
-            return;
+            return null;
         }
         // 订单确认收款前是 PAID(2)，对应商品状态应为 3（等待确认付款）
         Integer expectGoodsStatus = 3;
@@ -439,7 +458,7 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (affected == 0) {
             log.warn("[订单管理] 商品并发保护：托售商品状态不匹配预期(3)，可能已被其他流程处理，orderId={}, goodsId={}",
                     order.getId(), order.getGoodsId());
-            return;
+            return null;
         }
         // 售卖次数 SQL 层原子自增（同一商品行上已有行锁，顺序自增）
         int ok = consignGoodsMapper.incrementSaleTimesById(order.getGoodsId());
@@ -452,6 +471,8 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
                 "确认收款商品交由买家处理(待处理,可申请委托代卖)(sale_times+1)，订单号：" + order.getOrderNo());
         log.info("[订单管理] 订单商品交由买家处理完成，orderId={}, goodsId={}, status->4, memberId->{}",
                 order.getId(), order.getGoodsId(), order.getBuyerId());
+        // 返回更新后的商品实体（供调用方写入 ConsignRecord 快照）
+        return consignGoodsMapper.selectById(order.getGoodsId());
     }
 
     // ====================== C 端用户接口 ======================
@@ -610,7 +631,10 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         Page<OrderVO> page = new Page<>(pageNum, pageSize);
         IPage<OrderVO> result = baseMapper.selectOrderPage(
                 page, buyerId, null, null, null, null, null, null, orderStatus, null, null);
-        result.getRecords().forEach(vo -> vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus())));
+        result.getRecords().forEach(vo -> {
+            vo.setOrderStatusName(OrderStatus.descOf(vo.getOrderStatus()));
+            vo.setCancelSourceName(CancelSource.descOf(vo.getCancelSource()));
+        });
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -632,6 +656,50 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         OrderVO vo = new OrderVO();
         BeanConvertUtils.copyProperties(order, vo);
         vo.setOrderStatusName(OrderStatus.descOf(order.getOrderStatus()));
+        vo.setCancelSourceName(CancelSource.descOf(order.getCancelSource()));
         return Response.ok(vo);
+    }
+
+    // ====================== 定时任务 ======================
+
+    /**
+     * 定时任务：自动取消超过付款截止时间（pay_deadline）的待付款订单
+     * <p>每分钟由 OrderTask 触发；幂等可重试：仅订单仍为 1待付款 且 pay_deadline 已过才取消（条件更新，
+     * affected=0 视为并发已处理）；取消后商品回滚 1挂卖中（委托人回滚至订单快照 sellerId），审计日志 TIMEOUT_CANCEL。
+     * <p>整体一个事务：任一笔 DB 异常则本次全部回滚，由任务层捕获日志、下一轮重试。
+     *
+     * @return 本次实际取消的订单数
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int autoCancelTimeoutOrders() {
+        List<Order> timeoutOrders = list(new LambdaQueryWrapper<Order>()
+                .eq(Order::getOrderStatus, OrderStatus.WAIT_PAY.getCode())
+                .isNotNull(Order::getPayDeadline)
+                .lt(Order::getPayDeadline, LocalDateTime.now()));
+        if (timeoutOrders.isEmpty()) {
+            return 0;
+        }
+        int count = 0;
+        for (Order order : timeoutOrders) {
+            // 条件更新：仅当订单仍为 1待付款 时取消（幂等/防并发）
+            LambdaUpdateWrapper<Order> uw = new LambdaUpdateWrapper<>();
+            uw.eq(Order::getId, order.getId())
+              .eq(Order::getOrderStatus, OrderStatus.WAIT_PAY.getCode())
+              .set(Order::getOrderStatus, OrderStatus.CANCEL.getCode())
+              .set(Order::getCancelSource, CancelSource.WAIT_PAY_CANCEL.getCode());
+            if (baseMapper.update(null, uw) == 0) {
+                continue;
+            }
+            // 商品回滚：2已抢购待付款 -> 1挂卖中，委托人回滚至订单快照 sellerId
+            rollbackConsignGoodsSafely(order, OrderStatus.WAIT_PAY.getCode());
+            // 审计日志（REQUIRES_NEW 独立事务）
+            orderOperateLogService.writeOperateLog(order.getId(), OrderStatus.WAIT_PAY.getCode(),
+                    OrderStatus.CANCEL.getCode(), OrderOperateType.TIMEOUT_CANCEL,
+                    "超过付款截止时间，系统自动取消");
+            count++;
+            log.info("[订单管理] 超时订单自动取消，orderId={}, orderNo={}", order.getId(), order.getOrderNo());
+        }
+        return count;
     }
 }

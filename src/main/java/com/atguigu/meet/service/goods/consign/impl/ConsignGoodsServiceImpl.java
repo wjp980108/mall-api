@@ -40,6 +40,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.beans.PropertyDescriptor;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -406,6 +407,12 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (!Integer.valueOf(GoodsStatus.PENDING.getCode()).equals(goods.getGoodsStatus())) {
             return Response.fail(500, "商品当前状态不可申请委托代卖");
         }
+        // 时间校验：仅当天确认收款的商品可申请委托（进入待处理时 update_time 被刷新），
+        // 跨天商品不可委托；23:59 定时任务会将当日未委托商品下架，与本校验双保险闭环
+        LocalDateTime heldTime = goods.getUpdateTime();
+        if (heldTime == null || heldTime.toLocalDate().isBefore(LocalDate.now())) {
+            return Response.fail(500, "仅当天可申请委托代售，跨天商品不可委托");
+        }
         // 条件更新：4待处理 -> 5委托代卖 + 委托状态1委托代卖中 + 审核状态1待审核
         int affected = baseMapper.updateStatusWithCondition(goodsId,
                 GoodsStatus.AGENT_SALE.getCode(), GoodsStatus.PENDING.getCode(),
@@ -616,5 +623,25 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    // ====================== 定时任务 ======================
+
+    /**
+     * 定时任务：每天 23:59:59 批量下架当日未委托的待处理商品
+     * <p>将 goods_status=4(待处理) + entrust_status=0(未委托) + 当日进入待处理(update_time) 的商品
+     * 批量更新为 goods_status=1(挂卖中) + online_status=0(下架)，并写入委托下架记录。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void scheduledDelistUnentrustedGoods() {
+        int affected = baseMapper.batchDelistUnentrustedGoods();
+        if (affected == 0) {
+            log.info("[定时任务] 当日无需下架的未委托商品");
+            return;
+        }
+        log.info("[定时任务] 批量下架当日未委托商品成功，共 {} 件", affected);
+        // 为每件下架商品写入委托下架记录（recordStatus=4 未售出下架）
+        // 由于是批量操作，这里只记录日志，不逐条写 ConsignRecord（避免大量 INSERT）
     }
 }

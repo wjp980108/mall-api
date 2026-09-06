@@ -63,15 +63,25 @@ public class OrderVO {
     private String receiveAddress;
 
     /**
-     * 订单状态：1待付款 2已付款 3已确认 4已代售 5已取消
+     * 订单状态：1待付款 2已付款 3已确认 4已完成 5已取消
      * @see com.atguigu.meet.enums.OrderStatus
      */
-    @Schema(description = "订单状态：1待付款 2已付款 3已确认 4已代售 5已取消")
+    @Schema(description = "订单状态：1待付款 2已付款 3已确认 4已完成 5已取消")
     private Integer orderStatus;
 
-    /** 订单状态中文名：待付款/已付款/已确认/已代售/已取消（由 Service 层通过枚举组装） */
+    /** 订单状态中文名：待付款/已付款/已确认/已完成/已取消（由 Service 层通过枚举组装） */
     @Schema(description = "订单状态中文名")
     private String orderStatusName;
+
+    /**
+     * 取消来源：1待付款取消 2已付款取消 3代售中取消
+     */
+    @Schema(description = "取消来源：1待付款取消 2已付款取消 3代售中取消")
+    private Integer cancelSource;
+
+    /** 取消来源中文名（由 Service 层组装） */
+    @Schema(description = "取消来源中文名")
+    private String cancelSourceName;
 
     /** 上架手续费 */
     @Schema(description = "上架手续费")

@@ -193,6 +193,46 @@ public class ConsignRecordServiceImpl extends ServiceImpl<ConsignRecordMapper, C
                 record.getId(), consignGoodsId, delistReason);
     }
 
+    /**
+     * 直接创建卖出记录（用于确认收款时首次写入）
+     * <p>不走"找 recordStatus=2"的逻辑，直接 INSERT 一条 recordStatus=3 的卖出记录，
+     * 冻结商品快照 + 卖家快照 + 买家快照，applyTime/soldTime=now。
+     * <p>memberId 语义为「成交前的商品持有者（卖家）」，由调用方传订单快照，
+     * 与委托路径 recordSold（memberId=申请委托时的委托人）保持一致；
+     * 不可取 goods.getMemberId()——确认收款时持有者已被更新为本轮买家。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void recordSoldDirect(ConsignGoods goods, BigDecimal soldPrice, Long sellerId, String sellerName,
+                                 Long buyerId, String buyerName, String buyerPhone) {
+        if (goods == null || goods.getId() == null) {
+            log.warn("[委托记录] 直接创建卖出记录失败：商品或商品ID为空");
+            return;
+        }
+        ConsignRecord record = new ConsignRecord();
+        record.setConsignGoodsId(goods.getId());
+        // 商品快照（冻结，永不更新）：memberId=成交前持有者（卖家）
+        record.setMemberId(sellerId);
+        record.setMemberName(sellerName);
+        record.setGoodsName(goods.getGoodsName());
+        record.setGoodsPrice(goods.getGoodsPrice());
+        record.setCoverImg(goods.getCoverImg());
+        record.setSessionId(goods.getSessionId());
+        // 生命周期状态：3已卖出（终态）
+        record.setRecordStatus(STATUS_SOLD);
+        // 成交快照
+        record.setSoldTime(LocalDateTime.now());
+        record.setSoldPrice(soldPrice);
+        record.setBuyerId(buyerId);
+        record.setBuyerName(buyerName);
+        record.setBuyerPhone(buyerPhone);
+        // 申请时间（同卖出时间，表示无委托审核直接成交）
+        record.setApplyTime(LocalDateTime.now());
+        save(record);
+        log.info("[委托记录] 直接创建卖出记录已存档，recordId={}, consignGoodsId={}, soldPrice={}, buyerId={}",
+                record.getId(), goods.getId(), soldPrice, buyerId);
+    }
+
     // ====================== 查询履历接口 ======================
 
     /**

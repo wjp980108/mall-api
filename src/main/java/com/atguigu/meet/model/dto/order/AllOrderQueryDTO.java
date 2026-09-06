@@ -47,10 +47,10 @@ public class AllOrderQueryDTO {
     private String sellerPhone;
 
     /**
-     * 订单状态：1待付款 2已付款 3已确认 4已代售 5已取消
+     * 订单状态：1待付款 2已付款 3已确认 4已完成 5已取消
      * 仅 /list/all 接口允许前端传，其他4个列表接口内部固定该值
      */
-    @Schema(description = "订单状态：1待付款 2已付款 3已确认 4已代售 5已取消", example = "1", allowableValues = {"1", "2", "3", "4", "5"})
+    @Schema(description = "订单状态：1待付款 2已付款 3已确认 4已完成 5已取消", example = "1", allowableValues = {"1", "2", "3", "4", "5"})
     private Integer orderStatus;
 
     /**

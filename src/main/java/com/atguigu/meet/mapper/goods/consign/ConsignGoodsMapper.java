@@ -91,4 +91,13 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
      * @return 受影响行数
      */
     int incrementSaleTimesById(@Param("id") Long id);
+
+    /**
+     * 定时任务：批量下架当日未委托的待处理商品
+     * <p>将 goods_status=4(待处理) + entrust_status=0(未委托) + create_time 在当天 的商品
+     * 批量更新为 goods_status=1(挂卖中) + online_status=0(下架) + entrust_status=0 + audit_status=0
+     *
+     * @return 受影响行数
+     */
+    int batchDelistUnentrustedGoods();
 }

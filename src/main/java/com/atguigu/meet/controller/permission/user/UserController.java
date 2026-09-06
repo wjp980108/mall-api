@@ -9,6 +9,7 @@ import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.vo.OptionVO;
+import com.atguigu.meet.model.vo.permission.menu.MenuVO;
 import com.atguigu.meet.model.vo.permission.user.UserLoginVO;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.permission.user.UserService;

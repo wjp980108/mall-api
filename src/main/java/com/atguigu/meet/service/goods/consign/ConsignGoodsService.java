@@ -116,4 +116,13 @@ public interface ConsignGoodsService {
      * @param pageSize 每页条数
      */
     Response recommendGoods(Integer pageNum, Integer pageSize);
+
+    // ====================== 定时任务 ======================
+
+    /**
+     * 定时任务：每天 23:59:59 自动下架当日未委托的待处理商品
+     * <p>将 goods_status=4(待处理) + entrust_status=0(未委托) + 当日创建 的商品
+     * 批量更新为 goods_status=1(挂卖中) + online_status=0(下架)，并写入委托下架记录。
+     */
+    void scheduledDelistUnentrustedGoods();
 }

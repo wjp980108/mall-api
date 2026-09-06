@@ -64,6 +64,24 @@ public interface ConsignRecordService {
     void recordSold(Long consignGoodsId, BigDecimal soldPrice, Long buyerId, String buyerName, String buyerPhone);
 
     /**
+     * 直接创建卖出记录（用于确认收款时首次写入）
+     * <p>不走"找 recordStatus=2"的逻辑，直接 INSERT 一条 recordStatus=3 的卖出记录，
+     * 冻结商品快照 + 卖家快照 + 买家快照，applyTime/soldTime=now。
+     * <p>memberId 语义为「成交前的商品持有者（卖家）」，取订单快照 sellerId/sellerName，
+     * 与委托路径 recordSold（memberId=申请委托时的委托人）保持一致。
+     *
+     * @param goods      主表商品（快照来源）
+     * @param soldPrice  成交价
+     * @param sellerId   成交前持有者ID（订单快照卖家）
+     * @param sellerName 成交前持有者名称（订单快照卖家）
+     * @param buyerId    买家ID
+     * @param buyerName  买家昵称
+     * @param buyerPhone 买家手机号
+     */
+    void recordSoldDirect(ConsignGoods goods, BigDecimal soldPrice, Long sellerId, String sellerName,
+                          Long buyerId, String buyerName, String buyerPhone);
+
+    /**
      * 节点5 未售出下架：UPDATE 该条 recordStatus=4 + 下架快照
      * <p>查 consignGoodsId 下 recordStatus=2 的记录，更新 recordStatus=4、delistTime=now、delistReason；
      * 不新增；不动其他快照。

@@ -9,7 +9,7 @@ import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
 /**
  * 订单管理 Service
  * <p>
- * 订单状态流转：1待付款 -> 2已付款 -> 3已确认 -> 4已代售
+ * 订单状态流转：1待付款 -> 2已付款 -> 3已确认 -> 4已完成
  * 分支：待付款/已付款 -> 5已取消
  * 删除订单：仅待付款可用，逻辑删除 + 商品状态回滚
  */
@@ -39,8 +39,11 @@ public interface OrderService {
     /** 删除订单（仅待付款可用，逻辑删除 + 商品状态回滚） */
     Response deleteOrder(OrderOperateDTO dto);
 
-    /** 管理员确认收款（仅待确认可用，status 2->3->4 自动流转到已代售；商品 3->4待处理交由买家，可申请委托代卖） */
+    /** 管理员确认收款（仅待确认可用，status 2->3->4 自动流转到已完成；商品 3->4待处理交由买家，可申请委托代卖） */
     Response confirmReceive(OrderOperateDTO dto);
+
+    /** 定时任务：自动取消超过付款截止时间（pay_deadline）的待付款订单，幂等，返回实际取消笔数 */
+    int autoCancelTimeoutOrders();
 
     // ====================== C 端用户接口（带 buyerId 归属校验） ======================
 

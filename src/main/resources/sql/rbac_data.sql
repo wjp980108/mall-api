@@ -192,8 +192,8 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 (92, 90, '待付款订单',   'waitPay',     NULL, 1, 'waitPay',     'order/waitPay/index',     'Wallet',     20, 1),
 -- 待确认收款订单菜单
 (93, 90, '待确认收款',   'waitConfirm', NULL, 1, 'waitConfirm', 'order/waitConfirm/index', 'Reading',    30, 1),
--- 代售记录菜单
-(94, 90, '代售记录',     'agentSale',   NULL, 1, 'agentSale',   'order/agentSale/index',   'Histogram',  40, 1),
+-- 已完成订单菜单
+(94, 90, '已完成订单',   'agentSale',   NULL, 1, 'agentSale',   'order/agentSale/index',   'Histogram',  40, 1),
 -- 已取消订单菜单
 (95, 90, '已取消订单',   'cancel',      NULL, 1, 'cancel',      'order/cancel/index',      'Close',      50, 1);
 
@@ -210,8 +210,8 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 (101, 93, '待确认订单查询',     NULL, 'order:waitConfirm:query',         2, NULL, NULL, NULL, 1, 1),
 (102, 93, '确认收款',           NULL, 'order:waitConfirm:confirmReceive',2, NULL, NULL, NULL, 2, 1),
 (103, 93, '取消订单(待确认)',   NULL, 'order:operate:cancel',            2, NULL, NULL, NULL, 3, 1),
--- 代售记录 -> 查询
-(104, 94, '代售记录查询',       NULL, 'order:agentSale:query',           2, NULL, NULL, NULL, 1, 1),
+-- 已完成订单 -> 查询
+(104, 94, '已完成订单查询',     NULL, 'order:agentSale:query',           2, NULL, NULL, NULL, 1, 1),
 -- 已取消订单 -> 查询
 (105, 95, '已取消订单查询',     NULL, 'order:cancel:query',              2, NULL, NULL, NULL, 1, 1);
 

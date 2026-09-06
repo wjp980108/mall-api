@@ -69,11 +69,17 @@ public class Order extends Model<Order> {
     private String receiveAddress;
 
     /**
-     * 订单状态：1待付款 2已付款 3已确认 4已代售 5已取消
+     * 订单状态：1待付款 2已付款 3已确认 4已完成 5已取消
      * @see com.atguigu.meet.enums.OrderStatus
      */
-    @Schema(description = "订单状态 1待付款 2已付款 3已确认 4已代售 5已取消")
+    @Schema(description = "订单状态 1待付款 2已付款 3已确认 4已完成 5已取消")
     private Integer orderStatus;
+
+    /**
+     * 取消来源：1待付款取消 2已付款取消 3代售中取消
+     */
+    @Schema(description = "取消来源：1待付款取消 2已付款取消 3代售中取消")
+    private Integer cancelSource;
 
     /** 上架手续费 */
     @Schema(description = "上架手续费")

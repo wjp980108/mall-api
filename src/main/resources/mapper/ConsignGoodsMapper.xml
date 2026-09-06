@@ -201,4 +201,23 @@
           AND is_deleted = 0
     </update>
 
+    <!--
+        定时任务：批量下架当日未委托的待处理商品
+        将 goods_status=4(待处理) + entrust_status=0(未委托) + 当日进入待处理(update_time 即确认收款时间) 的商品
+        批量更新为 goods_status=1(挂卖中) + online_status=0(下架)
+        注意：用 update_time 判当日而非 create_time——多轮流转的商品 create_time 是首次创建日，会导致老商品永不失效
+    -->
+    <update id="batchDelistUnentrustedGoods">
+        UPDATE t_consign_goods
+        SET goods_status = 1,
+            online_status = 0,
+            entrust_status = 0,
+            audit_status = 0,
+            update_time = NOW()
+        WHERE is_deleted = 0
+          AND goods_status = 4
+          AND entrust_status = 0
+          AND DATE(update_time) = CURDATE()
+    </update>
+
 </mapper>

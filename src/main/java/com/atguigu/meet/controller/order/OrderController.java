@@ -25,11 +25,11 @@ import org.springframework.web.bind.annotation.*;
  * - 所有订单：全量订单，支持状态筛选
  * - 待付款订单：下单后未上传支付凭证，支持【上传凭证、取消订单、删除订单】
  * - 待确认收款订单：会员已上传凭证，管理员未审核；支持【确认收款、取消订单】
- * - 代售记录：已完成委托代售的订单
+ * - 已完成订单：确认收款后交易完成的终态订单
  * - 已取消订单：所有取消 / 超时取消订单，仅查询不可操作
  *
  * <p>
- * 正向流程：待付款 → 已付款 → 已确认 → 已代售
+ * 正向流程：待付款 → 已付款 → 已确认 → 已完成
  * 分支流程：待付款 / 已付款 均可取消 → 已取消
  * 待付款支持逻辑删除订单，商品回滚
  */
@@ -137,10 +137,10 @@ public class OrderController {
 
     /**
      * 9. 管理员确认收款（仅待确认可用）
-     * <p>订单状态：2已付款 → 3已确认 → 4已代售（系统自动流转至已代售）</p>
+     * <p>订单状态：2已付款 → 3已确认 → 4已完成（系统自动流转至已完成）</p>
      * <p>商品联动：托售商品状态推进至 4待处理（交由买家持有，买家可在C端申请委托代卖），委托人变更为本次买家</p>
      */
-    @Operation(summary = "确认收款", description = "管理员确认收款，订单状态流转至已代售")
+    @Operation(summary = "确认收款", description = "管理员确认收款，订单状态流转至已完成")
     @PostMapping("/confirmReceive")
     @RequirePermission(PermissionConst.ORDER_CONFIRM_RECEIVE)
     public Response<Void> confirmReceive(@RequestBody @Valid OrderOperateDTO dto) {

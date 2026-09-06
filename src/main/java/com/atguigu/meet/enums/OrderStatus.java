@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * 订单状态枚举
- * 1待付款 2已付款 3已确认 4已代售 5已取消
+ * 1待付款 2已付款 3已确认 4已完成 5已取消
  */
 @Getter
 public enum OrderStatus {
@@ -12,7 +12,7 @@ public enum OrderStatus {
     WAIT_PAY(1, "待付款"),
     PAID(2, "已付款"),
     CONFIRMED(3, "已确认"),
-    AGENT_SALE(4, "已代售"),
+    FINISHED(4, "已完成"),
     CANCEL(5, "已取消");
 
     private final int code;
@@ -56,7 +56,7 @@ public enum OrderStatus {
             case PAID:
                 return to == CONFIRMED || to == CANCEL;
             case CONFIRMED:
-                return to == AGENT_SALE;
+                return to == FINISHED;
             default:
                 return false;
         }

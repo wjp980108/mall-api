@@ -17,7 +17,7 @@ public class Response<T> {
     public Response() {
     }
 
-    public Response(int code, String msg, Object data) {
+    public Response(int code, String msg, T data) {
         this.code = code;
         this.msg = msg;
         this.data = data;

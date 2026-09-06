@@ -4,13 +4,13 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.general.agreement.AgreementSaveDTO;
 
 /**
- * 用户协议 Service（表内仅一条生效记录，固定 id=1）
+ * 用户协议 Service
  */
 public interface SysUserAgreementService {
 
-    /** 获取最新协议（后台编辑回显 / C端展示共用） */
-    Response getLatest();
+    /** 根据类型获取协议 */
+    Response getByType(Integer type);
 
-    /** 保存协议（首次创建，之后覆盖更新，永远只保留一份最新版本） */
+    /** 保存协议 */
     Response saveAgreement(AgreementSaveDTO dto);
 }

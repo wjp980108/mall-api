@@ -12,17 +12,13 @@ import lombok.Data;
 import java.time.LocalDateTime;
 
 /**
- * 用户协议实体（单例行设计）
- * <p>系统只维护一份最新版本的用户协议，表内固定只有一条生效记录（id=1），
- * 首次保存后仅做覆盖更新，不做历史版本记录。
+ * 用户协议实体
+ * <p>按类型区分不同协议：1-用户协议 2-隐私协议 3-委托协议 4-分销说明
  */
 @Data
 @TableName("sys_user_agreement")
 @Schema(description = "用户协议数据")
 public class SysUserAgreement extends Model<SysUserAgreement> {
-
-    /** 单例行固定主键：全表仅此一条生效数据 */
-    public static final long SINGLETON_ID = 1L;
 
     @TableId(type = IdType.AUTO)
     @Schema(description = "协议ID")
@@ -31,6 +27,10 @@ public class SysUserAgreement extends Model<SysUserAgreement> {
     /** 协议标题 */
     @Schema(description = "协议标题")
     private String title;
+
+    /** 协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明 */
+    @Schema(description = "协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明")
+    private Integer type;
 
     /** 协议富文本内容(html) */
     @Schema(description = "协议内容")

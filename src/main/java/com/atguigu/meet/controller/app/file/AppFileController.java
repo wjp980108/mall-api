@@ -3,6 +3,9 @@ package com.atguigu.meet.controller.app.file;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.service.file.FileService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -35,6 +38,7 @@ public class AppFileController {
      */
     @PostMapping("/upload")
     @Operation(summary = "上传文件", description = "H5端通用文件上传接口")
+    @ApiResponse(responseCode = "200", description = "上传成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Response.class)))
     public Response<Void> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "bizType", required = false) String bizType,
@@ -53,6 +57,7 @@ public class AppFileController {
      */
     @DeleteMapping
     @Operation(summary = "删除文件", description = "H5端删除文件状态")
+    @ApiResponse(responseCode = "200", description = "删除成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Response.class)))
     public Response<Void> delete(@RequestParam("url") String url) {
         return fileService.delete(url);
     }

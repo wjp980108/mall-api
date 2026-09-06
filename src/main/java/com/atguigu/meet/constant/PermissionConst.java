@@ -258,16 +258,6 @@ public final class PermissionConst {
     public static final String SESSION_PRODUCT_DELETE = "session:product:delete";
 
     // ==========================================
-    // 场次商品库存管理 (session:stock:xxx)
-    // 对应 sys_menu: 场次商品库存菜单 -> 按钮
-    // 模块=session，页面=stock（controller.seckill.sessionproductstock）
-    // ==========================================
-    /** 场次商品库存查询 */
-    public static final String SESSION_PRODUCT_STOCK_QUERY = "session:stock:query";
-    /** 场次商品库存设置 */
-    public static final String SESSION_PRODUCT_STOCK_UPDATE = "session:stock:update";
-
-    // ==========================================
     // 订单管理 (order:xxx)
     // 对应 sys_menu: 订单管理目录 -> 5个菜单 -> 按钮权限
     // ==========================================

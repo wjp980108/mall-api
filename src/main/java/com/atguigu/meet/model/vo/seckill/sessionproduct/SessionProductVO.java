@@ -43,8 +43,8 @@ public class SessionProductVO {
     @Schema(description = "商品售价")
     private BigDecimal price;
 
-    /** 商品自身库存（t_goods.stock，展示参照用） */
-    @Schema(description = "商品自身库存(t_goods)")
+    /** 商品自身库存：寄售商品(t_consign_goods)无独立库存列，恒为 null，保留字段兼容前端 */
+    @Schema(description = "商品自身库存(寄售商品无此概念，恒为null)")
     private Integer goodsStock;
 
     /** 该场次该商品的抢购库存（t_session_product.stock） */

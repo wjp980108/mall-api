@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * 场次商品关联实体（对应 t_session_product）
  * <p>
  * 场次与抢购商品多对多关联：每行即「场次X - 商品Y - 库存Z」，
- * 库存行级挂在关联上，抢购时按本表 stock 扣减，与 t_goods.stock（商品自身库存）互不干扰。
+ * 库存行级挂在关联上，抢购时按本表 stock 扣减；关联商品为 t_consign_goods（寄售商品无独立库存列）。
  */
 @Data
 @TableName("t_session_product")
@@ -30,7 +30,7 @@ public class SessionProduct extends Model<SessionProduct> {
     @Schema(description = "场次ID")
     private Long sessionId;
 
-    /** 抢购商品ID，关联t_goods.id */
+    /** 抢购商品ID，关联t_consign_goods.id */
     @Schema(description = "抢购商品ID")
     private Long goodsId;
 

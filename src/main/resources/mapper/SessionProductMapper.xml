@@ -4,39 +4,36 @@
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
 <mapper namespace="com.atguigu.meet.mapper.seckill.sessionproduct.SessionProductMapper">
 
-    <!-- 结果映射：关联 + 场次名称 + 抢购商品信息 -->
+    <!-- 结果映射：关联 + 场次名称 + 抢购商品信息（商品来自 t_consign_goods 寄售商品表） -->
     <resultMap id="SessionProductResultMap" type="com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO">
         <id column="id" property="id"/>
         <result column="session_id" property="sessionId"/>
         <result column="session_name" property="sessionName"/>
         <result column="goods_id" property="goodsId"/>
         <result column="goods_name" property="goodsName"/>
-        <result column="category_name" property="categoryName"/>
-        <result column="goods_sn" property="goodsSn"/>
         <result column="goods_thumb" property="goodsThumb"/>
         <result column="goods_thumb_platform" property="goodsThumbPlatform"/>
         <result column="price" property="price"/>
-        <result column="goods_stock" property="goodsStock"/>
         <result column="stock" property="stock"/>
         <result column="sort" property="sort"/>
         <result column="create_time" property="createTime"/>
         <result column="update_time" property="updateTime"/>
     </resultMap>
 
-    <!-- 公共列片段：关联 + 场次 + 商品 -->
+    <!-- 公共列片段：关联 + 场次 + 寄售商品（t_consign_goods 无分类/货号/独立库存列，VO 对应字段恒 null） -->
     <sql id="baseColumnList">
         sp.id, sp.session_id, sp.goods_id, sp.stock, sp.sort, sp.create_time, sp.update_time,
         s.session_name,
-        g.goods_name, g.category_name, g.goods_sn, g.goods_thumb, g.goods_thumb_platform,
-        g.price, g.stock AS goods_stock
+        g.goods_name, g.cover_img AS goods_thumb, g.cover_img_platform AS goods_thumb_platform,
+        g.goods_price AS price
     </sql>
 
-    <!-- 分页查询：JOIN t_session / t_goods 实时获取场次名称与商品信息 -->
+    <!-- 分页查询：JOIN t_session / t_consign_goods 实时获取场次名称与商品信息 -->
     <select id="selectSessionProductPage" resultMap="SessionProductResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM t_session_product sp
         LEFT JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0
-        LEFT JOIN t_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
+        LEFT JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
         WHERE sp.is_deleted = 0
         <if test="sessionId != null">
             AND sp.session_id = #{sessionId}
@@ -52,7 +49,7 @@
         SELECT <include refid="baseColumnList"/>
         FROM t_session_product sp
         LEFT JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0
-        LEFT JOIN t_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
+        LEFT JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
         WHERE sp.is_deleted = 0 AND sp.id = #{id}
     </select>
 
@@ -61,7 +58,7 @@
         SELECT <include refid="baseColumnList"/>
         FROM t_session_product sp
         LEFT JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0
-        LEFT JOIN t_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
+        LEFT JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
         WHERE sp.is_deleted = 0 AND sp.session_id = #{sessionId}
         ORDER BY sp.sort ASC, sp.id DESC
     </select>
@@ -71,7 +68,8 @@
         SELECT <include refid="baseColumnList"/>
         FROM t_session_product sp
         INNER JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0 AND s.session_status = 1
-        INNER JOIN t_goods g ON sp.goods_id = g.id AND g.is_deleted = 0 AND g.status = 1
+        INNER JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
+            AND g.online_status = 1 AND g.goods_status = 1
         WHERE sp.is_deleted = 0
           AND sp.stock &gt; 0
         <if test="sessionId != null">

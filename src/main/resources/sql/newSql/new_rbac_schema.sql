@@ -4,11 +4,11 @@
 -- 设计要点：
 --   1. 场次与抢购商品多对多关联：每行即「场次X - 商品Y - 库存Z」，库存行级挂在关联上
 --   2. 同场次同商品仅一条有效关联（service 层查重；不用唯一索引以兼容逻辑删除后重新关联）
---   3. 抢购扣减走本表 stock 行级扣减，与 t_goods.stock（商品自身库存）互不干扰
+--   3. 抢购扣减走本表 stock 行级扣减；关联商品为 t_consign_goods（寄售商品无独立库存列）
 CREATE TABLE IF NOT EXISTS `t_session_product` (
     `id`          BIGINT        NOT NULL AUTO_INCREMENT COMMENT '主键ID',
     `session_id`  BIGINT        NOT NULL COMMENT '场次ID，关联t_session.id',
-    `goods_id`    BIGINT        NOT NULL COMMENT '抢购商品ID，关联t_goods.id',
+    `goods_id`    BIGINT        NOT NULL COMMENT '抢购商品ID，关联t_consign_goods.id',
     `stock`       INT UNSIGNED  NOT NULL DEFAULT 0 COMMENT '该场次该商品的抢购库存',
     `sort`        INT           NOT NULL DEFAULT 0 COMMENT '排序号（场次内商品展示顺序）',
     `is_deleted`  TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '逻辑删除 0未删 1已删',
@@ -17,9 +17,9 @@ CREATE TABLE IF NOT EXISTS `t_session_product` (
     PRIMARY KEY (`id`),
     KEY `idx_session_goods` (`session_id`, `goods_id`) COMMENT '按场次查关联商品联合索引（含查重）',
     KEY `idx_goods_id` (`goods_id`) COMMENT '按商品反查关联场次索引'
-    -- 外键约束（需确保 t_session 和 t_goods 表已存在后再手动添加）:
+    -- 外键约束（需确保 t_session 和 t_consign_goods 表已存在后再手动添加）:
     -- CONSTRAINT `fk_session_product_session` FOREIGN KEY (`session_id`) REFERENCES `t_session` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
-    -- CONSTRAINT `fk_session_product_goods` FOREIGN KEY (`goods_id`) REFERENCES `t_goods` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
+    -- CONSTRAINT `fk_session_product_goods` FOREIGN KEY (`goods_id`) REFERENCES `t_consign_goods` (`id`) ON DELETE CASCADE ON UPDATE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='场次商品关联表（场次-商品-库存）';
 
 
@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS `t_rob_order` (
     `session_name`           VARCHAR(128)  NOT NULL DEFAULT '' COMMENT '场次名称快照',
     `rush_start_time`        TIME          DEFAULT NULL COMMENT '场次每日抢购开始时间快照',
     `rush_end_time`          TIME          DEFAULT NULL COMMENT '场次每日抢购结束时间快照',
-    `goods_id`               BIGINT        NOT NULL COMMENT '商品ID快照,关联t_goods.id',
+    `goods_id`               BIGINT        NOT NULL COMMENT '商品ID快照,关联t_consign_goods.id',
     `goods_name`             VARCHAR(255)  NOT NULL DEFAULT '' COMMENT '商品名称快照',
     `goods_sn`               VARCHAR(64)   NOT NULL DEFAULT '' COMMENT '商品货号快照',
     `goods_thumb`            VARCHAR(512)  DEFAULT NULL COMMENT '商品缩略图URL快照',

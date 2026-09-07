@@ -1,13 +1,13 @@
 package com.atguigu.meet.service.seckill.sessionproduct.impl;
 
 import com.atguigu.meet.common.Response;
-import com.atguigu.meet.mapper.goods.list.GoodsMapper;
+import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.mapper.seckill.sessionproduct.SessionProductMapper;
 import com.atguigu.meet.model.dto.seckill.sessionproduct.SessionProductBatchSaveDTO;
 import com.atguigu.meet.model.dto.seckill.sessionproduct.SessionProductPageQueryDTO;
 import com.atguigu.meet.model.dto.seckill.sessionproduct.SessionProductUpdateDTO;
-import com.atguigu.meet.model.entity.goods.list.Goods;
+import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.vo.PageResultVO;
@@ -42,7 +42,7 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
     private SessionMapper sessionMapper;
 
     @Autowired
-    private GoodsMapper goodsMapper;
+    private ConsignGoodsMapper consignGoodsMapper;
 
     @Override
     public Response getPageList(SessionProductPageQueryDTO parameter) {
@@ -87,10 +87,10 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
             }
         }
         // 批量校验商品存在性
-        List<Goods> goodsList = goodsMapper.selectBatchIds(goodsIdSet);
+        List<ConsignGoods> goodsList = consignGoodsMapper.selectBatchIds(goodsIdSet);
         if (goodsList.size() != goodsIdSet.size()) {
             Set<Long> existIds = new HashSet<>();
-            for (Goods g : goodsList) {
+            for (ConsignGoods g : goodsList) {
                 existIds.add(g.getId());
             }
             goodsIdSet.removeAll(existIds);
@@ -177,7 +177,7 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
         if (session == null) {
             return "场次不存在";
         }
-        Goods goods = goodsMapper.selectById(goodsId);
+        ConsignGoods goods = consignGoodsMapper.selectById(goodsId);
         if (goods == null) {
             return "商品不存在";
         }

@@ -13,7 +13,7 @@ import java.util.List;
 /**
  * 场次商品关联 Mapper
  * <p>
- * 通过 JOIN t_session / t_goods 实时获取场次名称与商品信息，关联数据更新后列表/详情自动同步。
+ * 通过 JOIN t_session / t_consign_goods 实时获取场次名称与商品信息，关联数据更新后列表/详情自动同步。
  */
 public interface SessionProductMapper extends BaseMapper<SessionProduct> {
 

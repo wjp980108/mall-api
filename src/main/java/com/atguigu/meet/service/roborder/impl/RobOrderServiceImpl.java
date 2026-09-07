@@ -99,6 +99,9 @@ public class RobOrderServiceImpl implements RobOrderService {
 
         // 2. 时间窗口校验（含新会员提前抢购）
         SysSettings settings = sysSettingsService.get();
+        if (settings == null) {
+            return Response.fail(500, "系统设置未配置，请联系管理员");
+        }
         Response timeCheck = checkRushWindow(session, buyer, settings);
         if (timeCheck != null) {
             return timeCheck;

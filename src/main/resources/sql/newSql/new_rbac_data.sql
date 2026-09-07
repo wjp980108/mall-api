@@ -73,3 +73,15 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 -- 给超级管理员分配抢购订单菜单/权限
 INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
 SELECT 1, id FROM sys_menu WHERE id BETWEEN 131 AND 134;
+
+INSERT INTO sys_settings (
+    id, site_name, site_logo, new_member_days, new_member_advance_minutes,
+    limit_rule, recommend_rate, self_buy_rate, self_buy_bonus_ratio,
+    coupon_ratio, show_self_buy_bonus, show_coupon, order_profit_rate,
+    poster_bg_image, create_time, update_time, is_deleted
+) VALUES (
+    1, '你的站点名称', '', 7, 30,
+    0, 10.00, 10.00, 50.00,
+    50.00, 1, 1, 20.00,
+    '', NOW(), NOW(), 0
+);

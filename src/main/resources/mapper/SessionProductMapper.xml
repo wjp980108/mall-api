@@ -69,7 +69,7 @@
         FROM t_session_product sp
         INNER JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0 AND s.session_status = 1
         INNER JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
-            AND g.online_status = 1 AND g.goods_status = 1
+            AND g.online_status = 1 AND g.goods_status IN (1, 5)
         WHERE sp.is_deleted = 0
           AND sp.stock &gt; 0
         <if test="sessionId != null">

@@ -63,8 +63,9 @@ public class SysSettingsServiceImpl extends ServiceImpl<SysSettingsMapper, SysSe
                 .set(SysSettings::getSelfBuyRate, dto.getSelfBuyRate())
                 .set(SysSettings::getSelfBuyBonusRatio, dto.getSelfBuyBonusRatio())
                 .set(SysSettings::getCouponRatio, dto.getCouponRatio())
-                .set(SysSettings::getShowSelfBuyBonus, dto.getShowSelfBuyBonus())
-                .set(SysSettings::getShowCoupon, dto.getShowCoupon())
+                // 展示开关未传时默认 1(显示), 防止全量覆盖把 NULL 写进 NOT NULL 列
+                .set(SysSettings::getShowSelfBuyBonus, dto.getShowSelfBuyBonus() != null ? dto.getShowSelfBuyBonus() : 1)
+                .set(SysSettings::getShowCoupon, dto.getShowCoupon() != null ? dto.getShowCoupon() : 1)
                 .set(SysSettings::getOrderProfitRate, dto.getOrderProfitRate())
                 .set(SysSettings::getPosterBgImage, dto.getPosterBgImage());
         update(uw);

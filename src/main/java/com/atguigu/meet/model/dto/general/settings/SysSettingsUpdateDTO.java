@@ -63,12 +63,12 @@ public class SysSettingsUpdateDTO {
     @Max(value = 100, message = "购物券占比不能超过100")
     private BigDecimal couponRatio;
 
-    @Schema(description = "前端显示自购奖: 0否 1是")
+    @Schema(description = "前端显示自购奖: 0否 1是, 不传默认1")
     @Min(value = 0, message = "showSelfBuyBonus 只能 0 或 1")
     @Max(value = 1, message = "showSelfBuyBonus 只能 0 或 1")
     private Integer showSelfBuyBonus;
 
-    @Schema(description = "前端显示购物券: 0否 1是")
+    @Schema(description = "前端显示购物券: 0否 1是, 不传默认1")
     @Min(value = 0, message = "showCoupon 只能 0 或 1")
     @Max(value = 1, message = "showCoupon 只能 0 或 1")
     private Integer showCoupon;

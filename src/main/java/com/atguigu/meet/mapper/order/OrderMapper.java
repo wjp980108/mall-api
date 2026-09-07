@@ -47,4 +47,16 @@ public interface OrderMapper extends BaseMapper<Order> {
             "WHERE o.buyer_id = #{buyerId} AND g.session_id = #{sessionId} " +
             "AND o.is_deleted = 0 AND o.order_status != 5")
     int countRushedByUserAndSession(@Param("buyerId") Long buyerId, @Param("sessionId") Long sessionId);
+
+    /**
+     * 限购统计：用户当天有效抢购次数（跨场次，未取消订单）
+     * <p>
+     * limit_rule=2（当天限一次）时使用，按 t_order.create_time 判当天，
+     * 不需 JOIN t_consign_goods（无场次维度），已取消(status=5)订单排除。
+     */
+    @Select("SELECT COUNT(1) FROM t_order o " +
+            "WHERE o.buyer_id = #{buyerId} " +
+            "AND DATE(o.create_time) = CURDATE() " +
+            "AND o.is_deleted = 0 AND o.order_status != 5")
+    int countRushedByUserAndDate(@Param("buyerId") Long buyerId);
 }

@@ -14,6 +14,7 @@ import com.atguigu.meet.model.dto.order.OrderOperateDTO;
 import com.atguigu.meet.model.dto.order.PlaceOrderDTO;
 import com.atguigu.meet.model.dto.order.UploadVoucherDTO;
 import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
+import com.atguigu.meet.model.entity.general.settings.SysSettings;
 import com.atguigu.meet.model.entity.order.Order;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.entity.seckill.session.Session;
@@ -22,6 +23,7 @@ import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.order.OrderVO;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
+import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.order.OrderOperateLogService;
 import com.atguigu.meet.service.order.OrderService;
 import com.atguigu.meet.service.user.UserAddressService;
@@ -87,6 +89,9 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
 
     @Autowired
     private UserAddressService userAddressService;
+
+    @Autowired
+    private SysSettingsService sysSettingsService;
 
     // ====================== 5 个列表查询 ======================
 
@@ -494,6 +499,11 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (currentUserId == null) {
             return Response.fail(401, "未登录");
         }
+        // 0. 买家信息（提前获取以判定新会员身份，用于时间窗口与限购校验）
+        SysUser buyer = userMapper.selectById(currentUserId);
+        if (buyer == null) {
+            return Response.fail(500, "买家信息不存在");
+        }
         // 1. 查商品 + 状态校验（必须挂卖中+已上架）
         ConsignGoods goods = consignGoodsMapper.selectById(dto.getGoodsId());
         if (goods == null) {
@@ -510,28 +520,45 @@ public class OrderServiceImpl extends ServiceImpl<OrderMapper, Order> implements
         if (session == null || !Integer.valueOf(1).equals(session.getSessionStatus())) {
             return Response.fail(500, "抢购场次未开启或不存在");
         }
+        // 读取新会员提前抢购设置：featureOn(new_member_days>0) 且 advance>0 且 member_type=0 时放宽提前窗口
+        SysSettings settings = sysSettingsService.get();
+        Integer newMemberDays = settings.getNewMemberDays();
+        Integer advanceMinutes = settings.getNewMemberAdvanceMinutes();
+        boolean featureOn = newMemberDays != null && newMemberDays > 0;
+        boolean newMemberAdvance = featureOn
+                && advanceMinutes != null && advanceMinutes > 0
+                && Integer.valueOf(0).equals(buyer.getMemberType());
         LocalTime now = LocalTime.now();
-        if (session.getRushStartTime() == null || session.getRushEndTime() == null
-                || now.isBefore(session.getRushStartTime()) || now.isAfter(session.getRushEndTime())) {
+        if (session.getRushStartTime() == null || session.getRushEndTime() == null) {
             return Response.fail(500, "非抢购时段，无法下单");
         }
-        // 3. 限购校验：t_order 无 session_id，JOIN t_consign_goods 统计该场次有效抢购次数（排除已取消）
-        int maxBuy = session.getMaxBuyCount() == null ? 1 : session.getMaxBuyCount();
-        int rushed = baseMapper.countRushedByUserAndSession(currentUserId, session.getId());
-        if (rushed >= maxBuy) {
-            return Response.fail(500, "已达本场次抢购上限(" + maxBuy + "次)");
+        LocalTime effectiveStart = newMemberAdvance
+                ? session.getRushStartTime().minusMinutes(advanceMinutes)
+                : session.getRushStartTime();
+        if (now.isBefore(effectiveStart) || now.isAfter(session.getRushEndTime())) {
+            return Response.fail(500, "非抢购时段，无法下单");
         }
+        // 3. 限购校验：依据 sys_settings.limit_rule（0不限购/1同场次限一次/2当天限一次），替代原 t_session.max_buy_count
+        Integer limitRule = settings.getLimitRule();
+        if (limitRule != null && limitRule == 1) {
+            int rushed = baseMapper.countRushedByUserAndSession(currentUserId, session.getId());
+            if (rushed >= 1) {
+                return Response.fail(500, "已达本场次抢购上限(1次)");
+            }
+        } else if (limitRule != null && limitRule == 2) {
+            int rushed = baseMapper.countRushedByUserAndDate(currentUserId);
+            if (rushed >= 1) {
+                return Response.fail(500, "已达今日抢购上限(1次)");
+            }
+        }
+        // limitRule=0 或 null → 不限购
         // 4. 收货地址（归属校验，防越权使用他人地址）
         UserAddress addr = userAddressService.getByIdForOrder(dto.getAddressId(), currentUserId);
         if (addr == null) {
             return Response.fail(500, "收货地址不存在");
         }
-        // 5. 买卖家信息快照（下单时从 sys_user 取，避免后续用户改名影响历史订单）
-        SysUser buyer = userMapper.selectById(currentUserId);
+        // 5. 卖家信息快照（下单时从 sys_user 取，避免后续用户改名影响历史订单）
         SysUser seller = userMapper.selectById(goods.getMemberId());
-        if (buyer == null) {
-            return Response.fail(500, "买家信息不存在");
-        }
         // 6. 商品状态条件更新 1挂卖中 -> 2已抢购待付款（affected=0 即被并发抢走）
         //    同时重置委托/审核状态为 0：新一轮抢购周期开始，上轮委托审核结果清零
         int affected = consignGoodsMapper.updateStatusWithCondition(

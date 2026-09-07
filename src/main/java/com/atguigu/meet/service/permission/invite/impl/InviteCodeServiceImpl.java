@@ -4,8 +4,10 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.invite.SysInviteCodeMapper;
 import com.atguigu.meet.mapper.permission.invite.SysInviteRecordMapper;
+import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteCode;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteRecord;
+import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.service.permission.invite.InviteCodeService;
 import com.atguigu.meet.utils.InviteCodeUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -33,6 +35,9 @@ public class InviteCodeServiceImpl implements InviteCodeService {
 
     @Autowired
     private RedisInviteSeqGenerator seqGenerator;
+
+    @Autowired
+    private UserMapper userMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -132,6 +137,16 @@ public class InviteCodeServiceImpl implements InviteCodeService {
         int updated = sysInviteCodeMapper.update(null, updateWrapper);
         if (updated == 0) {
             throw new BusinessException("邀请码核销失败，请重试");
+        }
+
+        // 3. 邀请成功 → 邀请人自动转为老会员（member_type 0→1，条件更新幂等）
+        LambdaUpdateWrapper<SysUser> memberUpdate = new LambdaUpdateWrapper<>();
+        memberUpdate.eq(SysUser::getId, inviteCode.getInviterId())
+                .eq(SysUser::getMemberType, 0)
+                .set(SysUser::getMemberType, 1);
+        int memberUpdated = userMapper.update(null, memberUpdate);
+        if (memberUpdated > 0) {
+            log.info("[邀请转老会员] 邀请人 userId={} 已从新会员转为老会员", inviteCode.getInviterId());
         }
     }
 }

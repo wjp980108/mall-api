@@ -92,6 +92,8 @@ public final class PermissionConst {
     public static final String USER_DELETE = "sys:user:delete";
     /** 用户启用/禁用 */
     public static final String USER_STATUS = "sys:user:status";
+    /** 用户转老会员（将新会员 member_type=0 手动置为 1） */
+    public static final String USER_TO_OLD = "sys:user:toOld";
 
     // ==========================================
     // 系统管理 -> 角色管理 (sys:role:xxx)
@@ -137,6 +139,15 @@ public final class PermissionConst {
     public static final String SYS_CONFIG_UPDATE = "sys:config:update";
     /** 系统日志查询 */
     public static final String SYS_LOG_QUERY = "sys:log:query";
+
+    // ==========================================
+    // 常规管理 -> 系统设置 (sys:settings:xxx)
+    // 对应 sys_menu: 常规管理(id=110) -> 系统设置(id=128) -> 按钮(129/130)
+    // ==========================================
+    /** 系统设置查询 */
+    public static final String SYS_SETTINGS_QUERY = "sys:settings:query";
+    /** 系统设置修改 */
+    public static final String SYS_SETTINGS_UPDATE = "sys:settings:update";
 
     // ==========================================
     // 公告管理 (sys:notice:xxx)

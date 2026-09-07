@@ -46,6 +46,9 @@ public interface UserService {
     /** 用户下拉选项列表（仅启用用户） */
     Response getUserOptions();
 
+    /** 将指定用户手动转为老会员（member_type 0→1，兜底机制） */
+    Response toOldMember(Long userId);
+
     /*List<Map<String, Object>> mapList();
 
     List<Object> idList();*/

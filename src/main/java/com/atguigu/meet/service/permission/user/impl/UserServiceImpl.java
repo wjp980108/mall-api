@@ -255,6 +255,37 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     }
 
     /**
+     * 将指定用户手动转为老会员（member_type 0→1）
+     * <p>兜底机制：邀请转老会员未覆盖到的用户（如未成功邀请但需保留账号）可由管理员手动转换。
+     * <p>条件更新幂等：仅 member_type=0 时更新，已是老会员(1)返回提示不重复操作。
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response toOldMember(Long userId) {
+        if (userId == null) {
+            return Response.fail(500, "用户ID不能为空");
+        }
+        SysUser existUser = userMapper.selectById(userId);
+        if (existUser == null) {
+            return Response.fail(500, "用户不存在");
+        }
+        if (Integer.valueOf(1).equals(existUser.getMemberType())) {
+            return Response.fail(500, "该用户已是老会员");
+        }
+        // 定点更新 member_type 0->1（条件 member_type=0 防并发覆盖）
+        boolean updated = lambdaUpdate()
+                .eq(SysUser::getId, userId)
+                .eq(SysUser::getMemberType, 0)
+                .set(SysUser::getMemberType, 1)
+                .update();
+        if (!updated) {
+            return Response.fail(500, "转老会员失败，请刷新后重试");
+        }
+        log.info("[用户管理] 手动转老会员成功，userId={}，操作人={}", userId, AdminContext.getLoginUserId());
+        return Response.ok("转老会员成功", null);
+    }
+
+    /**
      * 获取对象中值为 null 的属性名数组，配合 BeanConvertUtils.copyProperties 忽略 null 值字段
      */
     private static String[] getNullPropertyNames(Object source) {

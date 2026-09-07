@@ -9,6 +9,7 @@ import com.atguigu.meet.enums.GoodsStatus;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsOperateLogMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
+import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsAuditDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsBizStatusDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsDeleteDTO;
@@ -18,9 +19,12 @@ import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsSaveDTO;
 import com.atguigu.meet.model.dto.goods.consign.ConsignGoodsUpdateDTO;
 import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
 import com.atguigu.meet.model.entity.goods.consign.ConsignGoodsOperateLog;
+import com.atguigu.meet.model.entity.general.settings.SysSettings;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
+import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.goods.consign.ConsignGoodsVO;
+import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
 import com.atguigu.meet.utils.AdminContext;
@@ -43,6 +47,7 @@ import org.springframework.util.StringUtils;
 import java.beans.PropertyDescriptor;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
@@ -76,6 +81,12 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
 
     @Autowired
     private ConsignRecordService consignRecordService;
+
+    @Autowired
+    private SessionMapper sessionMapper;
+
+    @Autowired
+    private SysSettingsService sysSettingsService;
 
     @Override
     public Response getPageList(ConsignGoodsPageQueryDTO parameter) {
@@ -125,6 +136,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
         vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
         vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+        // 新会员提前抢购权益：详情页同样按登录用户身份后处理 canPurchase
+        applyNewMemberAdvancePurchase(Collections.singletonList(vo));
         return Response.ok(vo);
     }
 
@@ -283,7 +296,70 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
             vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
             vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
         });
+        // 新会员提前抢购权益：Service 层按当前登录用户身份后处理 canPurchase
+        applyNewMemberAdvancePurchase(result.getRecords());
         return Response.ok(PageResultVO.of(result));
+    }
+
+    /**
+     * 新会员提前抢购 canPurchase 后处理
+     * <p>XML 产出基于正常时间窗口 [rush_start, rush_end] 的 canPurchase；
+     * 此处对登录的新会员且 sys_settings 开启提前抢购(advance>0 且 new_member_days>0)时，
+     * 将提前窗口 [rush_start - advance, rush_end] 内但 XML 判定为 false 的商品放宽为 true。
+     * 未登录/老会员/功能关闭 → 保持 XML 原值不动。
+     */
+    private void applyNewMemberAdvancePurchase(List<ConsignGoodsVO> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Long userId = AdminContext.getLoginUserId();
+        if (userId == null) {
+            // 未登录：保持 XML 原值
+            return;
+        }
+        SysUser buyer = userMapper.selectById(userId);
+        if (buyer == null || !Integer.valueOf(0).equals(buyer.getMemberType())) {
+            // 非新会员（老会员或异常）：保持 XML 原值
+            return;
+        }
+        SysSettings settings = sysSettingsService.get();
+        Integer newMemberDays = settings.getNewMemberDays();
+        Integer advanceMinutes = settings.getNewMemberAdvanceMinutes();
+        if (newMemberDays == null || newMemberDays <= 0
+                || advanceMinutes == null || advanceMinutes <= 0) {
+            // 功能关闭：保持 XML 原值
+            return;
+        }
+        // 批量查询当前页涉及的场次，避免逐行查询
+        Set<Long> sessionIds = records.stream()
+                .map(ConsignGoodsVO::getSessionId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+        if (sessionIds.isEmpty()) {
+            return;
+        }
+        List<Session> sessions = sessionMapper.selectBatchIds(sessionIds);
+        Map<Long, Session> sessionMap = sessions.stream()
+                .collect(Collectors.toMap(Session::getId, s -> s, (a, b) -> a));
+        LocalTime now = LocalTime.now();
+        for (ConsignGoodsVO vo : records) {
+            // XML 已判可购或无可购标记则跳过
+            if (Boolean.TRUE.equals(vo.getCanPurchase()) || vo.getSessionId() == null) {
+                continue;
+            }
+            Session session = sessionMap.get(vo.getSessionId());
+            if (session == null || !Integer.valueOf(1).equals(session.getSessionStatus())) {
+                continue;
+            }
+            if (session.getRushStartTime() == null || session.getRushEndTime() == null) {
+                continue;
+            }
+            LocalTime advanceStart = session.getRushStartTime().minusMinutes(advanceMinutes);
+            // 在提前窗口 [advanceStart, rush_end] 内则放宽为可购
+            if (!now.isBefore(advanceStart) && !now.isAfter(session.getRushEndTime())) {
+                vo.setCanPurchase(true);
+            }
+        }
     }
 
     /**

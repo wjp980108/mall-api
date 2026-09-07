@@ -65,6 +65,10 @@ public class SysUser extends Model<SysUser> {
     @Schema(description = "状态")
     private String status = "1";
 
+    /** 会员类型 0新会员 1老会员 */
+    @Schema(description = "会员类型 0新会员 1老会员")
+    private Integer memberType;
+
     /** 邀请人ID（sys_user.id） */
     @Schema(description = "邀请人ID")
     private Long inviterId;

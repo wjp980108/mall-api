@@ -100,6 +100,19 @@ public class UserController {
     }
 
     /**
+     * 将指定用户转为老会员（member_type 0→1）
+     *
+     * @param id 目标用户ID
+     * @return 转换结果
+     */
+    @PostMapping("/toOldMember/{id}")
+    @RequirePermission(PermissionConst.USER_TO_OLD)
+    @Operation(summary = "转老会员", description = "将指定新会员手动转为老会员")
+    public Response<Void> toOldMember(@PathVariable("id") Long id) {
+        return userService.toOldMember(id);
+    }
+
+    /**
      * 上传当前登录用户头像
      *
      * @param platform 存储平台: local-1 / aliyun-oss-1 / qiniu-kodo-1 / minio-1 / tencent-cos-1

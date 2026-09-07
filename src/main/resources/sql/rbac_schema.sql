@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS sys_user (
     avatar_platform     VARCHAR(50)  DEFAULT NULL COMMENT '头像存储平台:local-1/aliyun-oss-1等',
     birthday    DATE         COMMENT '生日',
     status      TINYINT      DEFAULT 1 COMMENT '账号状态 0禁用 1正常',
+    member_type TINYINT      NOT NULL DEFAULT 0 COMMENT '会员类型 0新会员 1老会员',
     inviter_id  BIGINT       COMMENT '邀请人ID(sys_user.id)',
     create_time DATETIME     DEFAULT CURRENT_TIMESTAMP,
     update_time DATETIME     DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,

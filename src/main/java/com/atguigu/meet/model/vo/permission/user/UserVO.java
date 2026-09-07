@@ -56,6 +56,10 @@ public class UserVO {
     @Schema(description = "状态 1启用 0禁用")
     private Boolean status;
 
+    /** 会员类型 0新会员 1老会员 */
+    @Schema(description = "会员类型 0新会员 1老会员")
+    private Integer memberType;
+
     /** 邀请人ID */
     @Schema(description = "邀请人ID")
     private Long inviterId;

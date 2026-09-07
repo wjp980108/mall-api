@@ -143,10 +143,12 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
 
     @Override
     public Response addConsignGoods(ConsignGoodsSaveDTO dto) {
-        // 校验委托人是否存在
-        SysUser member = userMapper.selectById(dto.getMemberId());
-        if (member == null) {
-            return Response.fail(500, "委托人不存在");
+        // 校验委托人是否存在（memberId 可选，传了才校验）
+        if (dto.getMemberId() != null) {
+            SysUser member = userMapper.selectById(dto.getMemberId());
+            if (member == null) {
+                return Response.fail(500, "委托人不存在");
+            }
         }
         // 图片平台条件校验：传了图片URL就必须传存储平台，避免后续 NPE 导致 500
         if (StringUtils.hasText(dto.getCoverImg()) && !StringUtils.hasText(dto.getCoverImgPlatform())) {
@@ -184,10 +186,12 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (existGoods == null) {
             return Response.fail(500, "商品不存在");
         }
-        // 校验委托人是否存在
-        SysUser member = userMapper.selectById(dto.getMemberId());
-        if (member == null) {
-            return Response.fail(500, "委托人不存在");
+        // 校验委托人是否存在（memberId 可选，传了才校验）
+        if (dto.getMemberId() != null) {
+            SysUser member = userMapper.selectById(dto.getMemberId());
+            if (member == null) {
+                return Response.fail(500, "委托人不存在");
+            }
         }
         // 图片平台条件校验：传了图片URL就必须传存储平台，避免后续 NPE 导致 500
         if (StringUtils.hasText(dto.getCoverImg()) && !StringUtils.hasText(dto.getCoverImgPlatform())) {

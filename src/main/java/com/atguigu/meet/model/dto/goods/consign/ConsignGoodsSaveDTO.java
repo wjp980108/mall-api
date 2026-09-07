@@ -34,15 +34,13 @@ public class ConsignGoodsSaveDTO {
     @DecimalMin(value = "0.00", message = "商品价格不能为负数")
     private BigDecimal goodsPrice;
 
-    /** 本轮委托人ID，关联 sys_user.id */
-    @Schema(description = "委托人ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "委托人ID不能为空")
+    /** 本轮委托人ID，关联 sys_user.id（可选，不传则为空） */
+    @Schema(description = "委托人ID", example = "1")
     @Min(value = 1, message = "委托人ID不合法")
     private Long memberId;
 
-    /** 所属场次ID，关联 t_session.id */
-    @Schema(description = "场次ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "场次ID不能为空")
+    /** 所属场次ID，关联 t_session.id（可选，不传则为空） */
+    @Schema(description = "场次ID", example = "1")
     @Min(value = 1, message = "场次ID不合法")
     private Long sessionId;
 

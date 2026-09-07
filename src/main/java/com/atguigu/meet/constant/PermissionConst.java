@@ -292,6 +292,18 @@ public final class PermissionConst {
     public static final String ORDER_CONFIRM_RECEIVE = "order:waitConfirm:confirmReceive";
 
     // ==========================================
+    // 抢购订单管理 (rob:order:xxx)
+    // 对应 sys_menu: 抢购订单菜单(id=131) -> 按钮(132查询/133转移/134取消)
+    // 模块=rob，页面=order（controller.roborder），基于场次商品库存的新订单
+    // ==========================================
+    /** 抢购订单查询 */
+    public static final String ROB_ORDER_QUERY = "rob:order:query";
+    /** 抢购订单转移（更换买家并划转积分权益） */
+    public static final String ROB_ORDER_TRANSFER = "rob:order:transfer";
+    /** 抢购订单取消（回滚库存与积分） */
+    public static final String ROB_ORDER_CANCEL = "rob:order:cancel";
+
+    // ==========================================
     // 常规管理 -> 用户协议 (sys:agreement:xxx)
     // 对应 sys_menu: 常规管理目录(id=110) -> 用户协议菜单(id=111) -> 按钮
     // ==========================================

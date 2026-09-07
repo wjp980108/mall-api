@@ -58,3 +58,18 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 -- 给超级管理员分配系统设置菜单/权限
 INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
 SELECT 1, id FROM sys_menu WHERE id BETWEEN 128 AND 130;
+
+
+-- =============================================
+-- 抢购订单模块菜单数据
+-- =============================================
+-- 抢购订单菜单 (菜单ID 131-134, 挂一级 parent_id=1 下, sort=53)
+INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, component_path, icon, sort, visible) VALUES
+(131, 1,  '抢购订单', 'robOrder', NULL,                  1, 'robOrder', 'robOrder/index', 'Tickets', 53, 1),
+(132, 131, '抢购订单查询', NULL, 'rob:order:query',    2, NULL, NULL, NULL, 1, 1),
+(133, 131, '订单转移',     NULL, 'rob:order:transfer', 2, NULL, NULL, NULL, 2, 1),
+(134, 131, '取消订单',     NULL, 'rob:order:cancel',   2, NULL, NULL, NULL, 3, 1);
+
+-- 给超级管理员分配抢购订单菜单/权限
+INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
+SELECT 1, id FROM sys_menu WHERE id BETWEEN 131 AND 134;

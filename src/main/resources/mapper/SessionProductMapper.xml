@@ -65,4 +65,18 @@
         WHERE sp.is_deleted = 0 AND sp.session_id = #{sessionId}
         ORDER BY sp.sort ASC, sp.id DESC
     </select>
+
+    <!-- C端可抢商品分页：场次开启 + 商品上架 + 剩余库存>0 -->
+    <select id="selectRobSaleGoodsPage" resultMap="SessionProductResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM t_session_product sp
+        INNER JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0 AND s.session_status = 1
+        INNER JOIN t_goods g ON sp.goods_id = g.id AND g.is_deleted = 0 AND g.status = 1
+        WHERE sp.is_deleted = 0
+          AND sp.stock &gt; 0
+        <if test="sessionId != null">
+            AND sp.session_id = #{sessionId}
+        </if>
+        ORDER BY s.sort ASC, sp.sort ASC, sp.id DESC
+    </select>
 </mapper>

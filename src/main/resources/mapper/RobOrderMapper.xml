@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.meet.mapper.roborder.RobOrderMapper">
+
+    <!-- 结果映射：抢购订单VO -->
+    <resultMap id="RobOrderVOResultMap" type="com.atguigu.meet.model.vo.roborder.RobOrderVO">
+        <id column="id" property="id"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="session_product_id" property="sessionProductId"/>
+        <result column="session_id" property="sessionId"/>
+        <result column="session_name" property="sessionName"/>
+        <result column="rush_start_time" property="rushStartTime"/>
+        <result column="rush_end_time" property="rushEndTime"/>
+        <result column="goods_id" property="goodsId"/>
+        <result column="goods_name" property="goodsName"/>
+        <result column="goods_sn" property="goodsSn"/>
+        <result column="goods_thumb" property="goodsThumb"/>
+        <result column="unit_price" property="unitPrice"/>
+        <result column="quantity" property="quantity"/>
+        <result column="total_amount" property="totalAmount"/>
+        <result column="profit_amount" property="profitAmount"/>
+        <result column="recommend_amount" property="recommendAmount"/>
+        <result column="self_buy_amount" property="selfBuyAmount"/>
+        <result column="self_buy_bonus_amount" property="selfBuyBonusAmount"/>
+        <result column="self_buy_coupon_amount" property="selfBuyCouponAmount"/>
+        <result column="buyer_id" property="buyerId"/>
+        <result column="buyer_name" property="buyerName"/>
+        <result column="buyer_phone" property="buyerPhone"/>
+        <result column="buyer_avatar" property="buyerAvatar"/>
+        <result column="inviter_id" property="inviterId"/>
+        <result column="inviter_name" property="inviterName"/>
+        <result column="order_status" property="orderStatus"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 公共列片段 -->
+    <sql id="baseColumnList">
+        o.id, o.order_no, o.session_product_id, o.session_id, o.session_name,
+        o.rush_start_time, o.rush_end_time,
+        o.goods_id, o.goods_name, o.goods_sn, o.goods_thumb,
+        o.unit_price, o.quantity, o.total_amount,
+        o.profit_amount, o.recommend_amount, o.self_buy_amount,
+        o.self_buy_bonus_amount, o.self_buy_coupon_amount,
+        o.buyer_id, o.buyer_name, o.buyer_phone, o.buyer_avatar,
+        o.inviter_id, o.inviter_name, o.order_status, o.create_time
+    </sql>
+
+    <!-- 分页查询抢购订单 -->
+    <select id="selectRobOrderPage" resultMap="RobOrderVOResultMap">
+        SELECT <include refid="baseColumnList"/>
+        FROM t_rob_order o
+        WHERE o.is_deleted = 0
+        <if test="buyerId != null">
+            AND o.buyer_id = #{buyerId}
+        </if>
+        <if test="sessionId != null">
+            AND o.session_id = #{sessionId}
+        </if>
+        <if test="keyword != null and keyword != ''">
+            AND (
+                o.buyer_name LIKE CONCAT('%', #{keyword}, '%')
+                OR o.buyer_phone LIKE CONCAT('%', #{keyword}, '%')
+                OR o.goods_name LIKE CONCAT('%', #{keyword}, '%')
+                OR o.goods_sn LIKE CONCAT('%', #{keyword}, '%')
+                OR CAST(o.buyer_id AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+        <if test="amount != null and amount != ''">
+            AND CAST(o.total_amount AS CHAR) LIKE CONCAT('%', #{amount}, '%')
+        </if>
+        <if test="orderStatus != null">
+            AND o.order_status = #{orderStatus}
+        </if>
+        <if test="startTime != null">
+            AND o.create_time &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND o.create_time &lt;= #{endTime}
+        </if>
+        ORDER BY o.create_time DESC, o.id DESC
+    </select>
+
+    <!-- 统计某用户在某场次的正常订单数 -->
+    <select id="countRushedByUserAndSession" resultType="int">
+        SELECT COUNT(1)
+        FROM t_rob_order
+        WHERE is_deleted = 0
+          AND order_status = 1
+          AND buyer_id = #{buyerId}
+          AND session_id = #{sessionId}
+    </select>
+
+    <!-- 统计某用户在给定时间范围内的正常订单数 -->
+    <select id="countRushedByUserAndDate" resultType="int">
+        SELECT COUNT(1)
+        FROM t_rob_order
+        WHERE is_deleted = 0
+          AND order_status = 1
+          AND buyer_id = #{buyerId}
+          AND create_time &gt;= #{startTime}
+          AND create_time &lt;= #{endTime}
+    </select>
+
+</mapper>

@@ -38,26 +38,16 @@ public class SysSettingsUpdateDTO {
     private Integer newMemberAdvanceMinutes;
 
     // ========== 抢单规则 ==========
-    @Schema(description = "可提前查看抢购商品(分钟)")
-    @Min(value = 0, message = "提前查看分钟数不能为负")
-    private Integer preViewMinutes;
-
+    // pre_view_minutes / share_valid_days / referrer_purchase_days 三预留字段写入路径切断（design D7）
+    // DTO 不接受这三字段（方案 b），未来启用时加回 DTO 字段 + .set() + 前端输入框
     @Schema(description = "会员限购规则: 0不限购 1同一场次限购一次 2当天限购一次")
     @Min(value = 0, message = "限购规则非法")
     @Max(value = 2, message = "限购规则非法")
     private Integer limitRule;
 
-    @Schema(description = "分享资格有效期(天)")
-    @Min(value = 0, message = "分享资格有效期不能为负")
-    private Integer shareValidDays;
-
     @Schema(description = "推荐奖比例(%)")
     @Min(value = 0, message = "推荐奖比例不能为负")
     private BigDecimal recommendRate;
-
-    @Schema(description = "推荐人购买有效期(天)")
-    @Min(value = 0, message = "推荐人购买有效期不能为负")
-    private Integer referrerPurchaseDays;
 
     @Schema(description = "自购奖励比例(%)")
     @Min(value = 0, message = "自购奖励比例不能为负")

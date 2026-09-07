@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.meet.mapper.points.UserPointsFlowMapper">
+
+    <!-- 结果映射：积分明细VO -->
+    <resultMap id="PointsFlowVOResultMap" type="com.atguigu.meet.model.vo.points.PointsFlowVO">
+        <id column="id" property="id"/>
+        <result column="order_id" property="orderId"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="biz_type" property="bizType"/>
+        <result column="flow_type" property="flowType"/>
+        <result column="account_type" property="accountType"/>
+        <result column="amount" property="amount"/>
+        <result column="before_points" property="beforePoints"/>
+        <result column="after_points" property="afterPoints"/>
+        <result column="counterparty_user_id" property="counterpartyUserId"/>
+        <result column="counterparty_name" property="counterpartyName"/>
+        <result column="remark" property="remark"/>
+        <result column="create_time" property="createTime"/>
+    </resultMap>
+
+    <!-- 分页查询某用户积分明细（按业务类型可选筛选，时间倒序） -->
+    <select id="selectFlowPage" resultMap="PointsFlowVOResultMap">
+        SELECT id, order_id, order_no, biz_type, flow_type, account_type,
+               amount, before_points, after_points,
+               counterparty_user_id, counterparty_name, remark, create_time
+        FROM t_user_points_flow
+        WHERE user_id = #{userId}
+        <if test="bizType != null">
+            AND biz_type = #{bizType}
+        </if>
+        ORDER BY create_time DESC, id DESC
+    </select>
+
+</mapper>

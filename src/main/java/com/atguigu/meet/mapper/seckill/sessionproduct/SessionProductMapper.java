@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
+import org.apache.ibatis.annotations.Update;
 
 import java.util.List;
 
@@ -39,4 +40,37 @@ public interface SessionProductMapper extends BaseMapper<SessionProduct> {
      * @param sessionId 场次ID
      */
     List<SessionProductVO> selectListBySessionId(@Param("sessionId") Long sessionId);
+
+    /**
+     * 抢购下单条件扣减库存（原子操作，防超卖）。
+     * <p>仅当关联记录存在、未删除且库存充足时扣减；受影响行数=0 即库存不足/已下架，调用方应回滚并提示。
+     *
+     * @param id  场次商品关联ID（t_session_product.id）
+     * @param qty 购买数量
+     * @return 受影响行数（1=扣减成功，0=库存不足或记录不存在）
+     */
+    @Update("UPDATE t_session_product SET stock = stock - #{qty} " +
+            "WHERE id = #{id} AND is_deleted = 0 AND stock >= #{qty}")
+    int deductStock(@Param("id") Long id, @Param("qty") Integer qty);
+
+    /**
+     * 取消订单回滚库存（把购买数量加回，锚点为下单时的关联ID）。
+     *
+     * @param id  场次商品关联ID
+     * @param qty 回滚数量
+     * @return 受影响行数
+     */
+    @Update("UPDATE t_session_product SET stock = stock + #{qty} " +
+            "WHERE id = #{id} AND is_deleted = 0")
+    int addStock(@Param("id") Long id, @Param("qty") Integer qty);
+
+    /**
+     * C 端可抢商品分页：场次开启、商品上架、剩余库存 &gt; 0 的场次商品。
+     * <p>抢购时间窗口/新会员提前等按钮态由下单接口校验，列表仅做可售性过滤。
+     *
+     * @param page      分页参数
+     * @param sessionId 场次ID（传 null 查全部场次）
+     */
+    IPage<SessionProductVO> selectRobSaleGoodsPage(Page<SessionProductVO> page,
+                                                   @Param("sessionId") Long sessionId);
 }

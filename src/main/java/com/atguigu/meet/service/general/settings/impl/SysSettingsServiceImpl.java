@@ -40,6 +40,15 @@ public class SysSettingsServiceImpl extends ServiceImpl<SysSettingsMapper, SysSe
             return Response.fail(500, "自购奖金占比与购物券占比合计须为100, 当前=" + sum);
         }
 
+        // 业务校验: 奖励总和不得超过利润池（推荐奖比例 + 自购奖励比例 <= 订单利润比例）
+        // 所有奖励(推荐奖/自购奖)都从「订单金额×订单利润比例%」的利润池里出，超池会导致佣金发放失败
+        BigDecimal rewardSum = nz(dto.getRecommendRate()).add(nz(dto.getSelfBuyRate()));
+        if (rewardSum.compareTo(nz(dto.getOrderProfitRate())) > 0) {
+            return Response.fail(500, "推荐奖比例与自购奖励比例之和(" + rewardSum
+                    + "%)不能超过订单利润比例(" + nz(dto.getOrderProfitRate())
+                    + "%)，否则奖励超出利润池会发放失败");
+        }
+
         // 定点更新所有业务字段
         LambdaUpdateWrapper<SysSettings> uw = new LambdaUpdateWrapper<>();
         uw.eq(SysSettings::getId, ROW_ID)
@@ -47,11 +56,10 @@ public class SysSettingsServiceImpl extends ServiceImpl<SysSettingsMapper, SysSe
                 .set(SysSettings::getSiteLogo, dto.getSiteLogo())
                 .set(SysSettings::getNewMemberDays, dto.getNewMemberDays())
                 .set(SysSettings::getNewMemberAdvanceMinutes, dto.getNewMemberAdvanceMinutes())
-                .set(SysSettings::getPreViewMinutes, dto.getPreViewMinutes())
+                // pre_view_minutes / share_valid_days / referrer_purchase_days 三预留字段写入路径切断（design D7）
+                // DTO/Entity 保留为预留位，未来启用时加回 .set() 三行 + 前端输入框即可
                 .set(SysSettings::getLimitRule, dto.getLimitRule())
-                .set(SysSettings::getShareValidDays, dto.getShareValidDays())
                 .set(SysSettings::getRecommendRate, dto.getRecommendRate())
-                .set(SysSettings::getReferrerPurchaseDays, dto.getReferrerPurchaseDays())
                 .set(SysSettings::getSelfBuyRate, dto.getSelfBuyRate())
                 .set(SysSettings::getSelfBuyBonusRatio, dto.getSelfBuyBonusRatio())
                 .set(SysSettings::getCouponRatio, dto.getCouponRatio())
@@ -68,5 +76,10 @@ public class SysSettingsServiceImpl extends ServiceImpl<SysSettingsMapper, SysSe
     public SysSettings getPublic() {
         // 直接返回整行即可, C 端只取需要的字段(siteName/siteLogo 等), 内部比例字段即使返回也无安全问题
         return getById(ROW_ID);
+    }
+
+    /** null 安全的 BigDecimal（null 按 0 处理） */
+    private BigDecimal nz(BigDecimal v) {
+        return v == null ? BigDecimal.ZERO : v;
     }
 }

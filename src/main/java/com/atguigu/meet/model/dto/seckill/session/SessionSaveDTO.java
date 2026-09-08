@@ -45,12 +45,6 @@ public class SessionSaveDTO {
     @JsonFormat(pattern = "HH:mm")
     private LocalTime rushEndTime;
 
-    /** 最多购买次数(次) */
-    @Schema(description = "最多购买次数", example = "5", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "最多购买次数不能为空")
-    @Min(value = 1, message = "最多购买次数至少为1")
-    private Integer maxBuyCount;
-
     /** 开场前禁止委托时间(分钟) */
     @Schema(description = "开场前禁止委托时间(分钟)", example = "10", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "开场前禁止委托时间不能为空")

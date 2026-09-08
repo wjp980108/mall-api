@@ -52,10 +52,6 @@ public class Session extends Model<Session> {
     @Schema(description = "每日抢购结束时间")
     private LocalTime rushEndTime;
 
-    /** 最多购买次数(次) */
-    @Schema(description = "最多购买次数(次)")
-    private Integer maxBuyCount = 1;
-
     /** 开场前禁止委托时间(分钟) */
     @Schema(description = "开场前禁止委托时间(分钟)")
     private Integer beforeForbidMinute = 0;

@@ -5,6 +5,7 @@ import com.atguigu.meet.enums.PointsAccountType;
 import com.atguigu.meet.enums.PointsBizType;
 import com.atguigu.meet.enums.RobOrderOperateType;
 import com.atguigu.meet.enums.RobOrderStatus;
+import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.roborder.RobOrderMapper;
 import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
@@ -14,6 +15,7 @@ import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 import com.atguigu.meet.model.entity.general.settings.SysSettings;
+import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.entity.roborder.RobOrder;
@@ -21,6 +23,7 @@ import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.vo.PageResultVO;
+import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
@@ -62,6 +65,8 @@ public class RobOrderServiceImpl implements RobOrderService {
     @Autowired
     private SessionProductMapper sessionProductMapper;
     @Autowired
+    private ConsignGoodsMapper consignGoodsMapper;
+    @Autowired
     private SessionMapper sessionMapper;
     @Autowired
     private UserMapper userMapper;
@@ -95,6 +100,14 @@ public class RobOrderServiceImpl implements RobOrderService {
         Session session = sessionMapper.selectById(sp.getSessionId());
         if (session == null || session.getSessionStatus() == null || session.getSessionStatus() != 1) {
             return Response.fail(500, "抢购场次未开启");
+        }
+        // 商品可售校验：与可抢商品列表 SQL 同口径（上架 + 挂卖中/委托代卖），防绕过列表对已下架/非可售商品下单
+        ConsignGoods goods = consignGoodsMapper.selectById(sp.getGoodsId());
+        if (goods == null
+                || !Integer.valueOf(1).equals(goods.getOnlineStatus())
+                || goods.getGoodsStatus() == null
+                || (goods.getGoodsStatus() != 1 && goods.getGoodsStatus() != 5)) {
+            return Response.fail(500, "商品已下架或不可抢");
         }
 
         // 2. 时间窗口校验（含新会员提前抢购）
@@ -411,7 +424,83 @@ public class RobOrderServiceImpl implements RobOrderService {
         return Response.ok(PageResultVO.of(result));
     }
 
+    @Override
+    public Response getSaleGoodsDetail(Long sessionProductId, Long currentUserId) {
+        RobGoodsDetailVO vo = sessionProductMapper.selectRobGoodsDetailById(sessionProductId);
+        if (vo == null) {
+            return Response.fail(500, "商品不存在或已下架");
+        }
+
+        // 1. 状态标志（口径与 placeOrder 下单校验一致）
+        boolean sessionOpen = vo.getSessionStatus() != null && vo.getSessionStatus() == 1;
+        vo.setSessionOpen(sessionOpen);
+        boolean goodsOnline = vo.getOnlineStatus() != null && vo.getOnlineStatus() == 1
+                && vo.getGoodsStatus() != null && (vo.getGoodsStatus() == 1 || vo.getGoodsStatus() == 5);
+        vo.setGoodsOnline(goodsOnline);
+        vo.setSoldOut(vo.getStock() == null || vo.getStock() <= 0);
+
+        // 2. 系统设置：限购规则 + 新会员提前进场双开关（与 checkRushWindow/checkLimitRule 同口径）
+        SysSettings settings = sysSettingsService.get();
+        Integer limitRule = settings != null ? settings.getLimitRule() : null;
+        vo.setLimitRule(limitRule);
+        vo.setLimitRuleName(limitRuleName(limitRule));
+
+        // 3. 抢购时间窗口（新会员需 newMemberDays>0 且 advanceMin>0 双开关开启才提前；未登录按普通窗口）
+        boolean inWindow = false;
+        boolean isNewMember = false;
+        if (vo.getRushStartTime() != null && vo.getRushEndTime() != null) {
+            LocalTime effectiveStart = vo.getRushStartTime();
+            if (currentUserId != null) {
+                SysUser buyer = userMapper.selectById(currentUserId);
+                isNewMember = buyer != null && buyer.getMemberType() != null && buyer.getMemberType() == 0;
+                if (isNewMember && settings != null) {
+                    Integer newMemberDays = settings.getNewMemberDays();
+                    Integer advanceMin = settings.getNewMemberAdvanceMinutes();
+                    if (newMemberDays != null && newMemberDays > 0
+                            && advanceMin != null && advanceMin > 0) {
+                        effectiveStart = vo.getRushStartTime().minusMinutes(advanceMin);
+                    }
+                }
+            }
+            LocalTime now = LocalTime.now();
+            inWindow = !now.isBefore(effectiveStart) && !now.isAfter(vo.getRushEndTime());
+        }
+
+        // 4. 限购命中（未登录或不限购视为未命中，点击下单仍走登录校验）
+        boolean hasRushed = false;
+        if (currentUserId != null && limitRule != null) {
+            if (limitRule == 1) {
+                hasRushed = robOrderMapper.countRushedByUserAndSession(currentUserId, vo.getSessionId()) > 0;
+            } else if (limitRule == 2) {
+                LocalDate today = LocalDate.now();
+                hasRushed = robOrderMapper.countRushedByUserAndDate(currentUserId,
+                        today.atStartOfDay(), today.atTime(23, 59, 59)) > 0;
+            }
+        }
+        vo.setHasRushed(hasRushed);
+
+        // 5. 严格版可购标志：场次开启 + 商品可售 + 时间窗口 + 有库存 + 未命中限购，五项全满足才可购
+        vo.setCanPurchase(sessionOpen && goodsOnline && inWindow && !vo.getSoldOut() && !hasRushed);
+
+        return Response.ok(vo);
+    }
+
     // ====================== 私有方法 ======================
+
+    /** 限购规则描述（limit_rule: 0不限购 1同场次限购一次 2当天限购一次） */
+    private String limitRuleName(Integer limitRule) {
+        if (limitRule == null) {
+            return "不限购";
+        }
+        switch (limitRule) {
+            case 1:
+                return "同一场次仅限抢购一次";
+            case 2:
+                return "当天仅限抢购一次";
+            default:
+                return "不限购";
+        }
+    }
 
     /**
      * 抢购时间窗口校验（含新会员提前进场）。返回 null 表示通过，否则返回失败 Response。
@@ -424,10 +513,14 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
         LocalTime now = LocalTime.now();
         LocalTime effectiveStart = start;
-        // 新会员（member_type=0）且开启提前抢购
+        // 新会员提前进场：需同时开启新会员权益(newMemberDays>0)与提前抢购(advanceMin>0)，且用户为新会员(member_type=0)
         boolean isNewMember = buyer.getMemberType() != null && buyer.getMemberType() == 0;
+        Integer newMemberDays = settings.getNewMemberDays();
         Integer advanceMin = settings.getNewMemberAdvanceMinutes();
-        if (isNewMember && advanceMin != null && advanceMin > 0) {
+        boolean newMemberAdvance = isNewMember
+                && newMemberDays != null && newMemberDays > 0
+                && advanceMin != null && advanceMin > 0;
+        if (newMemberAdvance) {
             effectiveStart = start.minusMinutes(advanceMin);
         }
         if (now.isBefore(effectiveStart) || now.isAfter(end)) {

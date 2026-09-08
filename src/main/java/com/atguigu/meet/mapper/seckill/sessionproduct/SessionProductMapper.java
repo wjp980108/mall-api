@@ -1,6 +1,7 @@
 package com.atguigu.meet.mapper.seckill.sessionproduct;
 
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
+import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -73,4 +74,12 @@ public interface SessionProductMapper extends BaseMapper<SessionProduct> {
      */
     IPage<SessionProductVO> selectRobSaleGoodsPage(Page<SessionProductVO> page,
                                                    @Param("sessionId") Long sessionId);
+
+    /**
+     * C 端抢购商品详情：JOIN t_session / t_consign_goods，含商品详情图/富文本与场次抢购时间窗口。
+     * <p>不在 SQL 过滤场次/商品状态（详情页需展示状态标志），是否可抢由 Service 层按下单校验口径计算。
+     *
+     * @param id 场次商品关联ID（t_session_product.id）
+     */
+    RobGoodsDetailVO selectRobGoodsDetailById(@Param("id") Long id);
 }

@@ -76,4 +76,41 @@
         </if>
         ORDER BY s.sort ASC, sp.sort ASC, sp.id DESC
     </select>
+
+    <!-- C端抢购商品详情结果映射：关联锚点 + 场次时间窗口 + 商品详情(详情图/富文本) -->
+    <resultMap id="RobGoodsDetailResultMap" type="com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO">
+        <id column="session_product_id" property="sessionProductId"/>
+        <result column="session_id" property="sessionId"/>
+        <result column="session_name" property="sessionName"/>
+        <result column="session_status" property="sessionStatus"/>
+        <result column="stock" property="stock"/>
+        <result column="goods_id" property="goodsId"/>
+        <result column="goods_name" property="goodsName"/>
+        <result column="price" property="price"/>
+        <result column="cover_img" property="coverImg"/>
+        <result column="cover_img_platform" property="coverImgPlatform"/>
+        <result column="detail_img" property="detailImg"/>
+        <result column="detail_img_platform" property="detailImgPlatform"/>
+        <result column="goods_detail" property="goodsDetail"/>
+        <result column="sale_times" property="saleTimes"/>
+        <result column="goods_status" property="goodsStatus"/>
+        <result column="online_status" property="onlineStatus"/>
+        <result column="rush_start_time" property="rushStartTime"/>
+        <result column="rush_end_time" property="rushEndTime"/>
+    </resultMap>
+
+    <!-- C端抢购商品详情：按场次商品关联ID查，LEFT JOIN 保留状态标志（开启/上架/可抢由 Service 计算） -->
+    <select id="selectRobGoodsDetailById" resultMap="RobGoodsDetailResultMap">
+        SELECT
+            sp.id AS session_product_id, sp.session_id, sp.stock,
+            s.session_name, s.session_status, s.rush_start_time, s.rush_end_time,
+            g.id AS goods_id, g.goods_name, g.goods_price AS price,
+            g.cover_img, g.cover_img_platform,
+            g.detail_img, g.detail_img_platform, g.goods_detail, g.sale_times,
+            g.goods_status, g.online_status
+        FROM t_session_product sp
+        LEFT JOIN t_session s ON sp.session_id = s.id AND s.is_deleted = 0
+        LEFT JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
+        WHERE sp.is_deleted = 0 AND sp.id = #{id}
+    </select>
 </mapper>

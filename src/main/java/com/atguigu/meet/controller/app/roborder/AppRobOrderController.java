@@ -2,6 +2,7 @@ package com.atguigu.meet.controller.app.roborder;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
+import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
 import com.atguigu.meet.service.roborder.RobOrderService;
 import com.atguigu.meet.utils.AdminContext;
@@ -42,6 +43,20 @@ public class AppRobOrderController {
                                   @RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {
         return robOrderService.listSaleGoods(sessionId, pageNum, pageSize);
+    }
+
+    /**
+     * 抢购商品详情
+     *
+     * @param id 场次商品关联ID（t_session_product.id，即可抢商品列表返回的 id，也是下单入参 sessionProductId）
+     * @return 商品详细信息（封面/详情图/富文本/销量等）+ 抢购下单信息（下单锚点、抢购库存、场次抢购时间窗口、
+     * 当前是否可抢(含新会员提前进场)、限购规则及当前用户是否已命中限购）
+     */
+    @GetMapping("/sale-goods/{id}")
+    @Operation(summary = "抢购商品详情", description = "按场次商品关联ID查询抢购商品详情：商品详细信息(封面图/详情图/富文本/销量) + 下单所需信息(下单锚点sessionProductId、抢购库存、场次抢购时间窗口、当前是否可抢(新会员含提前进场)、限购规则与当前用户是否已命中)。状态口径与抢购下单校验一致")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobGoodsDetailVO.class)))
+    public Response getSaleGoodsDetail(@PathVariable Long id) {
+        return robOrderService.getSaleGoodsDetail(id, AdminContext.getLoginUserId());
     }
 
     /**

@@ -44,4 +44,13 @@ public interface RobOrderService {
      * C 端可抢商品分页（场次开启 + 商品上架；库存为 0 也展示，下单时校验库存并提示）
      */
     Response listSaleGoods(Long sessionId, Integer pageNum, Integer pageSize);
+
+    /**
+     * C 端抢购商品详情：商品详细信息（详情图/富文本等）+ 抢购下单信息
+     * （下单锚点 sessionProductId、抢购库存、场次时间窗口、当前可抢状态、限购规则与命中情况）
+     *
+     * @param sessionProductId 场次商品关联ID（t_session_product.id，列表返回的 id）
+     * @param currentUserId    当前登录用户ID（未登录传 null，可抢状态按普通时间窗口判断）
+     */
+    Response getSaleGoodsDetail(Long sessionProductId, Long currentUserId);
 }

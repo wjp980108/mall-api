@@ -25,7 +25,11 @@ jwt:
       - /app/auth/register
       - /app/user/forgot-password
       - /app/agreement
-      - /upload/**
+      - /upload/** 
+      - /app/settings
+      - /app/banner/**
+      - /app/notice/**
+      - /app/home/**
 #      - /user/update
 
 # 上传文件通用（业务校验：后缀、大小限制）

@@ -27,6 +27,7 @@ import com.atguigu.meet.model.vo.permission.user.UserOrderVO;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.service.file.FileService;
+import com.atguigu.meet.service.permission.invite.InviteCodeService;
 import com.atguigu.meet.service.permission.user.UserService;
 import com.atguigu.meet.utils.AdminContext;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -94,6 +95,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Autowired
     private BuiltinSuperAdminIdCache builtinSuperAdminIdCache;
+
+    @Autowired
+    private InviteCodeService inviteCodeService;
 
     @Override
     @Transactional(rollbackFor = Exception.class) // 所有异常都回滚，保证原子性
@@ -183,6 +187,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                 userRole.setRoleId(roleId);
                 sysUserRoleMapper.insert(userRole);
             }
+        }
+
+        // 6. 建号即生成邀请码（幂等；生成失败仅告警，不阻断建号）
+        try {
+            inviteCodeService.generateInviteCode(user.getId());
+        } catch (Exception e) {
+            log.warn("后台创建用户自动生成邀请码失败, userId={}", user.getId(), e);
         }
 
         log.info("[用户管理] 创建用户成功，userId={}, roleIds={}", user.getId(), roleIds);
@@ -538,6 +549,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         BeanConvertUtils.copyProperties(user, userVO);
         userVO.setGenderName(Gender.descOf(userVO.getGender()));
         userVO.setPermissions(currentUser.getPermissions());
+        // 回填我的邀请码（纯读，存量无码用户为 null）
+        userVO.setInviteCode(inviteCodeService.getInviteCodeByUserId(currentUser.getUserId()));
         return Response.ok(userVO);
     }
 

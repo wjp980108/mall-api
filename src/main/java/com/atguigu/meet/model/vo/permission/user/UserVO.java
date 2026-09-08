@@ -64,6 +64,10 @@ public class UserVO {
     @Schema(description = "邀请人ID")
     private Long inviterId;
 
+    /** 我的邀请码（1人1码；存量无码用户为空，可在邀请页调生成接口补得） */
+    @Schema(description = "我的邀请码")
+    private String inviteCode;
+
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 

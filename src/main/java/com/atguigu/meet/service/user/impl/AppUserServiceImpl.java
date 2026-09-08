@@ -8,6 +8,7 @@ import com.atguigu.meet.model.dto.user.AppForgotPasswordDTO;
 import com.atguigu.meet.model.dto.user.AppUpdateUserInfoDTO;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
+import com.atguigu.meet.service.permission.invite.InviteCodeService;
 import com.atguigu.meet.service.user.AppUserService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
@@ -29,6 +30,9 @@ public class AppUserServiceImpl extends ServiceImpl<UserMapper, SysUser> impleme
     @Autowired
     private PasswordEncoder passwordEncoder;
 
+    @Autowired
+    private InviteCodeService inviteCodeService;
+
     @Override
     public Response getCurrentUserInfo() {
         Long userId = AdminContext.getLoginUserId();
@@ -42,6 +46,8 @@ public class AppUserServiceImpl extends ServiceImpl<UserMapper, SysUser> impleme
         UserVO userVO = new UserVO();
         BeanConvertUtils.copyProperties(user, userVO);
         userVO.setGenderName(Gender.descOf(userVO.getGender()));
+        // 回填我的邀请码（纯读，存量无码用户为 null）
+        userVO.setInviteCode(inviteCodeService.getInviteCodeByUserId(userId));
         return Response.ok(userVO);
     }
 

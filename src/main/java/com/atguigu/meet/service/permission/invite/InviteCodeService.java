@@ -22,6 +22,11 @@ public interface InviteCodeService {
     Response getMyInviteCode(Long userId);
 
     /**
+     * 查询用户邀请码字符串（纯读，无生成副作用；无码返回 null，供用户信息接口回填）
+     */
+    String getInviteCodeByUserId(Long userId);
+
+    /**
      * 查询邀请明细流水
      */
     Response getInviteRecords(Long inviterId);

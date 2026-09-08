@@ -79,6 +79,14 @@ public class InviteCodeServiceImpl implements InviteCodeService {
     }
 
     @Override
+    public String getInviteCodeByUserId(Long userId) {
+        LambdaQueryWrapper<SysInviteCode> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(SysInviteCode::getInviterId, userId);
+        SysInviteCode inviteCode = sysInviteCodeMapper.selectOne(wrapper);
+        return inviteCode != null ? inviteCode.getInviteCode() : null;
+    }
+
+    @Override
     public Response getInviteRecords(Long inviterId) {
         LambdaQueryWrapper<SysInviteRecord> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(SysInviteRecord::getInviterId, inviterId)

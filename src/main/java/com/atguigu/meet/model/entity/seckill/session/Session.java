@@ -18,7 +18,8 @@ import java.time.LocalTime;
 /**
  * 抢购场次实体（对应 t_session）
  * <p>
- * 一个活动下有多场抢购场次，场次控制进场时间、抢购时间窗口、购买次数、禁止委托时间等。
+ * 一个活动下有多场抢购场次，场次控制抢购时间窗口、背景图、排序等。
+ * 注：进场时间控制/禁止委托时间为预留字段（写入路径已切断，业务零消费，详见各字段注释）。
  */
 @Data
 @TableName("t_session")
@@ -38,9 +39,15 @@ public class Session extends Model<Session> {
     @Schema(description = "场次状态 1开启 0关闭")
     private Integer sessionStatus = 1;
 
-    /** 进场时间控制(分钟) */
-    @Schema(description = "进场时间控制(分钟)")
-    private Integer enterControlMinute = 0;
+    /**
+     * 进场时间控制(分钟)
+     * <p>预留字段：写入路径已切断（cleanup-session-reserved-fields），当前业务零消费——
+     * 提前进场窗口由全局 sys_settings 双开关（newMemberDays + newMemberAdvanceMinutes）控制。
+     * 不带内联默认值：updateById 走 NOT_NULL 策略，null 不进 UPDATE SET，避免编辑场次时覆盖存量值；
+     * 新增时为 null，由 DB 列 DEFAULT 0 兜底。未来启用：加回 SessionSaveDTO 字段+校验注解+前端表单项，并补业务逻辑。
+     */
+    @Schema(description = "进场时间控制(分钟)（预留字段，暂未生效）")
+    private Integer enterControlMinute;
 
     /** 每日抢购开始时间（时:分，例：09:50，每天该时刻开启抢购） */
     @JsonFormat(pattern = "HH:mm")
@@ -52,13 +59,21 @@ public class Session extends Model<Session> {
     @Schema(description = "每日抢购结束时间")
     private LocalTime rushEndTime;
 
-    /** 开场前禁止委托时间(分钟) */
-    @Schema(description = "开场前禁止委托时间(分钟)")
-    private Integer beforeForbidMinute = 0;
+    /**
+     * 开场前禁止委托时间(分钟)
+     * <p>预留字段：写入路径已切断（cleanup-session-reserved-fields），"禁止委托"业务逻辑尚未实现，
+     * 当前业务零消费。不带内联默认值（同 {@link #enterControlMinute} 的 null 跳过策略，防编辑覆盖存量值）。
+     * 未来启用：加回 SessionSaveDTO 字段+校验注解+前端表单项，并在委托/寄售链路补时间窗口校验。
+     */
+    @Schema(description = "开场前禁止委托时间(分钟)（预留字段，暂未生效）")
+    private Integer beforeForbidMinute;
 
-    /** 结束后禁止委托时间(分钟) */
-    @Schema(description = "结束后禁止委托时间(分钟)")
-    private Integer afterForbidMinute = 0;
+    /**
+     * 结束后禁止委托时间(分钟)
+     * <p>预留字段：同 {@link #beforeForbidMinute}，写入路径已切断、业务零消费。
+     */
+    @Schema(description = "结束后禁止委托时间(分钟)（预留字段，暂未生效）")
+    private Integer afterForbidMinute;
 
     /** 场次背景图地址 */
     @Schema(description = "场次背景图地址")

@@ -27,11 +27,8 @@ public class SessionSaveDTO {
     @Schema(description = "场次状态", example = "true")
     private Boolean sessionStatus;
 
-    /** 进场时间控制(分钟) */
-    @Schema(description = "进场时间控制(分钟)", example = "30", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "进场时间控制不能为空")
-    @Min(value = 0, message = "进场时间控制不能为负数")
-    private Integer enterControlMinute;
+    // 注：enterControlMinute（进场时间控制）为预留字段，写入路径已切断（cleanup-session-reserved-fields），
+    // 不在新增/修改入参中接收；DB 列与实体字段保留，未来启用时加回本字段+校验注解+前端表单项并补业务逻辑
 
     /** 每日抢购开始时间（时:分，例："09:50"） */
     @Schema(description = "抢购开始时间", example = "09:50", requiredMode = Schema.RequiredMode.REQUIRED)
@@ -45,17 +42,8 @@ public class SessionSaveDTO {
     @JsonFormat(pattern = "HH:mm")
     private LocalTime rushEndTime;
 
-    /** 开场前禁止委托时间(分钟) */
-    @Schema(description = "开场前禁止委托时间(分钟)", example = "10", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "开场前禁止委托时间不能为空")
-    @Min(value = 0, message = "开场前禁止委托时间不能为负数")
-    private Integer beforeForbidMinute;
-
-    /** 结束后禁止委托时间(分钟) */
-    @Schema(description = "结束后禁止委托时间(分钟)", example = "5", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "结束后禁止委托时间不能为空")
-    @Min(value = 0, message = "结束后禁止委托时间不能为负数")
-    private Integer afterForbidMinute;
+    // 注：beforeForbidMinute/afterForbidMinute（开场前/结束后禁止委托时间）为预留字段，写入路径已切断
+    // （cleanup-session-reserved-fields），"禁止委托"业务逻辑尚未实现；未来启用时加回字段+校验+前端表单项
 
     /** 场次背景图地址 */
     @Schema(description = "背景图地址", example = "https://example.com/bg.jpg")

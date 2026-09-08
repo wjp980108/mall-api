@@ -47,6 +47,16 @@ public class SysSettingsController {
     }
 
     /**
+     * 公开查询系统设置(无需 token, 后台登录页等展示站点信息用)
+     */
+    @GetMapping("/public")
+    @Operation(summary = "公开查询系统设置", description = "无需登录, 返回站点名称、Logo等前端展示字段")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysSettings.class)))
+    public Response<SysSettings> getPublic() {
+        return Response.ok(sysSettingsService.getPublic());
+    }
+
+    /**
      * 更新系统设置(全量覆盖)
      */
     @PutMapping

@@ -27,6 +27,7 @@ jwt:
       - /app/agreement
       - /upload/** 
       - /app/settings
+      - /settings/public
       - /app/banner/**
       - /app/notice/**
       - /app/home/**
@@ -145,6 +146,3 @@ permission:
   cache-prefix: "mall:permission:"
   # 缓存过期时间（秒），默认 1 小时
   expire-seconds: 3600
-
-
-

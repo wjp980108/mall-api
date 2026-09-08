@@ -63,7 +63,7 @@
         ORDER BY sp.sort ASC, sp.id DESC
     </select>
 
-    <!-- C端可抢商品分页：场次开启 + 商品上架 + 剩余库存>0 -->
+    <!-- C端可抢商品分页：场次开启 + 商品上架（库存为0也展示，售罄态由前端按 stock 判断，下单时再校验库存） -->
     <select id="selectRobSaleGoodsPage" resultMap="SessionProductResultMap">
         SELECT <include refid="baseColumnList"/>
         FROM t_session_product sp
@@ -71,7 +71,6 @@
         INNER JOIN t_consign_goods g ON sp.goods_id = g.id AND g.is_deleted = 0
             AND g.online_status = 1 AND g.goods_status IN (1, 5)
         WHERE sp.is_deleted = 0
-          AND sp.stock &gt; 0
         <if test="sessionId != null">
             AND sp.session_id = #{sessionId}
         </if>

@@ -41,7 +41,7 @@ public interface RobOrderService {
     Response getDetailForUser(Long id, Long currentUserId);
 
     /**
-     * C 端可抢商品分页（场次开启 + 商品上架 + 库存>0）
+     * C 端可抢商品分页（场次开启 + 商品上架；库存为 0 也展示，下单时校验库存并提示）
      */
     Response listSaleGoods(Long sessionId, Integer pageNum, Integer pageSize);
 }

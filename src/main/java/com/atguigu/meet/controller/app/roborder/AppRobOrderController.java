@@ -34,10 +34,10 @@ public class AppRobOrderController {
      * 可抢商品列表
      *
      * @param sessionId 场次ID（不传查全部场次）
-     * @return 场次开启、商品上架、库存大于0 的商品分页
+     * @return 场次开启、商品上架的商品分页（库存为0也展示，售罄态按 stock 判断；抢购时下单接口校验并提示库存不足）
      */
     @GetMapping("/sale-goods")
-    @Operation(summary = "可抢商品列表", description = "查询可抢购的场次商品：场次开启、商品上架、剩余库存大于0，支持按场次筛选")
+    @Operation(summary = "可抢商品列表", description = "查询可抢购的场次商品：场次开启、商品上架即展示（库存为0也展示，售罄商品下单时提示库存不足），支持按场次筛选")
     public Response listSaleGoods(@RequestParam(required = false) Long sessionId,
                                   @RequestParam(defaultValue = "1") Integer pageNum,
                                   @RequestParam(defaultValue = "10") Integer pageSize) {

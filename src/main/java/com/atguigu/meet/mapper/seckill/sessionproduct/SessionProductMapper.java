@@ -65,8 +65,8 @@ public interface SessionProductMapper extends BaseMapper<SessionProduct> {
     int addStock(@Param("id") Long id, @Param("qty") Integer qty);
 
     /**
-     * C 端可抢商品分页：场次开启、商品上架、剩余库存 &gt; 0 的场次商品。
-     * <p>抢购时间窗口/新会员提前等按钮态由下单接口校验，列表仅做可售性过滤。
+     * C 端可抢商品分页：场次开启、商品上架的场次商品（库存为 0 也展示）。
+     * <p>售罄态由前端按返回的 stock 判断；抢购时间窗口/新会员提前/库存不足等均由下单接口校验提示。
      *
      * @param page      分页参数
      * @param sessionId 场次ID（传 null 查全部场次）

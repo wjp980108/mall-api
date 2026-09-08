@@ -113,7 +113,10 @@ public class RobOrderServiceImpl implements RobOrderService {
             return limitCheck;
         }
 
-        // 4. 条件扣库存（原子防超卖）
+        // 4. 库存校验 + 条件扣库存（原子防超卖）：列表不过滤库存，售罄商品在此明确提示
+        if (sp.getStock() == null || sp.getStock() < quantity) {
+            return Response.fail(500, "商品库存不足");
+        }
         int affected = sessionProductMapper.deductStock(sp.getId(), quantity);
         if (affected == 0) {
             return Response.fail(500, "手慢了，库存不足");

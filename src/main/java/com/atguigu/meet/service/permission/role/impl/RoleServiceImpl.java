@@ -13,6 +13,7 @@ import com.atguigu.meet.model.dto.permission.role.RoleStatusDTO;
 import com.atguigu.meet.model.dto.permission.role.RoleUpdateDTO;
 import com.atguigu.meet.model.entity.permission.role.SysRole;
 import com.atguigu.meet.model.entity.permission.role.SysRoleMenu;
+import com.atguigu.meet.model.entity.permission.userRole.SysUserRole;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.permission.role.RoleVO;
 import com.atguigu.meet.service.auth.PermissionCacheService;
@@ -204,10 +205,17 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         if (role == null) {
             return Response.fail(500, "角色不存在");
         }
-        // 删除角色
+        if (PermissionConst.ROLE_SUPER_ADMIN.equals(role.getRoleCode())) {
+            return Response.fail(500, "超级管理员角色不允许删除");
+        }
+        List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(id);
+        if (userIds != null && !userIds.isEmpty()) {
+            return Response.fail(500, "该角色下有 " + userIds.size() + " 个用户绑定，请先解除绑定后再删除");
+        }
         removeById(id);
-        // 删除角色-菜单关联
         sysRoleMenuMapper.deleteByRoleId(id);
+        sysUserRoleMapper.delete(new LambdaQueryWrapper<SysUserRole>()
+                .eq(SysUserRole::getRoleId, id));
         log.info("[角色管理] 删除角色成功，roleId={}, roleName={}", id, role.getRoleName());
         return Response.ok("删除角色成功", null);
     }
@@ -219,16 +227,21 @@ public class RoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impleme
         if (existRole == null) {
             return Response.fail(500, "角色不存在");
         }
-        // 超级管理员角色不允许禁用
         if (PermissionConst.ROLE_SUPER_ADMIN.equals(existRole.getRoleCode())) {
             return Response.fail(500, "超级管理员角色不允许禁用");
         }
+        boolean isEnabling = Boolean.TRUE.equals(dto.getStatus());
+        if (!isEnabling) {
+            List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(dto.getId());
+            if (userIds != null && !userIds.isEmpty()) {
+                return Response.fail(500, "该角色下有 " + userIds.size() + " 个用户绑定，不允许禁用");
+            }
+        }
         SysRole role = new SysRole();
         role.setId(dto.getId());
-        role.setStatus(Boolean.TRUE.equals(dto.getStatus()) ? 1 : 0);
+        role.setStatus(isEnabling ? 1 : 0);
         updateById(role);
 
-        // 状态变更后失效该角色下所有用户的权限缓存
         List<Long> userIds = sysUserRoleMapper.selectUserIdsByRoleId(dto.getId());
         if (userIds != null && !userIds.isEmpty()) {
             for (Long userId : userIds) {

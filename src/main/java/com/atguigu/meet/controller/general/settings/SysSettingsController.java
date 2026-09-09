@@ -5,6 +5,7 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.general.settings.SysSettingsUpdateDTO;
 import com.atguigu.meet.model.entity.general.settings.SysSettings;
+import com.atguigu.meet.model.vo.general.settings.SysSettingsPublicVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -50,9 +51,9 @@ public class SysSettingsController {
      * 公开查询系统设置(无需 token, 后台登录页等展示站点信息用)
      */
     @GetMapping("/public")
-    @Operation(summary = "公开查询系统设置", description = "无需登录, 返回站点名称、Logo等前端展示字段")
-    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysSettings.class)))
-    public Response<SysSettings> getPublic() {
+    @Operation(summary = "公开查询系统设置", description = "无需登录, 只返回站点名称、Logo两个展示字段")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysSettingsPublicVO.class)))
+    public Response<SysSettingsPublicVO> getPublic() {
         return Response.ok(sysSettingsService.getPublic());
     }
 

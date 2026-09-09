@@ -1,7 +1,7 @@
 package com.atguigu.meet.controller.app.general.settings;
 
 import com.atguigu.meet.common.Response;
-import com.atguigu.meet.model.entity.general.settings.SysSettings;
+import com.atguigu.meet.model.vo.general.settings.SysSettingsPublicVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -29,9 +29,9 @@ public class AppSysSettingsController {
 
     /** 公开查询站点设置 */
     @GetMapping
-    @Operation(summary = "公开查询站点设置", description = "返回站点名称、Logo、推广海报等前端展示字段")
-    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysSettings.class)))
-    public Response<SysSettings> getPublic() {
+    @Operation(summary = "公开查询站点设置", description = "只返回站点名称、Logo两个展示字段")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysSettingsPublicVO.class)))
+    public Response<SysSettingsPublicVO> getPublic() {
         return Response.ok(sysSettingsService.getPublic());
     }
 }

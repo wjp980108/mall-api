@@ -3,6 +3,7 @@ package com.atguigu.meet.service.general.settings;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.general.settings.SysSettingsUpdateDTO;
 import com.atguigu.meet.model.entity.general.settings.SysSettings;
+import com.atguigu.meet.model.vo.general.settings.SysSettingsPublicVO;
 
 /**
  * 系统设置 Service
@@ -21,7 +22,7 @@ public interface SysSettingsService {
     Response update(SysSettingsUpdateDTO dto);
 
     /**
-     * C 端公开查询(只返回站点名称/Logo 等展示字段, 脱敏内部业务参数)
+     * C 端公开查询(只返回站点名称/Logo 展示字段, 脱敏内部业务参数)
      */
-    SysSettings getPublic();
+    SysSettingsPublicVO getPublic();
 }

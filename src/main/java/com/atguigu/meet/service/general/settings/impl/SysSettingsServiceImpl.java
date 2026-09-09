@@ -4,6 +4,7 @@ import com.atguigu.meet.common.Response;
 import com.atguigu.meet.mapper.general.settings.SysSettingsMapper;
 import com.atguigu.meet.model.dto.general.settings.SysSettingsUpdateDTO;
 import com.atguigu.meet.model.entity.general.settings.SysSettings;
+import com.atguigu.meet.model.vo.general.settings.SysSettingsPublicVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
@@ -74,9 +75,13 @@ public class SysSettingsServiceImpl extends ServiceImpl<SysSettingsMapper, SysSe
     }
 
     @Override
-    public SysSettings getPublic() {
-        // 直接返回整行即可, C 端只取需要的字段(siteName/siteLogo 等), 内部比例字段即使返回也无安全问题
-        return getById(ROW_ID);
+    public SysSettingsPublicVO getPublic() {
+        // 只返回站点名称/Logo 展示字段, 脱敏内部业务参数(会员权益/抢单规则/奖励比例等)
+        SysSettings s = getById(ROW_ID);
+        SysSettingsPublicVO vo = new SysSettingsPublicVO();
+        vo.setSiteName(s.getSiteName());
+        vo.setSiteLogo(s.getSiteLogo());
+        return vo;
     }
 
     /** null 安全的 BigDecimal（null 按 0 处理） */

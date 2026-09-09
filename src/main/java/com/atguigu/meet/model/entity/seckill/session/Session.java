@@ -1,6 +1,7 @@
 package com.atguigu.meet.model.entity.seckill.session;
 
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
@@ -97,4 +98,12 @@ public class Session extends Model<Session> {
 
     @Schema(description = "更新时间")
     private LocalDateTime updateTime;
+
+    /**
+     * 是否售卖中（接口派生字段，非表列）：场次启用且当前时间在抢购时间窗口内（含新会员提前窗口），
+     * 由 Service 层通过 SeckillSellingGuard 填充；售卖中时管理端编辑/删除被锁定。
+     */
+    @TableField(exist = false)
+    @Schema(description = "是否售卖中(接口派生，售卖中禁止编辑/删除)")
+    private Boolean onSale;
 }

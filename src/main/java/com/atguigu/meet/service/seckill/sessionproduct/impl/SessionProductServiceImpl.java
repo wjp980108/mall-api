@@ -12,6 +12,7 @@ import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
+import com.atguigu.meet.service.seckill.guard.SeckillSellingGuard;
 import com.atguigu.meet.service.seckill.sessionproduct.SessionProductService;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -44,12 +46,16 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
     @Autowired
     private ConsignGoodsMapper consignGoodsMapper;
 
+    @Autowired
+    private SeckillSellingGuard seckillSellingGuard;
+
     @Override
     public Response getPageList(SessionProductPageQueryDTO parameter) {
         IPage<SessionProductVO> page = baseMapper.selectSessionProductPage(
                 new Page<>(parameter.getPageNum(), parameter.getPageSize()),
                 parameter.getSessionId(),
                 parameter.getGoodsName());
+        fillOnSale(page.getRecords());
         return Response.ok(PageResultVO.of(page));
     }
 
@@ -59,6 +65,7 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
         if (vo == null) {
             return Response.fail(500, "场次商品关联不存在");
         }
+        fillOnSale(Collections.singletonList(vo));
         return Response.ok(vo);
     }
 
@@ -67,7 +74,9 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
         if (sessionMapper.selectById(sessionId) == null) {
             return Response.fail(500, "场次不存在");
         }
-        return Response.ok(baseMapper.selectListBySessionId(sessionId));
+        List<SessionProductVO> list = baseMapper.selectListBySessionId(sessionId);
+        fillOnSale(list);
+        return Response.ok(list);
     }
 
     @Override
@@ -77,6 +86,10 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
         Session session = sessionMapper.selectById(sessionId);
         if (session == null) {
             return Response.fail(500, "场次不存在");
+        }
+        // 售卖中锁定：向售卖中场次新增关联（含抢购库存）会在窗口内改变库存供给
+        if (seckillSellingGuard.isSessionSelling(session)) {
+            return Response.fail(500, "该场次正在售卖中，暂不能关联商品，请等待抢购结束");
         }
         List<SessionProductBatchSaveDTO.Item> items = dto.getItems();
         // 批次内 goodsId 去重
@@ -135,6 +148,11 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
         if (exist == null) {
             return Response.fail(500, "场次商品关联不存在");
         }
+        // 售卖中锁定：原场次或目标场次任一正在售卖时禁止修改（含改库存），保护窗口内的实时扣减/回滚
+        if (seckillSellingGuard.isSessionSelling(exist.getSessionId())
+                || seckillSellingGuard.isSessionSelling(dto.getSessionId())) {
+            return Response.fail(500, "关联场次正在售卖中，暂不能修改场次商品关联，请等待抢购结束");
+        }
         // 场次/商品发生变更时才做关联有效性与唯一性校验
         boolean relationChanged = !dto.getSessionId().equals(exist.getSessionId())
                 || !dto.getGoodsId().equals(exist.getGoodsId());
@@ -160,6 +178,10 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
         SessionProduct exist = getById(id);
         if (exist == null) {
             return Response.fail(500, "场次商品关联不存在");
+        }
+        // 售卖中锁定：删除售卖中场次的关联会让在途订单的库存锚点失联、回滚失败
+        if (seckillSellingGuard.isSessionSelling(exist.getSessionId())) {
+            return Response.fail(500, "该关联所属场次正在售卖中，暂不能删除，请等待抢购结束");
         }
         removeById(id);
         log.info("[场次商品关联] 删除成功（逻辑删除），id={}, sessionId={}, goodsId={}",
@@ -195,5 +217,24 @@ public class SessionProductServiceImpl extends ServiceImpl<SessionProductMapper,
                 .eq(SessionProduct::getGoodsId, goodsId)
                 .ne(excludeId != null, SessionProduct::getId, excludeId)
                 .exists();
+    }
+
+    /**
+     * 批量填充关联列表的 onSale 派生字段（按记录 sessionId 去重后批量判定）
+     */
+    private void fillOnSale(List<SessionProductVO> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        Set<Long> sessionIds = new HashSet<>();
+        for (SessionProductVO vo : records) {
+            if (vo.getSessionId() != null) {
+                sessionIds.add(vo.getSessionId());
+            }
+        }
+        Set<Long> sellingSessions = seckillSellingGuard.filterSellingSessionIds(sessionIds);
+        for (SessionProductVO vo : records) {
+            vo.setOnSale(sellingSessions.contains(vo.getSessionId()));
+        }
     }
 }

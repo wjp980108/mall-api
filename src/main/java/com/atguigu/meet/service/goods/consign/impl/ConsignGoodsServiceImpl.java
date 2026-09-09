@@ -27,6 +27,7 @@ import com.atguigu.meet.model.vo.goods.consign.ConsignGoodsVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.goods.consign.ConsignGoodsService;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
+import com.atguigu.meet.service.seckill.guard.SeckillSellingGuard;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.RequestContextUtil;
@@ -51,6 +52,7 @@ import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -88,6 +90,9 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
     @Autowired
     private SysSettingsService sysSettingsService;
 
+    @Autowired
+    private SeckillSellingGuard seckillSellingGuard;
+
     @Override
     public Response getPageList(ConsignGoodsPageQueryDTO parameter) {
         // 解析时间范围：timeRange[0] -> 当天 00:00:00，timeRange[1] -> 当天 23:59:59
@@ -123,6 +128,7 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
             vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
             vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
         });
+        fillOnSale(result.getRecords());
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -136,6 +142,7 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
         vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
         vo.setAuditStatusName(AuditStatus.descOf(vo.getAuditStatus()));
+        fillOnSale(Collections.singletonList(vo));
         // 新会员提前抢购权益：详情页同样按登录用户身份后处理 canPurchase
         applyNewMemberAdvancePurchase(Collections.singletonList(vo));
         return Response.ok(vo);
@@ -186,6 +193,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (existGoods == null) {
             return Response.fail(500, "商品不存在");
         }
+        // 售卖中锁定：商品正在售卖时禁止编辑，避免窗口内改价/改图影响在途抢购订单快照口径
+        if (seckillSellingGuard.isGoodsSelling(dto.getId())) {
+            return Response.fail(500, "商品正在售卖中，暂不可操作，请等待抢购结束");
+        }
         // 校验委托人是否存在（memberId 可选，传了才校验）
         if (dto.getMemberId() != null) {
             SysUser member = userMapper.selectById(dto.getMemberId());
@@ -220,6 +231,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         ConsignGoods existGoods = getById(dto.getId());
         if (existGoods == null) {
             return Response.fail(500, "商品不存在");
+        }
+        // 售卖中锁定：售卖中禁止手动上下架（含止损下架），紧急止损应走"停用场次"通道
+        if (seckillSellingGuard.isGoodsSelling(dto.getId())) {
+            return Response.fail(500, "商品正在售卖中，暂不可操作，请等待抢购结束");
         }
         ConsignGoods goods = new ConsignGoods();
         goods.setId(dto.getId());
@@ -303,6 +318,21 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         // 新会员提前抢购权益：Service 层按当前登录用户身份后处理 canPurchase
         applyNewMemberAdvancePurchase(result.getRecords());
         return Response.ok(PageResultVO.of(result));
+    }
+
+    /**
+     * 批量填充商品列表/详情的 onSale 派生字段（按商品ID批量经 t_session_product 反查判定；
+     * 不用 VO.sessionId 列——t_consign_goods.session_id 为旧链路只读遗留，实时关联以关联表为准）
+     */
+    private void fillOnSale(List<ConsignGoodsVO> records) {
+        if (records == null || records.isEmpty()) {
+            return;
+        }
+        List<Long> goodsIds = records.stream().map(ConsignGoodsVO::getId).collect(Collectors.toList());
+        Set<Long> sellingIds = new HashSet<>(seckillSellingGuard.filterSellingGoodsIds(goodsIds));
+        for (ConsignGoodsVO vo : records) {
+            vo.setOnSale(sellingIds.contains(vo.getId()));
+        }
     }
 
     /**
@@ -402,6 +432,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (existGoods == null) {
             return Response.fail(500, "商品不存在");
         }
+        // 售卖中锁定：售卖中禁止业务状态流转，避免与抢购下单的状态迁移（1挂卖中→2已抢购）竞争
+        if (seckillSellingGuard.isGoodsSelling(dto.getId())) {
+            return Response.fail(500, "商品正在售卖中，暂不可操作，请等待抢购结束");
+        }
         Integer fromStatus = existGoods.getGoodsStatus();
         Integer toStatus = dto.getGoodsStatus();
         // 业务状态流转校验
@@ -440,6 +474,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         if (existGoods == null) {
             return Response.fail(500, "商品不存在");
         }
+        // 售卖中锁定：售卖中禁止删除，避免在途抢购订单的商品锚点失联
+        if (seckillSellingGuard.isGoodsSelling(id)) {
+            return Response.fail(500, "商品正在售卖中，暂不可操作，请等待抢购结束");
+        }
         removeById(id);
         // 记录操作日志：before=删除前快照, after=null, changedFields=null, remark=删除托售商品
         saveOperateLog(id, ConsignGoodsOperateType.DELETE, existGoods, null, null,
@@ -458,6 +496,11 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 .collect(Collectors.toList());
         if (!notExistIds.isEmpty()) {
             return Response.fail(500, "托售商品ID：" + notExistIds + " 不存在，本次全部取消删除");
+        }
+        // 售卖中锁定：批量中任一商品正在售卖即整批取消（沿用本方法全部/全无语义）
+        List<Long> sellingIds = seckillSellingGuard.filterSellingGoodsIds(idList);
+        if (!sellingIds.isEmpty()) {
+            return Response.fail(500, "托售商品ID：" + sellingIds + " 正在售卖中，本次全部取消删除");
         }
         // 逻辑删除
         removeByIds(idList);
@@ -547,6 +590,10 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
         ConsignGoods goods = getById(dto.getGoodsId());
         if (goods == null) {
             return Response.fail(500, "商品不存在");
+        }
+        // 售卖中锁定：售卖中禁止委托审核，避免审核通过重新上架与抢购下单状态迁移竞争
+        if (seckillSellingGuard.isGoodsSelling(dto.getGoodsId())) {
+            return Response.fail(500, "商品正在售卖中，暂不可操作，请等待抢购结束");
         }
         if (!Integer.valueOf(GoodsStatus.AGENT_SALE.getCode()).equals(goods.getGoodsStatus())
                 || !Integer.valueOf(AuditStatus.WAIT_AUDIT.getCode()).equals(goods.getAuditStatus())) {

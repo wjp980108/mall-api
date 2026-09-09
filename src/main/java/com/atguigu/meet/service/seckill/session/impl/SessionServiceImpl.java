@@ -9,6 +9,7 @@ import com.atguigu.meet.model.dto.seckill.session.SessionUpdateDTO;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.vo.OptionVO;
 import com.atguigu.meet.model.vo.PageResultVO;
+import com.atguigu.meet.service.seckill.guard.SeckillSellingGuard;
 import com.atguigu.meet.service.seckill.session.SessionService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -16,6 +17,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import com.atguigu.meet.utils.BeanConvertUtils;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -34,6 +36,9 @@ import java.util.List;
 @Slf4j
 public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> implements SessionService {
 
+    @Autowired
+    private SeckillSellingGuard seckillSellingGuard;
+
     @Override
     public Response getPageList(SessionPageQueryDTO parameter) {
         LambdaQueryWrapper<Session> wrapper = new LambdaQueryWrapper<>();
@@ -48,6 +53,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
 
         IPage<Session> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
         IPage<Session> result = page(page, wrapper);
+        seckillSellingGuard.fillOnSale(result.getRecords());
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -57,6 +63,7 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         if (session == null) {
             return Response.fail(500, "场次不存在");
         }
+        session.setOnSale(seckillSellingGuard.isSessionSelling(session));
         return Response.ok(session);
     }
 
@@ -88,6 +95,10 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         if (existSession == null) {
             return Response.fail(500, "场次不存在");
         }
+        // 售卖中锁定：场次正在售卖（含新会员提前窗口）时禁止编辑，避免在途抢购的时间窗口/配置被改
+        if (seckillSellingGuard.isSessionSelling(existSession)) {
+            return Response.fail(500, "场次正在售卖中，请先停用场次或等待抢购结束后再操作");
+        }
         // 时间窗口校验（每日时段，不支持跨天）
         if (!dto.getRushEndTime().isAfter(dto.getRushStartTime())) {
             return Response.fail(500, "抢购结束时间必须晚于开始时间");
@@ -108,6 +119,10 @@ public class SessionServiceImpl extends ServiceImpl<SessionMapper, Session> impl
         Session existSession = getById(id);
         if (existSession == null) {
             return Response.fail(500, "场次不存在");
+        }
+        // 售卖中锁定：场次正在售卖时禁止删除，避免在途订单的场次锚点（sessionProductId）失联
+        if (seckillSellingGuard.isSessionSelling(existSession)) {
+            return Response.fail(500, "场次正在售卖中，请先停用场次或等待抢购结束后再操作");
         }
         removeById(id);
         log.info("[抢购场次] 删除成功（逻辑删除），id={}", id);

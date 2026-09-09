@@ -8,17 +8,6 @@
 -- 0. 切换到目标数据库
 USE mall;
 
--- =============================================
--- 初始化数据
--- =============================================
-
--- 超级管理员角色
-INSERT IGNORE INTO sys_role(role_name, role_code) VALUES(1, '超级管理员', 'SUPER_ADMIN');
--- 平台管理员角色（后台运营人员，显式固定 id=2）
-INSERT IGNORE INTO sys_role(id, role_name, role_code) VALUES(2, '平台管理员', 'PLATFORM_ADMIN');
--- 会员角色（H5 端注册用户默认角色，代码 PermissionConst.MEMBER_ROLE_ID 固定引用 id=3，显式固定 id 防止自增漂移）
-INSERT IGNORE INTO sys_role(id, role_name, role_code) VALUES(3, '会员', 'MEMBER');
-
 -- 菜单数据：目录 -> 菜单 -> 按钮 三级结构
 -- 系统管理目录
 INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, component_path, icon, sort, visible) VALUES
@@ -219,29 +208,6 @@ INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, co
 INSERT IGNORE INTO sys_role_menu(role_id, menu_id)
 SELECT 1, id FROM sys_menu WHERE id BETWEEN 90 AND 105;
 
-
-
-INSERT IGNORE INTO `sys_config` (`config_group`, `config_group_name`, `config_key`, `config_title`, `config_value`, `value_type`, `sort`, `remark`) VALUES
--- ====================== 【会员配置】第一张截图 ======================
-('member', '会员配置', 'site.order_number',         '会员下单限制数量',                '3',                     'number',  1, '单个会员下单数量限制'),
-('member', '会员配置', 'site.rob_order_num',         '会员提前抢购订单数量限制',        '2',                     'number',  2, '会员提前抢购订单上限'),
-
--- ====================== 【基础配置】第二张截图 ======================
-('base', '基础配置', 'site.name',           '站点名称',           '金鑫',                                         'string',  1, '网站站点名称'),
-('base', '基础配置', 'site.beian',          '备案号',             '',                                             'string',  2, '网站ICP备案号'),
-('base', '基础配置', 'site.cdnurl',         'CDN地址',            '',                                             'string',  3, '静态资源CDN访问地址'),
-('base', '基础配置', 'site.version',        '版本号',             '1.0.2',                                        'string',  4, '系统当前版本号'),
-('base', '基础配置', 'site.timezone',       '时区',               'Asia/Shanghai',                                 'string',  5, '系统时区配置'),
-('base', '基础配置', 'site.forbiddenip',    '禁止IP',             '',                                             'string',  6, '黑名单禁止访问IP，多个换行分隔'),
-('base', '基础配置', 'site.languages',     '语言',               '{"backend":"zh-cn","frontend":"zh-cn"}',        'json',    7, '前后台语言配置键值对'),
-('base', '基础配置', 'site.fixedpage',      '后台固定页',         'dashboard',                                    'string',  8, '登录后默认跳转后台页面'),
-
--- ====================== 【支付配置】第三张截图 ======================
-('pay', '支付配置', 'site.pay_type',            '支付方式',             '["余额"]',                         'json',     1, '多选启用支付方式：余额、微信、支付宝'),
-('pay', '支付配置', 'site.order_limit_time',    '订单超时时间（秒）',   '36000',                           'number',   2, '未支付订单超时自动关闭，单位秒'),
-('pay', '支付配置', 'site.open_adapay_query',   '开启支付查询',         'false',                           'boolean',  3, '是否开启主动查询支付状态'),
-('pay', '支付配置', 'site.work_day',            '工作日',               '["周一","周二","周三","周四","周五"]','json', 4, '勾选的工作日列表'),
-('pay', '支付配置', 'site.income_rate',         '收益积分比例',         '0',                               'number',   5, '收益积分百分比比例');
 
 -- 系统配置菜单（常规管理目录 id=110 下，菜单ID 114-116，避开已用段）
 INSERT IGNORE INTO sys_menu(id, parent_id, name, menu_code, perm, type, path, component_path, icon, sort, visible) VALUES

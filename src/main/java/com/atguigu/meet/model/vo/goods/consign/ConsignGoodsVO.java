@@ -82,6 +82,10 @@ public class ConsignGoodsVO {
     @Schema(description = "是否可购买")
     private Boolean canPurchase;
 
+    /** 是否售卖中（接口派生）：商品存在于任一售卖中场次的关联中，售卖中时禁止编辑/删除/下架/状态流转/委托审核 */
+    @Schema(description = "是否售卖中(接口派生，售卖中禁止写操作)")
+    private Boolean onSale;
+
     /**
      * 委托人简要信息
      * 每次 JOIN sys_user 查询最新数据，用户表更新后自动同步

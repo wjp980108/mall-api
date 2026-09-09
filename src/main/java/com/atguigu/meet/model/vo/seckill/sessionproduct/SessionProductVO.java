@@ -59,4 +59,8 @@ public class SessionProductVO {
 
     @Schema(description = "更新时间")
     private LocalDateTime updateTime;
+
+    /** 是否售卖中（接口派生）：所属场次启用且当前时间在其抢购时间窗口内（含新会员提前窗口），售卖中时本关联禁止增删改 */
+    @Schema(description = "是否售卖中(接口派生，售卖中禁止修改/删除)")
+    private Boolean onSale;
 }

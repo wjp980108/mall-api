@@ -3,6 +3,7 @@ package com.atguigu.meet.service.permission.invite;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteCode;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteRecord;
+import com.atguigu.meet.model.vo.permission.invite.CompensateResultVO;
 
 import java.util.List;
 
@@ -41,4 +42,17 @@ public interface InviteCodeService {
      * 注册成功后处理邀请流水（供注册时调用）
      */
     void processInviteRecord(SysInviteCode inviteCode, Long inviteeId, String inviteePhone);
+
+    /**
+     * 存量补偿：扫描 sys_user 中存在但 sys_invite_code 中无对应邀请码的用户，
+     * 逐个调用 {@link #generateInviteCode(Long)}（依赖其「1 人 1 码」幂等检查），
+     * 失败时跳过单个用户、记录失败列表返回。
+     * <p>
+     * 不并入任何用户创建事务：每个用户的 generateInviteCode 走自身独立事务
+     * （{@code @Transactional(REQUIRED)}，无外层事务时独立提交），
+     * 单个失败只回滚该用户的操作，不影响其他用户。
+     * <p>
+     * 接口幂等：多次调用只补尚未生成邀请码的那批，已有码用户自动跳过。
+     */
+    Response<CompensateResultVO> compensateMissingInviteCodes();
 }

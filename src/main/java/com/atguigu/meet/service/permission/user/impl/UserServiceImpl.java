@@ -193,12 +193,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             }
         }
 
-        // 6. 建号即生成邀请码（幂等；生成失败仅告警，不阻断建号）
-        try {
-            inviteCodeService.generateInviteCode(user.getId());
-        } catch (Exception e) {
-            log.warn("后台创建用户自动生成邀请码失败, userId={}", user.getId(), e);
-        }
+        // 6. 建号即生成邀请码（幂等；生成失败则整体回滚）
+        inviteCodeService.generateInviteCode(user.getId());
 
         log.info("[用户管理] 创建用户成功，userId={}, roleIds={}", user.getId(), roleIds);
         return Response.ok("创建用户成功", null);

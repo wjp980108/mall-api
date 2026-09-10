@@ -8,16 +8,19 @@ import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteCode;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteRecord;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
+import com.atguigu.meet.model.vo.permission.invite.CompensateResultVO;
 import com.atguigu.meet.service.permission.invite.InviteCodeService;
 import com.atguigu.meet.utils.InviteCodeUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -38,6 +41,14 @@ public class InviteCodeServiceImpl implements InviteCodeService {
 
     @Autowired
     private UserMapper userMapper;
+
+    /**
+     * 自注入代理：补偿场景下逐个调用 generateInviteCode 时，必须走 Spring 代理
+     * 才能让 @Transactional 生效（this 直接调用不走代理）。@Lazy 避免启动期循环依赖。
+     */
+    @Autowired
+    @Lazy
+    private InviteCodeService self;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -65,6 +76,48 @@ public class InviteCodeServiceImpl implements InviteCodeService {
         sysInviteCodeMapper.insert(inviteCode);
 
         return Response.ok("邀请码生成成功", inviteCode);
+    }
+
+    /**
+     * 存量补偿实现：
+     * <ul>
+     *   <li>扫描全部 sys_user（不在此处精确过滤无码用户，复用 generateInviteCode
+     *       的「1 人 1 码」幂等检查，避免并发窗口期遗漏）</li>
+     *   <li>逐个通过 {@code self.generateInviteCode(userId)} 调用走代理，确保
+     *       {@code @Transactional(REQUIRED)} 生效；无外层事务时每次独立提交，
+     *       单个失败只回滚该用户的操作，不影响其他用户</li>
+     *   <li>根据返回 msg 区分「新生成」与「已存在被跳过」；异常捕获进失败列表</li>
+     * </ul>
+     * 本方法不加 @Transactional：避免把所有补偿并入一个事务，与 design 决策 2 相悖。
+     */
+    @Override
+    public Response<CompensateResultVO> compensateMissingInviteCodes() {
+        List<SysUser> allUsers = userMapper.selectList(null);
+        int successCount = 0;
+        int skippedCount = 0;
+        List<CompensateResultVO.Failure> failures = new ArrayList<>();
+
+        for (SysUser user : allUsers) {
+            Long userId = user.getId();
+            try {
+                Response<?> result = self.generateInviteCode(userId);
+                // generateInviteCode 幂等：已有码返回 msg="邀请码已存在"
+                if (result != null && "邀请码已存在".equals(result.getMsg())) {
+                    skippedCount++;
+                } else {
+                    successCount++;
+                }
+            } catch (Exception e) {
+                log.warn("[邀请码补偿] userId={} 补生成失败，跳过该用户: {}", userId, e.getMessage());
+                failures.add(new CompensateResultVO.Failure(userId, user.getUsername(), e.getMessage()));
+                // 跳过单个用户继续下一个
+            }
+        }
+
+        log.info("[邀请码补偿] 完成：新增 {}，跳过 {}，失败 {}",
+                successCount, skippedCount, failures.size());
+        return Response.ok("补偿完成",
+                new CompensateResultVO(successCount, skippedCount, failures));
     }
 
     @Override

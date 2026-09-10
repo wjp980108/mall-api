@@ -311,4 +311,11 @@ public final class PermissionConst {
     public static final String AGREEMENT_QUERY = "sys:agreement:query";
     /** 协议保存（单例行覆盖更新） */
     public static final String AGREEMENT_UPDATE = "sys:agreement:update";
+
+    // ==========================================
+    // 邀请码运维 (sys:invite:xxx)
+    // 对应 sys_menu: 需配套在 sys_menu 中初始化运维按钮（仅超管/运维角色可见）
+    // ==========================================
+    /** 邀请码存量补偿：扫描无邀请码用户并补生成（一次性运维能力） */
+    public static final String INVITE_CODE_COMPENSATE = "sys:invite:compensate";
 }

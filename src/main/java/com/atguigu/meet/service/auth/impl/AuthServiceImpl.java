@@ -110,12 +110,8 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             inviteCodeService.processInviteRecord(inviteCode, user.getId(), user.getPhone());
         }
 
-        // 6. 建号即生成我的邀请码（幂等；生成失败仅告警，不阻断注册）
-        try {
-            inviteCodeService.generateInviteCode(user.getId());
-        } catch (Exception e) {
-            log.warn("注册自动生成邀请码失败, userId={}", user.getId(), e);
-        }
+        // 6. 建号即生成我的邀请码（幂等；生成失败则整体回滚）
+        inviteCodeService.generateInviteCode(user.getId());
 
         UserVO userVO = new UserVO();
         BeanConvertUtils.copyProperties(user, userVO);

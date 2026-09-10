@@ -36,7 +36,7 @@ public class FileController {
      *                 为空时使用 application.yml 中 default-platform
      */
     @PostMapping("/upload")
-    @RequirePermission(PermissionConst.FILE_UPLOAD)
+    // @RequirePermission(PermissionConst.FILE_UPLOAD)
     @Operation(summary = "上传文件", description = "通用文件上传接口")
     public Response<Void> upload(
             @RequestParam("file") MultipartFile file,

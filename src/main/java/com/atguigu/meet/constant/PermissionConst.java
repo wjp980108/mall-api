@@ -219,13 +219,13 @@ public final class PermissionConst {
     // ==========================================
     // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 托售商品新增 */
-    public static final String CONSIGN_GOODS_ADD = "goods:consign:add";
+    public static final String CONSIGN_GOODS_ADD = "system:rushProduct:add"; // DB id=22
     /** 托售商品修改 */
-    public static final String CONSIGN_GOODS_UPDATE = "goods:consign:update";
+    public static final String CONSIGN_GOODS_UPDATE = "system:rushProduct:edit"; // DB id=23
     /** 托售商品删除 */
-    public static final String CONSIGN_GOODS_DELETE = "goods:consign:delete";
+    public static final String CONSIGN_GOODS_DELETE = "system:rushProduct:remove"; // DB id=24
     /** 托售商品上下架 */
-    public static final String CONSIGN_GOODS_SHELF = "goods:consign:shelf";
+    public static final String CONSIGN_GOODS_SHELF = "system:rushProduct:status"; // DB id=25
     /** 托售商品业务状态流转 */
     public static final String CONSIGN_GOODS_BIZ_STATUS = "goods:consign:biz:status";
     /** 托售商品缩略图上传 */

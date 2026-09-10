@@ -263,9 +263,9 @@ public final class PermissionConst {
 
     // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 场次商品修改（修改场次库存） */
-    public static final String SESSION_PRODUCT_UPDATE = "session:product:update";
+    public static final String SESSION_PRODUCT_UPDATE = "system:timeSetting:relatedProducts"; // DB id=46
     /** 场次商品删除（解除关联） */
-    public static final String SESSION_PRODUCT_DELETE = "session:product:delete";
+    public static final String SESSION_PRODUCT_DELETE = "system:timeSetting:relatedProducts"; // DB id=46
 
     // ==========================================
     // 普通订单管理（controller.order）

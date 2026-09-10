@@ -10,6 +10,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import org.dromara.x.file.storage.core.FileStorageService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -32,6 +33,9 @@ public class FileServiceImpl implements FileService {
      */
     private static final List<String> ALLOWED_PLATFORMS =
             Arrays.asList("local-1", "aliyun-oss-1", "qiniu-kodo-1", "minio-1", "tencent-cos-1");
+
+    @Value("${dromara.x-file-storage.default-platform:local-1}")
+    private String defaultPlatform;
 
     @Autowired
     private FileStorageService fileStorageService;
@@ -79,9 +83,9 @@ public class FileServiceImpl implements FileService {
         if (file.getSize() > maxSize) {
             throw new RuntimeException("文件不能超过 " + typeConfig.getMaxSizeMb() + "MB");
         }
-        // 6. 存储平台:未传则默认 local-1 本地存储,传了则校验白名单
+        // 6. 存储平台:未传则使用 yml 中 default-platform,传了则校验白名单
         if (platform == null || platform.isBlank()) {
-            platform = "local-1";
+            platform = defaultPlatform;
         } else if (!ALLOWED_PLATFORMS.contains(platform)) {
             return Response.fail(500, "不支持的存储平台：" + platform);
         }

@@ -29,6 +29,7 @@ import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.permission.invite.InviteCodeService;
 import com.atguigu.meet.service.permission.user.UserService;
+import com.atguigu.meet.service.permission.userRole.UserRoleService;
 import com.atguigu.meet.utils.AdminContext;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -98,6 +99,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Autowired
     private InviteCodeService inviteCodeService;
+
+    @Autowired
+    private UserRoleService userRoleService;
 
     @Override
     @Transactional(rollbackFor = Exception.class) // 所有异常都回滚，保证原子性
@@ -201,6 +205,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class) // 用户信息与角色绑定同事务，任一失败整体回滚
     public Response updateUser(UserUpdateDTO userUpdateDTO) {
         Long userId = userUpdateDTO.getId();
         LambdaQueryWrapper<SysUser> lambdaQueryWrapper = new LambdaQueryWrapper<>();
@@ -233,6 +238,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         // 注：password 字段已在 UserUpdateDTO.setPassword 中强制置 null，此接口禁止修改密码
         BeanConvertUtils.copyProperties(userUpdateDTO, existUser, getNullPropertyNames(userUpdateDTO));
         userMapper.updateById(existUser);
+
+        // 同步角色绑定：roleIds 不传(null) 时保持原角色不变；传 [] 清空；非空全量覆盖。
+        // syncUserRoles 加入当前事务(REQUIRED)；校验失败时抛异常触发整体回滚，避免用户信息已改而角色未更新。
+        List<Long> roleIds = userUpdateDTO.getRoleIds();
+        if (roleIds != null) {
+            Response roleResult = userRoleService.syncUserRoles(userId, roleIds);
+            if (roleResult.getCode() != 200) {
+                throw new BusinessException(roleResult.getMsg() != null ? roleResult.getMsg() : "角色同步失败");
+            }
+        }
         return Response.ok("更新用户信息成功", null);
     }
 

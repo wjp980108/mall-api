@@ -4,6 +4,8 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
+import java.util.List;
+
 /**
  * 用户更新请求DTO
  * 所有字段（除 id 外）均非必传：
@@ -17,6 +19,15 @@ public class UserUpdateDTO extends UserBaseDTO {
     @Schema(description = "用户ID", example = "1", requiredMode = Schema.RequiredMode.REQUIRED)
     @NotNull(message = "用户 id 不能为空")
     private Long id;
+
+    /**
+     * 角色ID列表（可选）。
+     * 不传(null)：保持原有角色不变；
+     * 空数组([])：清空该用户全部角色；
+     * 非空数组：全量覆盖为传入的角色集合。
+     */
+    @Schema(description = "角色ID列表，不传=不变，空数组=清空，非空=全量覆盖", example = "[1, 2]")
+    private List<Long> roleIds;
 
     @Override
     public void setUsername(String username) {

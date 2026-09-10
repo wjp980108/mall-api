@@ -36,7 +36,6 @@ public class RobOrderController {
      * @return 抢购订单分页
      */
     @GetMapping
-    @RequirePermission(PermissionConst.ROB_ORDER_QUERY)
     @Operation(summary = "抢购订单分页列表", description = "单列表分页查询，支持日期范围、所属场次、关键词(姓名/手机号/用户ID/商品名)、金额模糊、状态筛选")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderVO.class)))
     public Response getPageList(@Valid RobOrderPageQueryDTO parameter) {

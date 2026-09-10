@@ -30,7 +30,6 @@ public class SysUserAgreementController {
 
     /** 根据类型获取协议 */
     @GetMapping
-    @RequirePermission(PermissionConst.AGREEMENT_QUERY)
     @Operation(summary = "根据类型获取协议", description = "协议类型：1-用户协议 2-隐私协议 3-委托协议 4-分销说明")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysUserAgreement.class)))
     public Response<SysUserAgreement> getByType(Integer type) {

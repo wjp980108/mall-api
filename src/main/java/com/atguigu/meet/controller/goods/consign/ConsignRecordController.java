@@ -1,8 +1,6 @@
 package com.atguigu.meet.controller.goods.consign;
 
-import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
-import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.goods.consign.ConsignRecordPageQueryDTO;
 import com.atguigu.meet.model.vo.goods.consign.ConsignRecordVO;
 import com.atguigu.meet.service.goods.consign.ConsignRecordService;
@@ -34,7 +32,6 @@ public class ConsignRecordController {
 
     /** 分页查询委托代卖事件记录（支持 商品ID/商品名/委托人/买家/状态/时间 筛选） */
     @GetMapping
-    @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
     @Operation(summary = "委托记录分页列表", description = "分页查询委托代卖事件记录")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
     public Response<ConsignRecordVO> getPageList(@Valid ConsignRecordPageQueryDTO parameter) {
@@ -43,7 +40,6 @@ public class ConsignRecordController {
 
     /** 按商品ID查询委托履历列表（商品全部委托代卖历史，按申请时间倒序） */
     @GetMapping("/goods/{consignGoodsId}")
-    @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
     @Operation(summary = "查询商品委托履历", description = "按商品ID查询委托履历列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
     public Response<ConsignRecordVO> listByConsignGoodsId(@PathVariable Long consignGoodsId) {
@@ -52,7 +48,6 @@ public class ConsignRecordController {
 
     /** 根据记录ID查详情（单条委托记录完整生命周期快照） */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.CONSIGN_RECORD_QUERY)
     @Operation(summary = "委托记录详情", description = "查询单条委托记录完整生命周期快照")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignRecordVO.class)))
     public Response<ConsignRecordVO> getRecordById(@PathVariable Long id) {

@@ -68,7 +68,6 @@ public class ConsignGoodsController {
 
     /** 分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.CONSIGN_GOODS_QUERY)
     @Operation(summary = "抢购商品分页列表", description = "分页查询抢购商品分页列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
     public Response<ConsignGoodsVO> getPageList(@Valid ConsignGoodsPageQueryDTO parameter) {
@@ -77,7 +76,6 @@ public class ConsignGoodsController {
 
     /** 根据ID查详情（含委托人信息 + 场次名称） */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.CONSIGN_GOODS_QUERY)
     @Operation(summary = "抢购商品详情", description = "根据ID查询托售商品详情（含委托人信息+场次名称）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ConsignGoodsVO.class)))
     public Response<ConsignGoodsVO> getConsignGoodsById(@PathVariable Long id) {

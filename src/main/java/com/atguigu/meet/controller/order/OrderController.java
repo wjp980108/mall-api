@@ -49,7 +49,6 @@ public class OrderController {
      */
     @Operation(summary = "所有订单列表", description = "全量订单分页查询，支持状态筛选")
     @GetMapping("/list/all")
-    @RequirePermission(PermissionConst.ORDER_ALL_QUERY)
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
     public Response<OrderVO> listAll(@Valid AllOrderQueryDTO parameter) {
         return orderService.listAll(parameter);
@@ -60,7 +59,6 @@ public class OrderController {
      */
     @Operation(summary = "待付款订单列表", description = "查询待付款订单，支持上传凭证、取消订单、删除订单")
     @GetMapping("/list/waitPay")
-    @RequirePermission(PermissionConst.ORDER_WAIT_PAY_QUERY)
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
     public Response<OrderVO> listWaitPay(@Valid AllOrderQueryDTO parameter) {
         return orderService.listWaitPay(parameter);
@@ -71,7 +69,6 @@ public class OrderController {
      */
     @Operation(summary = "待确认收款订单列表", description = "查询待确认收款订单，支持确认收款、取消订单")
     @GetMapping("/list/waitConfirm")
-    @RequirePermission(PermissionConst.ORDER_WAIT_CONFIRM_QUERY)
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
     public Response<OrderVO> listWaitConfirm(@Valid AllOrderQueryDTO parameter) {
         return orderService.listWaitConfirm(parameter);
@@ -82,7 +79,6 @@ public class OrderController {
      */
     @Operation(summary = "代售记录列表", description = "查询已完成委托代售的订单")
     @GetMapping("/list/agentSale")
-    @RequirePermission(PermissionConst.ORDER_AGENT_SALE_QUERY)
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
     public Response<OrderVO> listAgentSale(@Valid AllOrderQueryDTO parameter) {
         return orderService.listAgentSale(parameter);
@@ -93,7 +89,6 @@ public class OrderController {
      */
     @Operation(summary = "已取消订单列表", description = "查询已取消的订单，仅查询不可操作")
     @GetMapping("/list/cancel")
-    @RequirePermission(PermissionConst.ORDER_CANCEL_QUERY)
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OrderVO.class)))
     public Response<OrderVO> listCancel(@Valid AllOrderQueryDTO parameter) {
         return orderService.listCancel(parameter);

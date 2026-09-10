@@ -32,7 +32,6 @@ public class SessionProductController {
 
     /** 分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.SESSION_PRODUCT_QUERY)
     @Operation(summary = "场次商品关联分页列表", description = "分页查询场次商品关联列表（含场次名称与商品信息）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SessionProductVO.class)))
     public Response getPageList(@Valid SessionProductPageQueryDTO parameter) {
@@ -41,7 +40,6 @@ public class SessionProductController {
 
     /** 查询某场次的全部关联商品 */
     @GetMapping("/bySession/{sessionId}")
-    @RequirePermission(PermissionConst.SESSION_PRODUCT_QUERY)
     @Operation(summary = "场次关联商品列表", description = "查询某场次的全部关联商品（场次编辑回显用）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SessionProductVO.class)))
     public Response listBySessionId(@PathVariable Long sessionId) {
@@ -50,7 +48,6 @@ public class SessionProductController {
 
     /** 根据ID查详情 */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.SESSION_PRODUCT_QUERY)
     @Operation(summary = "场次商品关联详情", description = "根据ID查询场次商品关联详情")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SessionProductVO.class)))
     public Response getSessionProductById(@PathVariable Long id) {

@@ -34,7 +34,6 @@ public class RoleController {
 
     /** 角色分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "角色分页列表", description = "分页查询角色列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RoleVO.class)))
     public Response<RoleVO> getPageList(@Valid RolePageQueryDTO parameter) {
@@ -43,7 +42,6 @@ public class RoleController {
 
     /** 所有启用角色（下拉框用） */
     @GetMapping("/all")
-    @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "所有启用角色", description = "获取所有启用的角色（下拉框用）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OptionVO.class)))
     public Response<OptionVO<Long>> getAllRoles() {
@@ -52,7 +50,6 @@ public class RoleController {
 
     /** 根据ID查角色（含已分配菜单ID列表） */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "角色详情", description = "根据ID查询角色详情（含已分配菜单ID列表）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RoleVO.class)))
     public Response<RoleVO> getRoleById(@PathVariable Long id) {
@@ -93,7 +90,6 @@ public class RoleController {
 
     /** 查询角色已分配的菜单ID列表 */
     @GetMapping("/{roleId}/menus")
-    @RequirePermission(PermissionConst.ROLE_QUERY)
     @Operation(summary = "查询角色菜单", description = "查询角色已分配的菜单ID列表")
     public Response<Long> getRoleMenuIds(@PathVariable Long roleId) {
         return roleService.getRoleMenuIds(roleId);

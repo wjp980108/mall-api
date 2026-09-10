@@ -64,7 +64,6 @@ public class GoodsController {
 
     /** 商品分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.GOODS_QUERY)
     @Operation(summary = "商品分页列表", description = "分页查询商品列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Goods.class)))
     public Response<Goods> getPageList(@Valid GoodsPageQueryDTO parameter) {
@@ -73,7 +72,6 @@ public class GoodsController {
 
     /** 根据ID查商品 */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.GOODS_QUERY)
     @Operation(summary = "商品详情", description = "根据ID查询商品详情")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Goods.class)))
     public Response<Goods> getGoodsById(@PathVariable Long id) {

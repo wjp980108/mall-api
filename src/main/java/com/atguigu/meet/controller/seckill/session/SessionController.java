@@ -54,7 +54,6 @@ public class SessionController {
 
     /** 分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.SESSION_QUERY)
     @Operation(summary = "场次分页列表", description = "分页查询抢购场次列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Session.class)))
     public Response<Session> getPageList(@Valid SessionPageQueryDTO parameter) {
@@ -63,7 +62,6 @@ public class SessionController {
 
     /** 场次下拉选项列表（仅启用场次） */
     @GetMapping("/options")
-    @RequirePermission(PermissionConst.SESSION_QUERY)
     @Operation(summary = "场次下拉选项", description = "获取启用的场次下拉选项列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OptionVO.class)))
     public Response<OptionVO<Long>> getSessionOptions() {
@@ -72,7 +70,6 @@ public class SessionController {
 
     /** 根据ID查场次 */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.SESSION_QUERY)
     @Operation(summary = "场次详情", description = "根据ID查询场次详情")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Session.class)))
     public Response<Session> getSessionById(@PathVariable Long id) {

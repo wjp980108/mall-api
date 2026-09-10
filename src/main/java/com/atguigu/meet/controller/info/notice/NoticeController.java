@@ -31,7 +31,6 @@ public class NoticeController {
 
     /** 公告分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "公告分页列表", description = "分页查询公告列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
     public Response<NoticeVO> getPageList(@Valid NoticePageQueryDTO parameter) {
@@ -40,7 +39,6 @@ public class NoticeController {
 
     /** 所有启用公告（C端展示/下拉用） */
     @GetMapping("/enabled")
-    @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "所有启用公告", description = "获取所有启用的公告（C端展示/下拉用）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
     public Response<NoticeVO> getAllEnabledNotices(String position) {
@@ -49,7 +47,6 @@ public class NoticeController {
 
     /** 根据ID查公告（含阅读次数） */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.NOTICE_QUERY)
     @Operation(summary = "公告详情", description = "根据ID查询公告详情（含阅读次数）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = NoticeVO.class)))
     public Response<NoticeVO> getNoticeById(@PathVariable Long id) {

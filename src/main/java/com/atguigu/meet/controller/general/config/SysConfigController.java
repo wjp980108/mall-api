@@ -42,7 +42,6 @@ public class SysConfigController {
      * 分组配置列表（Tab 页传 config_group，按 sort 升序返回）
      */
     @GetMapping
-    @RequirePermission(PermissionConst.SYS_CONFIG_QUERY)
     @Operation(summary = "查询分组配置", description = "按分组查询配置列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysConfigVO.class)))
     public Response<SysConfigVO> listByGroup(@RequestParam("configGroup")

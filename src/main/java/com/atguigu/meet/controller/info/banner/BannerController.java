@@ -31,7 +31,6 @@ public class BannerController {
 
     /** 轮播图分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.BANNER_QUERY)
     @Operation(summary = "轮播图分页列表", description = "分页查询轮播图列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Banner.class)))
     public Response<Banner> getPageList(@Valid BannerPageQueryDTO parameter) {
@@ -48,7 +47,6 @@ public class BannerController {
 
     /** 根据ID查轮播图 */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.BANNER_QUERY)
     @Operation(summary = "轮播图详情", description = "根据ID查询轮播图详情")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Banner.class)))
     public Response<Banner> getBannerById(@PathVariable Long id) {

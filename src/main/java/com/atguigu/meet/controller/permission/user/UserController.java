@@ -51,7 +51,6 @@ public class UserController {
      * 用户列表分页查询
      */
     @GetMapping
-    @RequirePermission(PermissionConst.USER_QUERY)
     @Operation(summary = "用户分页列表", description = "分页查询用户列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserVO.class)))
     public Response<UserVO> pageList(@Valid UserPageQueryDTO parameter) {
@@ -62,7 +61,6 @@ public class UserController {
      * 用户下拉选项列表（委托人, 仅启用用户）
      */
     @GetMapping("/options")
-    @RequirePermission(PermissionConst.USER_QUERY)
     @Operation(summary = "用户下拉选项", description = "获取启用的用户下拉选项列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = OptionVO.class)))
     public Response<OptionVO<Long>> getUserOptions() {

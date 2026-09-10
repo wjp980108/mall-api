@@ -32,7 +32,6 @@ public class MenuController {
 
     /** 菜单树形列表 */
     @GetMapping("/tree")
-    @RequirePermission(PermissionConst.MENU_QUERY)
     @Operation(summary = "菜单树形列表", description = "获取菜单树形结构")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuVO.class)))
     public Response<MenuVO> getMenuTree(@RequestParam(required = false) String name,
@@ -42,7 +41,6 @@ public class MenuController {
 
     /** 菜单平铺分页列表 */
     @GetMapping
-    @RequirePermission(PermissionConst.MENU_QUERY)
     @Operation(summary = "菜单分页列表", description = "分页查询菜单列表（平铺）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuVO.class)))
     public Response<MenuVO> getPageList(@Valid MenuPageQueryDTO parameter) {
@@ -51,7 +49,6 @@ public class MenuController {
 
     /** 所有菜单（平铺，角色分配菜单用） */
     @GetMapping("/all")
-    @RequirePermission(PermissionConst.MENU_QUERY)
     @Operation(summary = "所有菜单", description = "获取所有菜单（平铺，角色分配菜单用）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuVO.class)))
     public Response<MenuVO> getAllMenus(@RequestParam(required = false) Boolean status) {
@@ -60,7 +57,6 @@ public class MenuController {
 
     /** 根据ID查菜单 */
     @GetMapping("/{id}")
-    @RequirePermission(PermissionConst.MENU_QUERY)
     @Operation(summary = "菜单详情", description = "根据ID查询菜单详情")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = MenuVO.class)))
     public Response<MenuVO> getMenuById(@PathVariable Long id) {

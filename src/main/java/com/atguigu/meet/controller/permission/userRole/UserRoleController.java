@@ -28,7 +28,6 @@ public class UserRoleController {
 
     /** 查询用户已分配的角色ID列表 */
     @GetMapping("/{userId}/roles")
-    @RequirePermission(PermissionConst.USER_QUERY)
     @Operation(summary = "查询用户角色", description = "查询用户已分配的角色ID列表")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Long.class)))
     public Response<Long> getUserRoleIds(@PathVariable Long userId) {

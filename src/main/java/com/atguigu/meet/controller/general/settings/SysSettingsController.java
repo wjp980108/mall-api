@@ -25,7 +25,8 @@ import org.springframework.web.bind.annotation.RestController;
  * 系统设置管理接口
  * <p>
  * 单行表, 只有查询 + 更新两个接口.
- * 权限标识 sys:settings:query / sys:settings:update, 菜单挂在"常规管理"下.
+ * 查询仅要求登录态；更新权限标识 system:settings:save（与 sys_menu 保存按钮对齐），
+ * 菜单挂在"系统设置"下.
  */
 @RestController
 @RequestMapping("/settings")
@@ -40,7 +41,6 @@ public class SysSettingsController {
      * 查询系统设置(单行)
      */
     @GetMapping
-    @RequirePermission(PermissionConst.SYS_SETTINGS_QUERY)
     @Operation(summary = "查询系统设置", description = "查询系统设置(单行回显)")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = SysSettings.class)))
     public Response<SysSettings> get() {

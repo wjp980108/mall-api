@@ -3,12 +3,22 @@ package com.atguigu.meet.constant;
 /**
  * 权限标识常量类
  * <p>
- * 格式：前端模块:前端页面:按钮权限
- * 所有值必须与数据库 sys_menu.perm 字段保持一致。
- * 建议 @RequirePermission 注解统一使用本类常量，避免手写字符串出错。
+ * 权限标识以数据库 {@code sys_menu.perm} 字段为唯一权威来源（初始化数据见
+ * {@code src/main/resources/sql/add.sql}），前端按钮显隐与后端
+ * {@code @RequirePermission} 接口校验共用同一套字符串，必须精确一致。
+ * <p>
+ * 本类每个模块分两段维护：
+ * <ul>
+ *   <li><b>与数据库对齐</b>：值必须等于 add.sql 中某个 type=2 按钮行的 perm，
+ *       行尾以「DB 主键锚点」注释（形如 id=N）标注 sys_menu 主键，便于逐行核对；</li>
+ *   <li><b>后端预留</b>：sys_menu 中无对应按钮（前端无操作入口），权限点无法分配给
+ *       普通角色，对应接口事实上仅超级管理员可调用。</li>
+ * </ul>
+ * 查询类接口（列表/分页/详情/回显）不做按钮权限校验，仅要求登录态，因此本类不再
+ * 保留任何 *_QUERY 常量。
  * <p>
  * 命名规则：页面_操作，全部大写，下划线分隔
- * 值规则：模块:页面:操作，全小写，冒号分隔
+ * 值规则：模块:页面:操作，全小写，冒号分隔（值以数据库为准，允许与常量名动词不同）
  */
 public final class PermissionConst {
 
@@ -79,108 +89,102 @@ public final class PermissionConst {
     }
 
     // ==========================================
-    // 系统管理 -> 用户管理 (sys:user:xxx)
-    // 对应 sys_menu: parent=系统管理(id=1) -> 用户管理(id=2) -> 按钮
+    // 系统管理 -> 用户管理
+    // 对应 sys_menu: parent=平台管理(id=1) -> 用户管理(id=10) -> 按钮
     // ==========================================
-    /** 用户查询 */
-    public static final String USER_QUERY = "sys:user:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 用户新增 */
-    public static final String USER_ADD = "sys:user:add";
-    /** 用户修改 */
-    public static final String USER_UPDATE = "sys:user:update";
+    public static final String USER_ADD = "system:user:add"; // DB id=11
+    /** 用户编辑 */
+    public static final String USER_UPDATE = "system:user:edit"; // DB id=12
     /** 用户删除 */
-    public static final String USER_DELETE = "sys:user:delete";
+    public static final String USER_DELETE = "system:user:remove"; // DB id=13
     /** 用户启用/禁用 */
-    public static final String USER_STATUS = "sys:user:status";
+    public static final String USER_STATUS = "system:user:status"; // DB id=14
+
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 用户转老会员（将新会员 member_type=0 手动置为 1） */
     public static final String USER_TO_OLD = "sys:user:toOld";
 
     // ==========================================
-    // 系统管理 -> 角色管理 (sys:role:xxx)
-    // 预留，新增 sys_menu 数据后直接复用
+    // 系统管理 -> 角色管理
+    // 对应 sys_menu: parent=平台管理(id=1) -> 角色管理(id=7) -> 按钮
     // ==========================================
-    /** 角色查询 */
-    public static final String ROLE_QUERY = "sys:role:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
+    /** 角色编辑 */
+    public static final String ROLE_UPDATE = "system:role:edit"; // DB id=8
+    /** 角色启用/禁用 */
+    public static final String ROLE_STATUS = "system:role:status"; // DB id=9
+
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 角色新增 */
     public static final String ROLE_ADD = "sys:role:add";
-    /** 角色修改 */
-    public static final String ROLE_UPDATE = "sys:role:update";
     /** 角色删除 */
     public static final String ROLE_DELETE = "sys:role:delete";
-    /** 角色启用/禁用 */
-    public static final String ROLE_STATUS = "sys:role:status";
     /** 角色分配菜单 */
     public static final String ROLE_ASSIGN_MENU = "sys:role:assign:menu";
-    /** 角色分配用户 */
+    /** 角色分配用户（用户管理页为用户分配角色） */
     public static final String ROLE_ASSIGN_USER = "sys:role:assign:user";
 
     // ==========================================
-    // 系统管理 -> 菜单管理 (sys:menu:xxx)
-    // 预留
+    // 系统管理 -> 菜单管理
+    // 对应 sys_menu: parent=平台管理(id=1) -> 菜单管理(id=2) -> 按钮
     // ==========================================
-    /** 菜单查询 */
-    public static final String MENU_QUERY = "sys:menu:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 菜单新增 */
-    public static final String MENU_ADD = "sys:menu:add";
-    /** 菜单修改 */
-    public static final String MENU_UPDATE = "sys:menu:update";
+    public static final String MENU_ADD = "system:menu:add"; // DB id=3
+    /** 菜单编辑 */
+    public static final String MENU_UPDATE = "system:menu:edit"; // DB id=4
     /** 菜单删除 */
-    public static final String MENU_DELETE = "sys:menu:delete";
+    public static final String MENU_DELETE = "system:menu:remove"; // DB id=5
     /** 菜单启用/禁用 */
-    public static final String MENU_STATUS = "sys:menu:status";
+    public static final String MENU_STATUS = "system:menu:status"; // DB id=6
 
     // ==========================================
-    // 系统管理 -> 系统配置/日志 (sys:config:xxx / sys:log:xxx)
-    // 预留
+    // 系统管理 -> 系统配置
+    // sys_menu 暂无对应按钮
     // ==========================================
-    /** 系统配置查询 */
-    public static final String SYS_CONFIG_QUERY = "sys:config:query";
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 系统配置修改 */
     public static final String SYS_CONFIG_UPDATE = "sys:config:update";
-    /** 系统日志查询 */
-    public static final String SYS_LOG_QUERY = "sys:log:query";
 
     // ==========================================
-    // 常规管理 -> 系统设置 (sys:settings:xxx)
-    // 对应 sys_menu: 常规管理(id=110) -> 系统设置(id=128) -> 按钮(129/130)
+    // 常规管理 -> 系统设置
+    // 对应 sys_menu: 系统设置(id=47) -> 保存系统设置按钮(id=48)
     // ==========================================
-    /** 系统设置查询 */
-    public static final String SYS_SETTINGS_QUERY = "sys:settings:query";
-    /** 系统设置修改 */
-    public static final String SYS_SETTINGS_UPDATE = "sys:settings:update";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
+    /** 系统设置保存（单例行覆盖更新，保存即修改） */
+    public static final String SYS_SETTINGS_UPDATE = "system:settings:save"; // DB id=48
 
     // ==========================================
-    // 公告管理 (sys:notice:xxx)
-    // 对应 sys_menu: 公告管理菜单 -> 按钮
+    // 信息管理 -> 公告管理
+    // 对应 sys_menu: parent=信息管理(id=26) -> 公告(id=27) -> 按钮
     // ==========================================
-    /** 公告查询 */
-    public static final String NOTICE_QUERY = "sys:notice:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 公告新增 */
-    public static final String NOTICE_ADD = "sys:notice:add";
-    /** 公告修改 */
-    public static final String NOTICE_UPDATE = "sys:notice:update";
+    public static final String NOTICE_ADD = "system:announcement:add"; // DB id=28
+    /** 公告编辑 */
+    public static final String NOTICE_UPDATE = "system:announcement:edit"; // DB id=29
     /** 公告删除 */
-    public static final String NOTICE_DELETE = "sys:notice:delete";
-    /** 公告阅读日志查询 */
-    public static final String NOTICE_LOG_QUERY = "sys:notice:log";
+    public static final String NOTICE_DELETE = "system:announcement:remove"; // DB id=30
 
     // ==========================================
-    // 轮播图管理 (sys:banner:xxx)
-    // 对应 sys_menu: 轮播图管理菜单 -> 按钮
+    // 信息管理 -> 轮播图管理
+    // 对应 sys_menu: parent=信息管理(id=26) -> 轮播图(id=31) -> 按钮
     // ==========================================
-    /** 轮播图查询 */
-    public static final String BANNER_QUERY = "sys:banner:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 轮播图新增 */
-    public static final String BANNER_ADD = "sys:banner:add";
-    /** 轮播图修改 */
-    public static final String BANNER_UPDATE = "sys:banner:update";
+    public static final String BANNER_ADD = "system:carousel:add"; // DB id=32
+    /** 轮播图编辑 */
+    public static final String BANNER_UPDATE = "system:carousel:edit"; // DB id=33
     /** 轮播图删除 */
-    public static final String BANNER_DELETE = "sys:banner:delete";
+    public static final String BANNER_DELETE = "system:carousel:remove"; // DB id=34
 
     // ==========================================
-    // 文件管理 (file:xxx:xxx)
-    // 预留
+    // 文件管理
+    // sys_menu 暂无对应按钮
     // ==========================================
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 文件上传 */
     public static final String FILE_UPLOAD = "file:upload:save";
     /** 文件下载 */
@@ -189,32 +193,31 @@ public final class PermissionConst {
     public static final String FILE_DELETE = "file:upload:delete";
 
     // ==========================================
-    // 商品管理 (goods:list:xxx)
-    // 对应 sys_menu: 商品管理菜单 -> 按钮
-    // 模块=goods，页面=list（controller.goods.list）
+    // 商品管理 -> 商品列表
+    // 对应 sys_menu: parent=商品管理(id=15) -> 商品列表(id=16) -> 按钮
     // ==========================================
-    /** 商品查询 */
-    public static final String GOODS_QUERY = "goods:list:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 商品新增 */
-    public static final String GOODS_ADD = "goods:list:add";
-    /** 商品修改 */
-    public static final String GOODS_UPDATE = "goods:list:update";
+    public static final String GOODS_ADD = "system:product:add"; // DB id=17
+    /** 商品编辑 */
+    public static final String GOODS_UPDATE = "system:product:edit"; // DB id=18
     /** 商品删除 */
-    public static final String GOODS_DELETE = "goods:list:delete";
-    /** 商品上下架 */
-    public static final String GOODS_SHELF = "goods:list:shelf";
+    public static final String GOODS_DELETE = "system:product:remove"; // DB id=19
+    /** 商品上架/下架 */
+    public static final String GOODS_SHELF = "system:product:status"; // DB id=20
+
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 商品缩略图上传 */
     public static final String GOODS_COVER_IMG_UPLOAD = "goods:list:cover:upload";
     /** 商品详情图上传 */
     public static final String GOODS_DETAIL_IMG_UPLOAD = "goods:list:detail:upload";
 
     // ==========================================
-    // 抢购托售商品管理 (goods:consign:xxx)
-    // 对应 sys_menu: 托售商品管理菜单 -> 按钮
-    // 模块=goods，页面=consign（controller.goods.consign）
+    // 商品管理 -> 抢购托售商品管理（controller.goods.consign）
+    // sys_menu 暂无对应按钮（system:rushProduct:* 的归属待确认，见
+    // openspec change align-backend-perms-with-db-menu design 开放项）
     // ==========================================
-    /** 托售商品查询 */
-    public static final String CONSIGN_GOODS_QUERY = "goods:consign:query";
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 托售商品新增 */
     public static final String CONSIGN_GOODS_ADD = "goods:consign:add";
     /** 托售商品修改 */
@@ -229,59 +232,46 @@ public final class PermissionConst {
     public static final String CONSIGN_GOODS_COVER_IMG_UPLOAD = "goods:consign:cover:upload";
     /** 托售商品详情图上传 */
     public static final String CONSIGN_GOODS_DETAIL_IMG_UPLOAD = "goods:consign:detail:upload";
-
     /** 托售商品-委托代卖审核（通过/驳回） */
     public static final String CONSIGN_GOODS_ENTRUST_AUDIT = "goods:consign:entrust:audit";
 
-    /** 委托代卖事件记录查询（履历分页/详情/按商品查） */
-    public static final String CONSIGN_RECORD_QUERY = "goods:consign:record:query";
-
     // ==========================================
-    // 抢购场次管理 (session:xxx)
-    // 对应 sys_menu: 抢购场次管理菜单 -> 按钮
-    // 模块=session（controller.seckill.session，归属“抢购系统设置”一级模块）
+    // 抢购场次管理（controller.seckill.session）
+    // 对应 sys_menu: 抢购场次(id=41) -> 按钮
     // ==========================================
-    /** 场次查询 */
-    public static final String SESSION_QUERY = "session:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 场次新增 */
-    public static final String SESSION_ADD = "session:add";
-    /** 场次修改 */
-    public static final String SESSION_UPDATE = "session:update";
+    public static final String SESSION_ADD = "system:timeSetting:add"; // DB id=42
+    /** 场次编辑 */
+    public static final String SESSION_UPDATE = "system:timeSetting:edit"; // DB id=43
     /** 场次删除 */
-    public static final String SESSION_DELETE = "session:delete";
+    public static final String SESSION_DELETE = "system:timeSetting:remove"; // DB id=44
     /** 场次启用/禁用 */
-    public static final String SESSION_STATUS = "session:status";
+    public static final String SESSION_STATUS = "system:timeSetting:status"; // DB id=45
+
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 场次背景图上传 */
     public static final String SESSION_BG_UPLOAD = "session:bg:upload";
 
     // ==========================================
-    // 场次商品关联管理 (session:product:xxx)
-    // 对应 sys_menu: 场次商品管理菜单 -> 按钮
-    // 模块=session，页面=product（controller.seckill.sessionproduct）
+    // 场次商品关联管理（controller.seckill.sessionproduct）
+    // 对应 sys_menu: 抢购场次(id=41) -> 关联商品按钮(id=46)
     // ==========================================
-    /** 场次商品查询 */
-    public static final String SESSION_PRODUCT_QUERY = "session:product:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 场次商品新增（关联商品并设置该场次库存） */
-    public static final String SESSION_PRODUCT_ADD = "session:product:add";
-    /** 场次商品修改 */
+    public static final String SESSION_PRODUCT_ADD = "system:timeSetting:relatedProducts"; // DB id=46
+
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
+    /** 场次商品修改（修改场次库存） */
     public static final String SESSION_PRODUCT_UPDATE = "session:product:update";
     /** 场次商品删除（解除关联） */
     public static final String SESSION_PRODUCT_DELETE = "session:product:delete";
 
     // ==========================================
-    // 订单管理 (order:xxx)
-    // 对应 sys_menu: 订单管理目录 -> 5个菜单 -> 按钮权限
+    // 普通订单管理（controller.order）
+    // sys_menu 暂无对应按钮
     // ==========================================
-    /** 所有订单查询 */
-    public static final String ORDER_ALL_QUERY = "order:all:query";
-    /** 待付款订单查询 */
-    public static final String ORDER_WAIT_PAY_QUERY = "order:waitPay:query";
-    /** 待确认收款订单查询 */
-    public static final String ORDER_WAIT_CONFIRM_QUERY = "order:waitConfirm:query";
-    /** 代售记录查询 */
-    public static final String ORDER_AGENT_SALE_QUERY = "order:agentSale:query";
-    /** 已取消订单查询 */
-    public static final String ORDER_CANCEL_QUERY = "order:cancel:query";
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 上传支付凭证 */
     public static final String ORDER_UPLOAD_VOUCHER = "order:waitPay:uploadVoucher";
     /** 取消订单（待付款/待确认可用） */
@@ -292,30 +282,28 @@ public final class PermissionConst {
     public static final String ORDER_CONFIRM_RECEIVE = "order:waitConfirm:confirmReceive";
 
     // ==========================================
-    // 抢购订单管理 (rob:order:xxx)
-    // 对应 sys_menu: 抢购订单菜单(id=131) -> 按钮(132查询/133转移/134取消)
-    // 模块=rob，页面=order（controller.roborder），基于场次商品库存的新订单
+    // 抢购订单管理（controller.roborder）
+    // 对应 sys_menu: 订单管理(id=38, /rush-order/all-order) -> 按钮
     // ==========================================
-    /** 抢购订单查询 */
-    public static final String ROB_ORDER_QUERY = "rob:order:query";
+    // -- 与数据库对齐（来源：add.sql sys_menu，行尾 id 为核对锚点）--
     /** 抢购订单转移（更换买家并划转积分权益） */
-    public static final String ROB_ORDER_TRANSFER = "rob:order:transfer";
+    public static final String ROB_ORDER_TRANSFER = "system:allOrder:shift"; // DB id=39
     /** 抢购订单取消（回滚库存与积分） */
-    public static final String ROB_ORDER_CANCEL = "rob:order:cancel";
+    public static final String ROB_ORDER_CANCEL = "system:allOrder:cancel"; // DB id=40
 
     // ==========================================
-    // 常规管理 -> 用户协议 (sys:agreement:xxx)
-    // 对应 sys_menu: 常规管理目录(id=110) -> 用户协议菜单(id=111) -> 按钮
+    // 常规管理 -> 用户协议
+    // sys_menu 暂无对应按钮（用户协议 id=36 / 隐私协议 id=37 均无按钮行）
     // ==========================================
-    /** 协议查询（后台编辑回显） */
-    public static final String AGREEMENT_QUERY = "sys:agreement:query";
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 协议保存（单例行覆盖更新） */
     public static final String AGREEMENT_UPDATE = "sys:agreement:update";
 
     // ==========================================
-    // 邀请码运维 (sys:invite:xxx)
-    // 对应 sys_menu: 需配套在 sys_menu 中初始化运维按钮（仅超管/运维角色可见）
+    // 邀请码运维
+    // sys_menu 暂无对应按钮（仅超管/运维角色可见）
     // ==========================================
+    // -- 后端预留：前端无操作按钮，仅超级管理员可用 --
     /** 邀请码存量补偿：扫描无邀请码用户并补生成（一次性运维能力） */
     public static final String INVITE_CODE_COMPENSATE = "sys:invite:compensate";
 }

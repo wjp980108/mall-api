@@ -21,4 +21,9 @@ public class PlaceRobOrderDTO {
     @Schema(description = "购买数量", example = "1")
     @Min(value = 1, message = "购买数量至少为1")
     private Integer quantity = 1;
+
+    /** 收货地址ID（必须为当前登录用户本人地址簿中的地址） */
+    @Schema(description = "收货地址ID", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "收货地址ID不能为空")
+    private Long addressId;
 }

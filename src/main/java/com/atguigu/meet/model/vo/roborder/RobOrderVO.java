@@ -93,6 +93,15 @@ public class RobOrderVO {
     @Schema(description = "推荐人姓名")
     private String inviterName;
 
+    @Schema(description = "收货人姓名快照")
+    private String receiverName;
+
+    @Schema(description = "收货人手机号快照")
+    private String receiverPhone;
+
+    @Schema(description = "收货地址快照")
+    private String receiveAddress;
+
     @Schema(description = "订单状态 1正常 2已取消")
     private Integer orderStatus;
 

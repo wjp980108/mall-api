@@ -44,7 +44,9 @@
         o.profit_amount, o.recommend_amount, o.self_buy_amount,
         o.self_buy_bonus_amount, o.self_buy_coupon_amount,
         o.buyer_id, o.buyer_name, o.buyer_phone, o.buyer_avatar,
-        o.inviter_id, o.inviter_name, o.order_status, o.create_time
+        o.inviter_id, o.inviter_name,
+        o.receiver_name, o.receiver_phone, o.receive_address,
+        o.order_status, o.create_time
     </sql>
 
     <!-- 分页查询抢购订单 -->

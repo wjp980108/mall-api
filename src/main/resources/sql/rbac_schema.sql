@@ -659,6 +659,9 @@ CREATE TABLE IF NOT EXISTS `t_rob_order` (
     `buyer_avatar_platform`  VARCHAR(32)   DEFAULT NULL COMMENT '买家头像存储平台',
     `inviter_id`             BIGINT        DEFAULT NULL COMMENT '推荐人(买家邀请人)ID快照,关联sys_user.id,无则为空',
     `inviter_name`           VARCHAR(64)   DEFAULT NULL COMMENT '推荐人姓名快照',
+    `receiver_name`          VARCHAR(50)   NOT NULL DEFAULT '' COMMENT '收货人姓名快照(下单时取t_user_address,不存外键)',
+    `receiver_phone`         VARCHAR(20)   NOT NULL DEFAULT '' COMMENT '收货人手机号快照(下单时取t_user_address,不存外键)',
+    `receive_address`        VARCHAR(512)  NOT NULL DEFAULT '' COMMENT '收货地址完整字符串快照(下单时取t_user_address,不存外键)',
     `order_status`           TINYINT       NOT NULL DEFAULT 1 COMMENT '订单状态 1正常 2已取消',
     `is_deleted`             TINYINT(1)    NOT NULL DEFAULT 0 COMMENT '逻辑删除 0未删 1已删',
     `create_time`            DATETIME      NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间(下单时间)',
@@ -670,7 +673,6 @@ CREATE TABLE IF NOT EXISTS `t_rob_order` (
     KEY `idx_inviter_id` (`inviter_id`) COMMENT '按推荐人查询',
     KEY `idx_session_product_id` (`session_product_id`) COMMENT '库存锚点反查'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抢购订单表(场次商品库存下单,金额快照冻结)';
-
 
 -- =============================================
 -- 抢购订单操作审计表：t_rob_order_operate_log

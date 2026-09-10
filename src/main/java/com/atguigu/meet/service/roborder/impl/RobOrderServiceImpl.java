@@ -29,6 +29,7 @@ import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.points.UserPointsService;
 import com.atguigu.meet.service.roborder.RobOrderService;
+import com.atguigu.meet.service.user.UserAddressService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.OrderNoUtil;
@@ -74,6 +75,8 @@ public class RobOrderServiceImpl implements RobOrderService {
     private SysSettingsService sysSettingsService;
     @Autowired
     private UserPointsService userPointsService;
+    @Autowired
+    private UserAddressService userAddressService;
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
@@ -124,6 +127,13 @@ public class RobOrderServiceImpl implements RobOrderService {
         Response limitCheck = checkLimitRule(settings, buyer.getId(), session.getId());
         if (limitCheck != null) {
             return limitCheck;
+        }
+
+        // 3.5 收货地址归属校验（必须在扣库存之前：地址无效时库存一行都不动，防越权使用他人地址）
+        com.atguigu.meet.model.entity.user.UserAddress receiver =
+                userAddressService.getByIdForOrder(dto.getAddressId(), currentUserId);
+        if (receiver == null) {
+            return Response.fail(500, "收货地址不存在");
         }
 
         // 4. 库存校验 + 条件扣库存（原子防超卖）：列表不过滤库存，售罄商品在此明确提示
@@ -184,6 +194,10 @@ public class RobOrderServiceImpl implements RobOrderService {
             order.setInviterId(inviter.getId());
             order.setInviterName(pickName(inviter));
         }
+        // 收货信息快照（只冻结文字，不存 address_id；地址事后改/删不影响历史订单）
+        order.setReceiverName(receiver.getReceiverName());
+        order.setReceiverPhone(receiver.getReceiverPhone());
+        order.setReceiveAddress(receiver.getAddress());
         order.setOrderStatus(RobOrderStatus.NORMAL.getCode());
         robOrderMapper.insert(order);
 

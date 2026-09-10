@@ -135,6 +135,18 @@ public class RobOrder extends Model<RobOrder> {
     @Schema(description = "推荐人姓名")
     private String inviterName;
 
+    /** 收货人姓名快照（下单时取 t_user_address，不存地址外键；地址事后改/删不影响历史订单） */
+    @Schema(description = "收货人姓名快照")
+    private String receiverName;
+
+    /** 收货人手机号快照（下单时取 t_user_address，不存地址外键） */
+    @Schema(description = "收货人手机号快照")
+    private String receiverPhone;
+
+    /** 收货地址完整字符串快照（下单时取 t_user_address，不存地址外键） */
+    @Schema(description = "收货地址快照")
+    private String receiveAddress;
+
     /**
      * 订单状态：1正常 2已取消
      * @see com.atguigu.meet.enums.RobOrderStatus

@@ -2,6 +2,7 @@ package com.atguigu.meet.service.roborder;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 
@@ -16,9 +17,9 @@ public interface RobOrderService {
     Response placeOrder(PlaceRobOrderDTO dto, Long currentUserId);
 
     /**
-     * 管理端取消订单：条件置已取消 → 回滚库存 → 冲回积分（幂等）
+     * 管理端取消订单：积分不足预检（未确认且不足返回提示，data 非空）→ 条件置已取消 → 回滚库存 → 冲回积分（幂等；确认后允许负余额）
      */
-    Response cancelOrder(Long orderId);
+    Response cancelOrder(RobOrderCancelDTO dto);
 
     /**
      * 管理端转移订单：重写买家快照 → 积分按冻结金额换受益人

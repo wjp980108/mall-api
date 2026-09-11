@@ -12,8 +12,10 @@ import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
 import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.mapper.seckill.sessionproduct.SessionProductMapper;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
+import com.atguigu.meet.model.dto.points.PointsReverseItem;
 import com.atguigu.meet.model.entity.general.settings.SysSettings;
 import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
@@ -23,6 +25,7 @@ import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.vo.PageResultVO;
+import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
@@ -47,6 +50,7 @@ import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -231,13 +235,22 @@ public class RobOrderServiceImpl implements RobOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Response cancelOrder(Long orderId) {
+    public Response cancelOrder(RobOrderCancelDTO dto) {
+        Long orderId = dto.getOrderId();
         RobOrder order = robOrderMapper.selectById(orderId);
         if (order == null) {
             return Response.fail(500, "订单不存在");
         }
         if (RobOrderStatus.CANCEL.getCode() == order.getOrderStatus()) {
             return Response.fail(500, "订单已取消，请勿重复操作");
+        }
+
+        // 积分不足预检（先于一切写操作）：未确认且不足时返回提示等待二次确认，事务内无任何变更
+        boolean confirmed = Boolean.TRUE.equals(dto.getConfirmInsufficient());
+        PointsInsufficientVO insufficient =
+                checkInsufficient(order.getInviterId(), order.getBuyerId(), order);
+        if (insufficient != null && !confirmed) {
+            return Response.ok("用户积分不足，请确认是否继续", insufficient);
         }
 
         // 条件置已取消（幂等）
@@ -271,14 +284,17 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
 
         AdminUser admin = AdminContext.get();
+        String remark = insufficient != null
+                ? "取消订单，库存与积分已回滚；积分不足经确认强制执行（负余额）"
+                : "取消订单，库存与积分已回滚";
         writeLog(order.getId(), RobOrderStatus.NORMAL.getCode(), RobOrderStatus.CANCEL.getCode(),
                 RobOrderOperateType.CANCEL_ORDER,
                 admin != null ? admin.getUserId() : null, admin != null ? admin.getUsername() : null,
-                "取消订单，库存与积分已回滚");
+                remark);
 
         log.info("[抢购订单取消] orderNo={} operator={}", order.getOrderNo(),
                 admin != null ? admin.getUsername() : "system");
-        return Response.ok("订单已取消");
+        return Response.ok("订单已取消", null);
     }
 
     // ====================== 管理端转移订单 ======================
@@ -304,6 +320,13 @@ public class RobOrderServiceImpl implements RobOrderService {
 
         Long oldBuyerId = order.getBuyerId();
         Long oldInviterId = order.getInviterId();
+
+        // 积分不足预检（先于一切写操作）：未确认且不足时返回提示等待二次确认，事务内无任何变更
+        boolean confirmed = Boolean.TRUE.equals(dto.getConfirmInsufficient());
+        PointsInsufficientVO insufficient = checkInsufficient(oldInviterId, oldBuyerId, order);
+        if (insufficient != null && !confirmed) {
+            return Response.ok("用户积分不足，请确认是否继续", insufficient);
+        }
 
         // 条件更新订单（仍为正常态才允许）：重写买家 + 推荐人快照，金额冻结不变
         int affected = robOrderMapper.update(null,
@@ -355,16 +378,18 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
 
         AdminUser admin = AdminContext.get();
+        String transferRemark = "订单由买家[" + oldBuyerId + "]转移给买家[" + newBuyer.getId() + "]"
+                + (insufficient != null ? "；积分不足经确认强制执行（负余额）" : "");
         writeLog(order.getId(), RobOrderStatus.NORMAL.getCode(), RobOrderStatus.NORMAL.getCode(),
                 RobOrderOperateType.TRANSFER_ORDER,
                 admin != null ? admin.getUserId() : null, admin != null ? admin.getUsername() : null,
-                "订单由买家[" + oldBuyerId + "]转移给买家[" + newBuyer.getId() + "]");
+                transferRemark);
 
         log.info("[抢购订单转移] orderNo={} buyer: {}->{} inviter: {}->{} operator={}",
                 order.getOrderNo(), oldBuyerId, newBuyer.getId(), oldInviterId,
                 newInviter != null ? newInviter.getId() : null,
                 admin != null ? admin.getUsername() : "system");
-        return Response.ok("订单已转移");
+        return Response.ok("订单已转移", null);
     }
 
     // ====================== 列表 / 详情 / 可抢商品 ======================
@@ -500,6 +525,28 @@ public class RobOrderServiceImpl implements RobOrderService {
     }
 
     // ====================== 私有方法 ======================
+
+    /**
+     * 冲回余额预检（提示性检查，无锁读）：按订单快照组装本单冲回项
+     * （推荐人-可用积分-推荐奖、买家-可用积分-自购奖金、买家-购物券积分-购物券），
+     * 全部充足返回 null；任一不足返回双标志 VO。
+     */
+    private PointsInsufficientVO checkInsufficient(Long inviterId, Long buyerId, RobOrder order) {
+        List<PointsReverseItem> items = new ArrayList<>();
+        if (inviterId != null && nz(order.getRecommendAmount()).signum() > 0) {
+            items.add(new PointsReverseItem(inviterId, PointsAccountType.POINTS.getCode(),
+                    order.getRecommendAmount()));
+        }
+        if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
+            items.add(new PointsReverseItem(buyerId, PointsAccountType.POINTS.getCode(),
+                    order.getSelfBuyBonusAmount()));
+        }
+        if (nz(order.getSelfBuyCouponAmount()).signum() > 0) {
+            items.add(new PointsReverseItem(buyerId, PointsAccountType.COUPON.getCode(),
+                    order.getSelfBuyCouponAmount()));
+        }
+        return userPointsService.checkReverseBalance(items);
+    }
 
     /** 限购规则描述（limit_rule: 0不限购 1同场次限购一次 2当天限购一次） */
     private String limitRuleName(Integer limitRule) {

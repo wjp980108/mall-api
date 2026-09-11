@@ -1,11 +1,14 @@
 package com.atguigu.meet.service.points;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.dto.points.PointsReverseItem;
 import com.atguigu.meet.model.vo.points.PointsBalanceVO;
 import com.atguigu.meet.model.vo.points.PointsFlowVO;
 import com.atguigu.meet.model.vo.PageResultVO;
+import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 用户积分账户 Service
@@ -41,6 +44,15 @@ public interface UserPointsService {
      */
     void reverse(Long userId, Integer accountType, BigDecimal amount,
                  Integer bizType, Long orderId, String orderNo, String remark);
+
+    /**
+     * 冲回余额预检（提示性检查，无锁读）：逐项比对「用户 × 账户类型」当前余额与待冲回金额，
+     * 按账户类型聚合不足标志；账户不存在按余额 0 处理。
+     *
+     * @param items 冲回项列表（用户ID + 账户类型 + 金额）
+     * @return 全部充足返回 null；任一不足返回非空 VO（两个标志分别对应可用积分/购物券积分）
+     */
+    PointsInsufficientVO checkReverseBalance(List<PointsReverseItem> items);
 
     /**
      * 积分转让：按对方手机号转出可用积分（购物券积分不参与）。

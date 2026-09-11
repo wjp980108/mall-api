@@ -8,12 +8,14 @@ import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.points.UserPointsFlowMapper;
 import com.atguigu.meet.mapper.points.UserPointsMapper;
+import com.atguigu.meet.model.dto.points.PointsReverseItem;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.entity.points.UserPoints;
 import com.atguigu.meet.model.entity.points.UserPointsFlow;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.points.PointsBalanceVO;
 import com.atguigu.meet.model.vo.points.PointsFlowVO;
+import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.service.points.UserPointsService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
@@ -26,6 +28,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 /**
  * 用户积分账户 Service 实现
@@ -86,6 +89,42 @@ public class UserPointsServiceImpl extends ServiceImpl<UserPointsMapper, UserPoi
         }
         writeFlow(userId, accountType, bizType, PointsFlowType.REVERSE.getCode(),
                 amount, before, after, orderId, orderNo, null, null, remark);
+    }
+
+    @Override
+    public PointsInsufficientVO checkReverseBalance(List<PointsReverseItem> items) {
+        if (items == null || items.isEmpty()) {
+            return null;
+        }
+        boolean pointsInsufficient = false;
+        boolean couponInsufficient = false;
+        for (PointsReverseItem item : items) {
+            if (item == null || item.getUserId() == null
+                    || item.getAccountType() == null
+                    || item.getAmount() == null || item.getAmount().signum() <= 0) {
+                continue;
+            }
+            boolean isCoupon = PointsAccountType.COUPON.getCode() == item.getAccountType();
+            // 提示性检查用无锁读；账户不存在按余额 0 处理（与冲回时 initAccount 行为衔接）
+            UserPoints account = userPointsMapper.selectOne(new LambdaQueryWrapper<UserPoints>()
+                    .eq(UserPoints::getUserId, item.getUserId()));
+            BigDecimal balance = account == null ? BigDecimal.ZERO
+                    : (isCoupon ? nz(account.getCouponPoints()) : nz(account.getPoints()));
+            if (balance.compareTo(item.getAmount()) < 0) {
+                if (isCoupon) {
+                    couponInsufficient = true;
+                } else {
+                    pointsInsufficient = true;
+                }
+            }
+        }
+        if (!pointsInsufficient && !couponInsufficient) {
+            return null;
+        }
+        PointsInsufficientVO vo = new PointsInsufficientVO();
+        vo.setPointsInsufficient(pointsInsufficient);
+        vo.setCouponInsufficient(couponInsufficient);
+        return vo;
     }
 
     @Override

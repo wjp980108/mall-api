@@ -55,10 +55,10 @@ public class AppUserController {
 
     /**
      * 修改密码
-     * （仅需手机号 + 新密码；手机号须与当前登录用户一致，防越权）
+     * （用户身份由 token 解析，前端仅需传新密码）
      */
     @PutMapping("password")
-    @Operation(summary = "修改密码", description = "修改当前用户密码，需验证手机号与当前登录用户一致")
+    @Operation(summary = "修改密码", description = "修改当前用户密码，用户身份由 token 解析，仅需传新密码")
     public Response<Void> changePassword(@RequestBody @Valid AppChangePasswordDTO dto) {
         return appUserService.changePassword(dto);
     }
@@ -66,11 +66,11 @@ public class AppUserController {
     /**
      * 忘记密码
      *
-     * @param dto 忘记密码请求参数（手机号 + 新密码）
+     * @param dto 忘记密码请求参数（用户名 account + 新密码）
      * @return 重置结果提示
      */
     @PutMapping("forgot-password")
-    @Operation(summary = "忘记密码", description = "凭注册手机号 + 新密码直接重置，无需登录")
+    @Operation(summary = "忘记密码", description = "凭用户名（account 字段）+ 新密码直接重置，无需登录")
     public Response<Void> forgotPassword(@RequestBody @Valid AppForgotPasswordDTO dto) {
         return appUserService.forgotPassword(dto);
     }

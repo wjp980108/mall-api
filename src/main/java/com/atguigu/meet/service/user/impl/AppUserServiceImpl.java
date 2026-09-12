@@ -87,14 +87,6 @@ public class AppUserServiceImpl extends ServiceImpl<UserMapper, SysUser> impleme
         if (userId == null) {
             return Response.fail(401, "未登录");
         }
-        SysUser user = getById(userId);
-        if (user == null) {
-            return Response.fail(404, "用户不存在");
-        }
-        // 手机号必须与当前登录用户一致，防止凭他人手机号越权改密
-        if (!dto.getPhone().equals(user.getPhone())) {
-            return Response.fail(500, "手机号与当前登录用户不匹配");
-        }
         // 目标字段更新，避免实体内联默认值（gender/status）被覆盖
         lambdaUpdate()
                 .set(SysUser::getPassword, passwordEncoder.encode(dto.getPassword()))
@@ -106,13 +98,13 @@ public class AppUserServiceImpl extends ServiceImpl<UserMapper, SysUser> impleme
 
     @Override
     public Response forgotPassword(AppForgotPasswordDTO dto) {
-        // 忘记密码无需登录：按手机号匹配账号（逻辑删除由 @TableLogic 自动过滤）
+        // 忘记密码无需登录：account 字段传用户名，按用户名匹配账号（逻辑删除由 @TableLogic 自动过滤）
         SysUser user = lambdaQuery()
-                .eq(SysUser::getPhone, dto.getPhone())
+                .eq(SysUser::getUsername, dto.getAccount())
                 .last("LIMIT 1")
                 .one();
         if (user == null) {
-            return Response.fail(500, "该手机号尚未注册");
+            return Response.fail(500, "该用户名尚未注册");
         }
         // 禁用账号与登录策略保持一致，不允许重置密码
         if (!"1".equals(user.getStatus())) {

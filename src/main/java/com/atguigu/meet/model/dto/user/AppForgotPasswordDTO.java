@@ -2,24 +2,22 @@ package com.atguigu.meet.model.dto.user;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import lombok.Data;
 import org.hibernate.validator.constraints.Length;
 
 /**
  * H5 端忘记密码（重置密码）请求DTO
  * <p>
- * 无需登录：凭注册手机号 + 新密码直接重置，服务端按手机号匹配账号。
+ * 无需登录：凭用户名（account 字段）+ 新密码直接重置，服务端按用户名匹配账号。
  */
 @Data
 @Schema(description = "H5端忘记密码请求参数")
 public class AppForgotPasswordDTO {
 
-    /** 注册账号绑定的手机号 */
-    @Schema(description = "注册账号绑定的手机号", example = "13800138000", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "手机号不能为空")
-    @Pattern(regexp = "^1[3-9]\\d{9}$", message = "手机号格式不正确")
-    private String phone;
+    /** 账号绑定的用户名 */
+    @Schema(description = "账号绑定的用户名", example = "zhangsan", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "用户名不能为空")
+    private String account;
 
     /** 新密码 */
     @Schema(description = "新密码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)

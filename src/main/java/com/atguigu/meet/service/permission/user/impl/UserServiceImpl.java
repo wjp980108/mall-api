@@ -651,9 +651,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (user == null) {
             return Response.fail(404, "用户不存在");
         }
-        // 手机号必须与当前登录用户一致，防止凭他人手机号越权改密
-        if (!dto.getPhone().equals(user.getPhone())) {
-            return Response.fail(500, "手机号与当前登录用户不匹配");
+        // 账号（手机号或用户名）必须与当前登录用户一致，防止越权改密
+        String account = dto.getAccount();
+        boolean matchByPhone = account.equals(user.getPhone());
+        boolean matchByUsername = account.equals(user.getUsername());
+        if (!matchByPhone && !matchByUsername) {
+            return Response.fail(500, "账号与当前登录用户不匹配");
         }
         // 仅更新密码字段，避免实体内联默认值（gender/status）被覆盖
         lambdaUpdate()

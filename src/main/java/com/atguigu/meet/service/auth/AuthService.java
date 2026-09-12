@@ -20,7 +20,7 @@ public interface AuthService {
     Response appLogin(AuthLoginDTO user);
 
     /**
-     * 忘记密码（无需登录）：凭注册手机号 + 新密码直接重置
+     * 忘记密码（无需登录）：凭账号（手机号或用户名）+ 新密码直接重置
      */
     Response forgotPassword(AuthForgotPasswordDTO dto);
 

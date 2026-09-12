@@ -139,13 +139,15 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Override
     public Response forgotPassword(AuthForgotPasswordDTO dto) {
-        // 忘记密码无需登录：按手机号匹配账号（逻辑删除由 @TableLogic 自动过滤）
+        // 忘记密码无需登录：按账号（手机号或用户名）匹配账号（逻辑删除由 @TableLogic 自动过滤）
         SysUser user = lambdaQuery()
-                .eq(SysUser::getPhone, dto.getPhone())
+                .eq(SysUser::getPhone, dto.getAccount())
+                .or()
+                .eq(SysUser::getUsername, dto.getAccount())
                 .last("LIMIT 1")
                 .one();
         if (user == null) {
-            return Response.fail(500, "该手机号尚未注册");
+            return Response.fail(500, "该账号尚未注册");
         }
         // 禁用账号与登录策略保持一致，不允许重置密码
         if (!"1".equals(user.getStatus())) {

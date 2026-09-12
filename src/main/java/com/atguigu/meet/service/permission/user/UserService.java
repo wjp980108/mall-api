@@ -54,7 +54,7 @@ public interface UserService {
     /** 当前登录用户修改个人信息（未传字段不更新），返回更新后的最新用户信息 */
     Response updateCurrentUserInfo(UserProfileUpdateDTO dto);
 
-    /** 当前登录用户修改密码（手机号须与当前登录用户一致，防越权） */
+    /** 当前登录用户修改密码（账号须与当前登录用户一致，防越权） */
     Response changePassword(UserChangePasswordDTO dto);
 
     /*List<Map<String, Object>> mapList();

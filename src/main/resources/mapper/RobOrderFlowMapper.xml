@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.meet.mapper.roborder.RobOrderFlowMapper">
+
+    <!-- 事件流水分页结果映射 -->
+    <resultMap id="RobOrderFlowVOResultMap" type="com.atguigu.meet.model.vo.roborder.RobOrderFlowVO">
+        <id column="log_id" property="logId"/>
+        <result column="event_type" property="eventType"/>
+        <result column="event_time" property="eventTime"/>
+        <result column="order_id" property="orderId"/>
+        <result column="order_no" property="orderNo"/>
+        <result column="goods_id" property="goodsId"/>
+        <result column="goods_name" property="goodsName"/>
+        <result column="goods_sn" property="goodsSn"/>
+        <result column="goods_thumb" property="goodsThumb"/>
+        <result column="session_id" property="sessionId"/>
+        <result column="session_name" property="sessionName"/>
+        <result column="buyer_id" property="buyerId"/>
+        <result column="buyer_name" property="buyerName"/>
+        <result column="buyer_phone" property="buyerPhone"/>
+        <result column="flow_quantity" property="quantity"/>
+        <result column="unit_price" property="unitPrice"/>
+        <result column="signed_total_amount" property="signedTotalAmount"/>
+        <result column="operator_id" property="operatorId"/>
+        <result column="operator_name" property="operatorName"/>
+        <result column="remark" property="remark"/>
+    </resultMap>
+
+    <!-- 汇总结果映射：income/reversal 两组（net 由 Service 计算回填） -->
+    <resultMap id="RobOrderFlowSummaryResultMap" type="com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO">
+        <association property="income" javaType="com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO$FlowAmountSummary">
+            <result column="income_count" property="count"/>
+            <result column="income_quantity" property="quantity"/>
+            <result column="income_total_amount" property="totalAmount"/>
+            <result column="income_profit_amount" property="profitAmount"/>
+            <result column="income_recommend_amount" property="recommendAmount"/>
+            <result column="income_self_buy_amount" property="selfBuyAmount"/>
+            <result column="income_self_buy_bonus_amount" property="selfBuyBonusAmount"/>
+            <result column="income_self_buy_coupon_amount" property="selfBuyCouponAmount"/>
+        </association>
+        <association property="reversal" javaType="com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO$FlowAmountSummary">
+            <result column="reversal_count" property="count"/>
+            <result column="reversal_quantity" property="quantity"/>
+            <result column="reversal_total_amount" property="totalAmount"/>
+            <result column="reversal_profit_amount" property="profitAmount"/>
+            <result column="reversal_recommend_amount" property="recommendAmount"/>
+            <result column="reversal_self_buy_amount" property="selfBuyAmount"/>
+            <result column="reversal_self_buy_bonus_amount" property="selfBuyBonusAmount"/>
+            <result column="reversal_self_buy_coupon_amount" property="selfBuyCouponAmount"/>
+        </association>
+    </resultMap>
+
+    <!-- 公共时间区间过滤（事件轴：日志创建时间） -->
+    <sql id="eventTimeFilter">
+        <if test="startTime != null">
+            AND l.create_time &gt;= #{startTime}
+        </if>
+        <if test="endTime != null">
+            AND l.create_time &lt;= #{endTime}
+        </if>
+    </sql>
+
+    <!-- 事件流水分页 -->
+    <select id="selectFlowPage" resultMap="RobOrderFlowVOResultMap">
+        SELECT
+            l.id                       AS log_id,
+            l.operate_type             AS event_type,
+            l.create_time              AS event_time,
+            l.order_id,
+            o.order_no,
+            o.goods_id,
+            o.goods_name,
+            o.goods_sn,
+            o.goods_thumb,
+            o.session_id,
+            o.session_name,
+            o.buyer_id,
+            o.buyer_name,
+            o.buyer_phone,
+            CASE WHEN l.operate_type = 3 THEN 0 ELSE o.quantity END AS flow_quantity,
+            o.unit_price,
+            CASE l.operate_type
+                WHEN 2 THEN -o.total_amount
+                WHEN 3 THEN 0
+                ELSE o.total_amount
+            END                        AS signed_total_amount,
+            l.operate_user_id          AS operator_id,
+            l.operate_user_name        AS operator_name,
+            l.remark
+        FROM t_rob_order_operate_log l
+        INNER JOIN t_rob_order o
+            ON o.id = l.order_id AND o.is_deleted = 0
+        WHERE 1 = 1
+        <include refid="eventTimeFilter"/>
+        <if test="operateType != null">
+            AND l.operate_type = #{operateType}
+        </if>
+        ORDER BY l.create_time DESC, l.id DESC
+    </select>
+
+    <!-- 区间汇总：成交(下单事件,正额) / 红冲(取消事件,正额表示冲销规模)；转移事件不参与 -->
+    <select id="selectFlowSummary" resultMap="RobOrderFlowSummaryResultMap">
+        SELECT
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN 1 ELSE 0 END), 0) AS income_count,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN 1 ELSE 0 END), 0) AS reversal_count,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.quantity ELSE 0 END), 0) AS income_quantity,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.quantity ELSE 0 END), 0) AS reversal_quantity,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.total_amount ELSE 0 END), 0) AS income_total_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.total_amount ELSE 0 END), 0) AS reversal_total_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.profit_amount ELSE 0 END), 0) AS income_profit_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.profit_amount ELSE 0 END), 0) AS reversal_profit_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.recommend_amount ELSE 0 END), 0) AS income_recommend_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.recommend_amount ELSE 0 END), 0) AS reversal_recommend_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_amount ELSE 0 END), 0) AS income_self_buy_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_amount ELSE 0 END), 0) AS reversal_self_buy_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS income_self_buy_bonus_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS reversal_self_buy_bonus_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS income_self_buy_coupon_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS reversal_self_buy_coupon_amount
+        FROM t_rob_order_operate_log l
+        INNER JOIN t_rob_order o
+            ON o.id = l.order_id AND o.is_deleted = 0
+        WHERE 1 = 1
+        <include refid="eventTimeFilter"/>
+    </select>
+
+</mapper>

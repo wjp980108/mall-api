@@ -151,10 +151,10 @@ public class UserController {
     /**
      * 当前登录用户修改密码（仅登录即可，无需管理权限）
      * <p>
-     * 手机号须与当前登录用户一致，防越权改密。
+     * 账号（手机号或用户名）须与当前登录用户一致，防越权改密。
      */
     @PutMapping("password")
-    @Operation(summary = "修改当前用户密码", description = "修改当前登录用户密码，需验证手机号与当前登录用户一致")
+    @Operation(summary = "修改当前用户密码", description = "修改当前登录用户密码，需验证账号（手机号或用户名）与当前登录用户一致")
     public Response<Void> changePassword(@RequestBody @Valid UserChangePasswordDTO dto) {
         return userService.changePassword(dto);
     }

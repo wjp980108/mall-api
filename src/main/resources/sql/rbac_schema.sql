@@ -690,7 +690,8 @@ CREATE TABLE IF NOT EXISTS `t_rob_order_operate_log` (
     `remark`            VARCHAR(255) DEFAULT NULL COMMENT '操作备注(转移记录原买家→新买家)',
     `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
-    KEY `idx_order_id` (`order_id`) COMMENT '按订单查审计流水'
+    KEY `idx_order_id` (`order_id`) COMMENT '按订单查审计流水',
+    KEY `idx_flow_event` (`create_time`, `operate_type`) COMMENT '订单流水按事件日区间查询/事件类型聚合'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抢购订单操作审计日志';
 
 

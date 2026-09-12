@@ -22,13 +22,13 @@ jwt:
     public-paths:
       - /auth/login
       - /auth/forgot-password
+      - /settings/public
       - /app/auth/login
       - /app/auth/register
       - /app/user/forgot-password
       - /app/agreement
       - /upload/** 
       - /app/settings
-      - /settings/public
       - /app/banner/**
       - /app/notice/**
       - /app/home/**

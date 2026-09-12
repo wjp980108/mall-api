@@ -9,9 +9,9 @@ import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
 import com.atguigu.meet.model.dto.roborder.RobOrderFlowPageQueryDTO;
 import com.atguigu.meet.model.entity.roborder.RobOrder;
 import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
-import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowEventVO;
+import com.atguigu.meet.model.vo.roborder.RobOrderFlowPageResultVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowVO;
 import com.atguigu.meet.service.roborder.RobOrderFlowService;
@@ -52,7 +52,19 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
                 parameter.getOperateType(), range[0], range[1]);
         result.getRecords().forEach(vo ->
                 vo.setEventTypeName(RobOrderOperateType.descOf(vo.getEventType())));
-        return Response.ok(PageResultVO.of(result));
+
+        // 当前筛选条件（含事件类型）下全部匹配事件的带符号金额合计
+        BigDecimal totalAmount = robOrderFlowMapper.selectFlowTotalAmount(
+                parameter.getOperateType(), range[0], range[1]);
+
+        RobOrderFlowPageResultVO pageResult = new RobOrderFlowPageResultVO();
+        pageResult.setList(result.getRecords());
+        pageResult.setTotal(result.getTotal());
+        pageResult.setPages(result.getPages());
+        pageResult.setCurrent(result.getCurrent());
+        pageResult.setSize(result.getSize());
+        pageResult.setTotalAmount(totalAmount != null ? totalAmount : BigDecimal.ZERO);
+        return Response.ok(pageResult);
     }
 
     @Override

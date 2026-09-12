@@ -3,6 +3,7 @@ package com.atguigu.meet.controller.roborder;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.roborder.RobOrderFlowPageQueryDTO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowDetailVO;
+import com.atguigu.meet.model.vo.roborder.RobOrderFlowPageResultVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowVO;
 import com.atguigu.meet.service.roborder.RobOrderFlowService;
@@ -52,11 +53,13 @@ public class RobOrderFlowController {
      *                  [00:00:00, 23:59:59]，东八区；查单日起止传同一天）；
      *                  operateType 事件类型（1下单 2取消订单 3转移订单，不传查全部）
      * @return 事件行分页，每行含事件类型及中文名、事件时间、订单ID/编号、商品（图/名/货号）、
-     *         买家（姓名/手机号）、场次、数量、带符号订单总额（下单正/取消负/转移0）、操作人、备注
+     *         买家（姓名/手机号）、场次、数量、带符号订单总额（下单正/取消负/转移0）、操作人、备注；
+     *         另含 totalAmount 字段：当前筛选条件（含事件类型）下全部匹配事件的带符号金额合计
+     *         （非仅当前页；下单正/取消负/转移0；筛取消时为负，无匹配为0）
      */
     @GetMapping
-    @Operation(summary = "订单流水分页", description = "按事件发生时间（默认今日）分页返回下单/取消/转移事件；下单金额为正、取消为负(红冲)、转移为0；支持事件类型筛选")
-    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderFlowVO.class)))
+    @Operation(summary = "订单流水分页", description = "按事件发生时间（默认今日）分页返回下单/取消/转移事件；下单金额为正、取消为负(红冲)、转移为0；支持事件类型筛选。响应另含 totalAmount：当前筛选结果全部事件的带符号金额合计（受事件类型筛选影响）")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderFlowPageResultVO.class)))
     public Response getFlowPage(@Valid RobOrderFlowPageQueryDTO parameter) {
         return robOrderFlowService.getFlowPage(parameter);
     }

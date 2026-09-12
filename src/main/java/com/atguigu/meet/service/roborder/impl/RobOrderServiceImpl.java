@@ -5,6 +5,7 @@ import com.atguigu.meet.enums.PointsAccountType;
 import com.atguigu.meet.enums.PointsBizType;
 import com.atguigu.meet.enums.RobOrderOperateType;
 import com.atguigu.meet.enums.RobOrderStatus;
+import com.atguigu.meet.enums.RobOrderUserIdentity;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.roborder.RobOrderMapper;
@@ -25,6 +26,7 @@ import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.vo.PageResultVO;
+import com.atguigu.meet.model.vo.roborder.InsufficientUserVO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
@@ -527,9 +529,9 @@ public class RobOrderServiceImpl implements RobOrderService {
     // ====================== 私有方法 ======================
 
     /**
-     * 冲回余额预检（提示性检查，无锁读）：按订单快照组装本单冲回项
-     * （推荐人-可用积分-推荐奖、买家-可用积分-自购奖金、买家-购物券积分-购物券），
-     * 全部充足返回 null；任一不足返回双标志 VO。
+     * 冲回余额预检（提示性检查，无锁读）：按订单快照组装本单可用积分冲回项
+     * （推荐人-推荐奖、买家-自购奖金，均 POINTS 账户；购物券不参与预检，照常冲回允许负余额），
+     * 全部充足返回 null；任一用户不足返回逐用户信息 VO（含订单身份与不足标志）。
      */
     private PointsInsufficientVO checkInsufficient(Long inviterId, Long buyerId, RobOrder order) {
         List<PointsReverseItem> items = new ArrayList<>();
@@ -541,11 +543,17 @@ public class RobOrderServiceImpl implements RobOrderService {
             items.add(new PointsReverseItem(buyerId, PointsAccountType.POINTS.getCode(),
                     order.getSelfBuyBonusAmount()));
         }
-        if (nz(order.getSelfBuyCouponAmount()).signum() > 0) {
-            items.add(new PointsReverseItem(buyerId, PointsAccountType.COUPON.getCode(),
-                    order.getSelfBuyCouponAmount()));
+        PointsInsufficientVO vo = userPointsService.checkReverseBalance(items);
+        if (vo != null && vo.getUsers() != null) {
+            // 身份为抢购订单业务口径，按订单快照回填（与 D1 一致：积分服务不感知订单语境）
+            for (InsufficientUserVO u : vo.getUsers()) {
+                RobOrderUserIdentity identity = u.getUserId() != null && u.getUserId().equals(inviterId)
+                        ? RobOrderUserIdentity.INVITER : RobOrderUserIdentity.BUYER;
+                u.setIdentityType(identity.getCode());
+                u.setIdentityName(identity.getDesc());
+            }
         }
-        return userPointsService.checkReverseBalance(items);
+        return vo;
     }
 
     /** 限购规则描述（limit_rule: 0不限购 1同场次限购一次 2当天限购一次） */

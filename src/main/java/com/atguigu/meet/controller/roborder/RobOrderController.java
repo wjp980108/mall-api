@@ -52,7 +52,7 @@ public class RobOrderController {
      */
     @PutMapping("/transfer")
     @RequirePermission(PermissionConst.ROB_ORDER_TRANSFER)
-    @Operation(summary = "转移订单", description = "把订单买家更换为选择的用户，买家快照与推荐奖/自购奖等积分权益一并划转（金额冻结不变）。原受益人积分余额不足时返回积分不足提示（data 非空），携带 confirmInsufficient=true 确认后继续执行（允许负余额）")
+    @Operation(summary = "转移订单", description = "把订单买家更换为选择的用户，买家快照与推荐奖/自购奖等积分权益一并划转（金额冻结不变）。原受益人可用积分余额不足时返回积分不足提示（data 非空，users 按冲回用户返回 userId/nickname/phone/pointsInsufficient），携带 confirmInsufficient=true 确认后继续执行（允许负余额）")
     public Response<Void> transferOrder(@RequestBody @Valid RobOrderTransferDTO dto) {
         return robOrderService.transferOrder(dto);
     }
@@ -65,8 +65,8 @@ public class RobOrderController {
      */
     @PutMapping("/cancel")
     @RequirePermission(PermissionConst.ROB_ORDER_CANCEL)
-    @Operation(summary = "取消订单", description = "取消正常订单：场次商品库存回滚、推荐奖/自购奖/购物券积分全额冲回（幂等）。原受益人积分余额不足时返回积分不足提示（data 非空），携带 confirmInsufficient=true 确认后继续执行（允许负余额）")
-    @ApiResponse(responseCode = "200", description = "成功：data=null；积分不足待二次确认：data=PointsInsufficientVO（pointsInsufficient/couponInsufficient 标志）", content = @Content(mediaType = "application/json", schema = @Schema(oneOf = {PointsInsufficientVO.class})))
+    @Operation(summary = "取消订单", description = "取消正常订单：场次商品库存回滚、推荐奖/自购奖/购物券积分全额冲回（幂等）。原受益人可用积分余额不足时返回积分不足提示（data 非空），携带 confirmInsufficient=true 确认后继续执行（允许负余额）")
+    @ApiResponse(responseCode = "200", description = "成功：data=null；积分不足待二次确认：data=PointsInsufficientVO（users 列表逐用户返回 userId/nickname/phone/identityType/identityName（1=推荐人 2=买家）/pointsInsufficient）", content = @Content(mediaType = "application/json", schema = @Schema(oneOf = {PointsInsufficientVO.class})))
     public Response<Void> cancelOrder(@RequestBody @Valid RobOrderCancelDTO dto) {
         return robOrderService.cancelOrder(dto);
     }

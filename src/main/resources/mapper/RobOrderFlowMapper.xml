@@ -62,6 +62,30 @@
         </if>
     </sql>
 
+    <!-- 分页与筛选合计公共过滤：事件时间区间 + 可选事件类型（汇总接口不使用此片段） -->
+    <sql id="eventTypeFilter">
+        <if test="operateType != null">
+            AND l.operate_type = #{operateType}
+        </if>
+    </sql>
+
+    <!-- 当前筛选条件下全部事件的带符号金额合计（下单正/取消负/转移0），空集兜底 0 -->
+    <select id="selectFlowTotalAmount" resultType="java.math.BigDecimal">
+        SELECT COALESCE(SUM(
+            CASE l.operate_type
+                WHEN 2 THEN -o.total_amount
+                WHEN 3 THEN 0
+                ELSE o.total_amount
+            END
+        ), 0)
+        FROM t_rob_order_operate_log l
+        INNER JOIN t_rob_order o
+            ON o.id = l.order_id AND o.is_deleted = 0
+        WHERE 1 = 1
+        <include refid="eventTimeFilter"/>
+        <include refid="eventTypeFilter"/>
+    </select>
+
     <!-- 事件流水分页 -->
     <select id="selectFlowPage" resultMap="RobOrderFlowVOResultMap">
         SELECT
@@ -94,9 +118,7 @@
             ON o.id = l.order_id AND o.is_deleted = 0
         WHERE 1 = 1
         <include refid="eventTimeFilter"/>
-        <if test="operateType != null">
-            AND l.operate_type = #{operateType}
-        </if>
+        <include refid="eventTypeFilter"/>
         ORDER BY l.create_time DESC, l.id DESC
     </select>
 

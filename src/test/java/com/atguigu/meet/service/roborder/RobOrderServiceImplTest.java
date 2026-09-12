@@ -19,6 +19,7 @@ import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.entity.user.UserAddress;
+import com.atguigu.meet.model.vo.roborder.InsufficientUserVO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
@@ -38,6 +39,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalTime;
+import java.util.Collections;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -206,10 +208,15 @@ class RobOrderServiceImplTest {
         return order;
     }
 
-    private PointsInsufficientVO insufficientVO(boolean points, boolean coupon) {
+    /** 构造积分不足提示 VO（单冲回用户，userId 为 null 表示买家视角用例无需断言具体人） */
+    private PointsInsufficientVO insufficientVO(Long userId, boolean points) {
+        InsufficientUserVO u = new InsufficientUserVO();
+        u.setUserId(userId);
+        u.setNickname(userId == null ? null : "用户" + userId);
+        u.setPhone(userId == null ? null : "13800000000");
+        u.setPointsInsufficient(points);
         PointsInsufficientVO vo = new PointsInsufficientVO();
-        vo.setPointsInsufficient(points);
-        vo.setCouponInsufficient(coupon);
+        vo.setUsers(Collections.singletonList(u));
         return vo;
     }
 
@@ -230,9 +237,9 @@ class RobOrderServiceImplTest {
     @Test
     void cancelOrder_insufficientNotConfirmed_noWrites() {
         stubNormalOrder();
-        // 仅可用积分不足（推荐奖+自购奖金冲回缺口），购物券充足
+        // 邀请人可用积分不足（推荐奖冲回缺口）
         when(userPointsService.checkReverseBalance(any()))
-                .thenReturn(insufficientVO(true, false));
+                .thenReturn(insufficientVO(INVITER_ID, true));
 
         RobOrderCancelDTO dto = new RobOrderCancelDTO();
         dto.setOrderId(ORDER_ID);
@@ -241,8 +248,12 @@ class RobOrderServiceImplTest {
         assertEquals(200, resp.getCode());
         PointsInsufficientVO data = (PointsInsufficientVO) resp.getData();
         assertNotNull(data);
-        assertTrue(data.getPointsInsufficient());
-        assertFalse(data.getCouponInsufficient());
+        assertEquals(1, data.getUsers().size());
+        assertEquals(INVITER_ID, data.getUsers().get(0).getUserId());
+        // 邀请人 → 推荐人身份
+        assertEquals(1, data.getUsers().get(0).getIdentityType());
+        assertEquals("推荐人", data.getUsers().get(0).getIdentityName());
+        assertTrue(data.getUsers().get(0).getPointsInsufficient());
         // 预检先于一切写操作：订单/库存/积分/审计均不得变更
         verify(robOrderMapper, never()).update(isNull(), any());
         verify(sessionProductMapper, never()).addStock(anyLong(), anyInt());
@@ -251,12 +262,59 @@ class RobOrderServiceImplTest {
     }
 
     @Test
+    void cancelOrder_buyerInsufficient_identifiedAsBuyer() {
+        // 无邀请人订单：买家自购奖金冲回缺口 → 身份应为买家
+        RobOrder order = normalOrder();
+        order.setInviterId(null);
+        order.setRecommendAmount(BigDecimal.ZERO);
+        when(robOrderMapper.selectById(ORDER_ID)).thenReturn(order);
+        when(userPointsService.checkReverseBalance(any()))
+                .thenReturn(insufficientVO(BUYER_ID, true));
+
+        RobOrderCancelDTO dto = new RobOrderCancelDTO();
+        dto.setOrderId(ORDER_ID);
+        Response resp = robOrderService.cancelOrder(dto);
+
+        assertEquals(200, resp.getCode());
+        PointsInsufficientVO data = (PointsInsufficientVO) resp.getData();
+        assertNotNull(data);
+        assertEquals(1, data.getUsers().size());
+        assertEquals(BUYER_ID, data.getUsers().get(0).getUserId());
+        assertEquals(2, data.getUsers().get(0).getIdentityType());
+        assertEquals("买家", data.getUsers().get(0).getIdentityName());
+        assertTrue(data.getUsers().get(0).getPointsInsufficient());
+    }
+
+    @Test
+    void cancelOrder_onlyCouponGap_executesWithoutConfirm() {
+        // 购物券不参与预检：checkReverseBalance 收到 null（无可用积分缺口）即正常执行
+        stubNormalOrder();
+        stubWrites();
+        stubAddStock();
+        when(userPointsService.checkReverseBalance(any())).thenReturn(null);
+
+        RobOrderCancelDTO dto = new RobOrderCancelDTO();
+        dto.setOrderId(ORDER_ID);
+        Response resp = robOrderService.cancelOrder(dto);
+
+        assertEquals(200, resp.getCode());
+        assertNull(resp.getData());
+        verify(robOrderMapper).update(isNull(), any());
+        verify(sessionProductMapper).addStock(SP_ID, 1);
+        // 购物券仍照常全额冲回（共三笔冲回）
+        verify(userPointsService, times(3)).reverse(anyLong(), anyInt(), any(), anyInt(), anyLong(), any(), any());
+        ArgumentCaptor<RobOrderOperateLog> logCaptor = ArgumentCaptor.forClass(RobOrderOperateLog.class);
+        verify(operateLogMapper).insert(logCaptor.capture());
+        assertFalse(logCaptor.getValue().getRemark().contains("积分不足经确认强制执行"));
+    }
+
+    @Test
     void cancelOrder_confirmed_executesRollbackWithAuditMark() {
         stubNormalOrder();
         stubWrites();
         stubAddStock();
         when(userPointsService.checkReverseBalance(any()))
-                .thenReturn(insufficientVO(true, true));
+                .thenReturn(insufficientVO(INVITER_ID, true));
 
         RobOrderCancelDTO dto = new RobOrderCancelDTO();
         dto.setOrderId(ORDER_ID);
@@ -318,17 +376,21 @@ class RobOrderServiceImplTest {
     @Test
     void transferOrder_insufficientNotConfirmed_noWrites() {
         stubTransferPrerequisites();
-        // 仅购物券不足，可用积分充足
+        // 邀请人可用积分不足（推荐奖划转缺口）
         when(userPointsService.checkReverseBalance(any()))
-                .thenReturn(insufficientVO(false, true));
+                .thenReturn(insufficientVO(INVITER_ID, true));
 
         Response resp = robOrderService.transferOrder(transferDTO(null));
 
         assertEquals(200, resp.getCode());
         PointsInsufficientVO data = (PointsInsufficientVO) resp.getData();
         assertNotNull(data);
-        assertFalse(data.getPointsInsufficient());
-        assertTrue(data.getCouponInsufficient());
+        assertEquals(1, data.getUsers().size());
+        assertEquals(INVITER_ID, data.getUsers().get(0).getUserId());
+        // 邀请人 → 推荐人身份
+        assertEquals(1, data.getUsers().get(0).getIdentityType());
+        assertEquals("推荐人", data.getUsers().get(0).getIdentityName());
+        assertTrue(data.getUsers().get(0).getPointsInsufficient());
         // 预检先于一切写操作：订单快照重写与积分划转均不得发生
         verify(robOrderMapper, never()).update(isNull(), any());
         verify(userPointsService, never()).reverse(anyLong(), anyInt(), any(), anyInt(), anyLong(), any(), any());
@@ -341,7 +403,7 @@ class RobOrderServiceImplTest {
         stubTransferPrerequisites();
         stubWrites();
         when(userPointsService.checkReverseBalance(any()))
-                .thenReturn(insufficientVO(true, true));
+                .thenReturn(insufficientVO(INVITER_ID, true));
 
         Response resp = robOrderService.transferOrder(transferDTO(true));
 

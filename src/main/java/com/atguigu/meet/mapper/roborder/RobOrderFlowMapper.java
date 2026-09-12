@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -27,6 +28,14 @@ public interface RobOrderFlowMapper {
                                          @Param("operateType") Integer operateType,
                                          @Param("startTime") LocalDateTime startTime,
                                          @Param("endTime") LocalDateTime endTime);
+
+    /**
+     * 当前筛选条件（与分页同条件，含 operateType）下全部匹配事件的带符号金额合计：
+     * 下单正额、取消负额、转移 0；无匹配返回 0（SQL COALESCE 兜底）。
+     */
+    BigDecimal selectFlowTotalAmount(@Param("operateType") Integer operateType,
+                                     @Param("startTime") LocalDateTime startTime,
+                                     @Param("endTime") LocalDateTime endTime);
 
     /**
      * 区间汇总：仅下单(1)/取消(2)事件参与条件聚合，返回成交/红冲两组原始指标（净额由 Service 计算）。

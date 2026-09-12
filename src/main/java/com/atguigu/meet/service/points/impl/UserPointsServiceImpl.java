@@ -15,6 +15,7 @@ import com.atguigu.meet.model.entity.points.UserPointsFlow;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.points.PointsBalanceVO;
 import com.atguigu.meet.model.vo.points.PointsFlowVO;
+import com.atguigu.meet.model.vo.roborder.InsufficientUserVO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.service.points.UserPointsService;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -28,7 +29,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 用户积分账户 Service 实现
@@ -91,40 +96,59 @@ public class UserPointsServiceImpl extends ServiceImpl<UserPointsMapper, UserPoi
                 amount, before, after, orderId, orderNo, null, null, remark);
     }
 
+    /**
+     * 冲回余额预检（提示性检查，无锁读）：按用户聚合待冲回金额
+     * （同用户多项合并判定；调用方保证传入同一账户类型口径，抢购订单仅传可用积分项），
+     * 任一用户余额小于其待冲回合计即不足，返回逐用户信息（userId/nickname/phone/不足标志）；
+     * 全部充足返回 null。账户/用户不存在分别按余额 0、信息 null 处理（与冲回时 initAccount 行为衔接）。
+     */
     @Override
     public PointsInsufficientVO checkReverseBalance(List<PointsReverseItem> items) {
         if (items == null || items.isEmpty()) {
             return null;
         }
-        boolean pointsInsufficient = false;
-        boolean couponInsufficient = false;
+        Map<Long, BigDecimal> reverseByUser = new LinkedHashMap<>();
         for (PointsReverseItem item : items) {
             if (item == null || item.getUserId() == null
                     || item.getAccountType() == null
                     || item.getAmount() == null || item.getAmount().signum() <= 0) {
                 continue;
             }
-            boolean isCoupon = PointsAccountType.COUPON.getCode() == item.getAccountType();
-            // 提示性检查用无锁读；账户不存在按余额 0 处理（与冲回时 initAccount 行为衔接）
-            UserPoints account = userPointsMapper.selectOne(new LambdaQueryWrapper<UserPoints>()
-                    .eq(UserPoints::getUserId, item.getUserId()));
-            BigDecimal balance = account == null ? BigDecimal.ZERO
-                    : (isCoupon ? nz(account.getCouponPoints()) : nz(account.getPoints()));
-            if (balance.compareTo(item.getAmount()) < 0) {
-                if (isCoupon) {
-                    couponInsufficient = true;
-                } else {
-                    pointsInsufficient = true;
-                }
-            }
+            reverseByUser.merge(item.getUserId(), item.getAmount(), BigDecimal::add);
         }
-        if (!pointsInsufficient && !couponInsufficient) {
+        if (reverseByUser.isEmpty()) {
             return null;
         }
-        PointsInsufficientVO vo = new PointsInsufficientVO();
-        vo.setPointsInsufficient(pointsInsufficient);
-        vo.setCouponInsufficient(couponInsufficient);
-        return vo;
+        // 提示性检查用无锁读；账户不存在按余额 0 处理（与冲回时 initAccount 行为衔接）
+        Map<Long, UserPoints> accountMap = userPointsMapper.selectList(new LambdaQueryWrapper<UserPoints>()
+                        .in(UserPoints::getUserId, reverseByUser.keySet()))
+                .stream()
+                .collect(Collectors.toMap(UserPoints::getUserId, a -> a, (a, b) -> a));
+        Map<Long, SysUser> userMap = userMapper.selectBatchIds(reverseByUser.keySet())
+                .stream()
+                .collect(Collectors.toMap(SysUser::getId, u -> u, (a, b) -> a));
+
+        List<InsufficientUserVO> users = new ArrayList<>();
+        boolean anyInsufficient = false;
+        for (Map.Entry<Long, BigDecimal> entry : reverseByUser.entrySet()) {
+            UserPoints account = accountMap.get(entry.getKey());
+            BigDecimal balance = account == null ? BigDecimal.ZERO : nz(account.getPoints());
+            boolean insufficient = balance.compareTo(entry.getValue()) < 0;
+            anyInsufficient = anyInsufficient || insufficient;
+            SysUser user = userMap.get(entry.getKey());
+            InsufficientUserVO vo = new InsufficientUserVO();
+            vo.setUserId(entry.getKey());
+            vo.setNickname(user == null ? null : pickName(user));
+            vo.setPhone(user == null ? null : user.getPhone());
+            vo.setPointsInsufficient(insufficient);
+            users.add(vo);
+        }
+        if (!anyInsufficient) {
+            return null;
+        }
+        PointsInsufficientVO result = new PointsInsufficientVO();
+        result.setUsers(users);
+        return result;
     }
 
     @Override

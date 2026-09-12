@@ -6,6 +6,7 @@ import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
 import com.atguigu.meet.mapper.permission.userRole.SysUserRoleMapper;
+import com.atguigu.meet.model.dto.auth.AuthForgotPasswordDTO;
 import com.atguigu.meet.model.dto.auth.AuthRegisterDTO;
 import com.atguigu.meet.model.dto.auth.AuthLoginDTO;
 import com.atguigu.meet.model.entity.permission.invite.SysInviteCode;
@@ -134,6 +135,29 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         Map<String, Object> data = new HashMap<>();
         data.put("token", token);
         return Response.ok(200, "登录成功", data);
+    }
+
+    @Override
+    public Response forgotPassword(AuthForgotPasswordDTO dto) {
+        // 忘记密码无需登录：按手机号匹配账号（逻辑删除由 @TableLogic 自动过滤）
+        SysUser user = lambdaQuery()
+                .eq(SysUser::getPhone, dto.getPhone())
+                .last("LIMIT 1")
+                .one();
+        if (user == null) {
+            return Response.fail(500, "该手机号尚未注册");
+        }
+        // 禁用账号与登录策略保持一致，不允许重置密码
+        if (!"1".equals(user.getStatus())) {
+            return Response.fail(500, "当前用户已被禁用");
+        }
+        // 仅更新密码字段，避免实体内联默认值（gender/status）被覆盖
+        lambdaUpdate()
+                .set(SysUser::getPassword, passwordEncoder.encode(dto.getPassword()))
+                .eq(SysUser::getId, user.getId())
+                .update();
+        log.info("[认证] 后台忘记密码重置成功，userId={}", user.getId());
+        return Response.ok("密码重置成功", null);
     }
 
     /**

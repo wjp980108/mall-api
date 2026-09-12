@@ -3,9 +3,11 @@ package com.atguigu.meet.controller.permission.user;
 import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
+import com.atguigu.meet.model.dto.permission.user.UserChangePasswordDTO;
 import com.atguigu.meet.model.dto.permission.user.UserCreateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
+import com.atguigu.meet.model.dto.permission.user.UserProfileUpdateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.vo.OptionVO;
@@ -132,6 +134,29 @@ public class UserController {
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserLoginVO.class)))
     public Response<UserLoginVO> getCurrentUserInfo() {
         return userService.getCurrentUserInfo();
+    }
+
+    /**
+     * 当前登录用户修改个人信息（仅登录即可，无需管理权限）
+     * <p>
+     * 可修改昵称、邮箱、性别、年龄、生日、头像等；未传字段不更新；
+     * 用户名/手机号/密码/状态不可通过此接口修改。
+     */
+    @PutMapping("profile")
+    @Operation(summary = "修改当前用户信息", description = "当前登录用户修改自己的昵称、邮箱、性别、年龄、生日、头像等信息")
+    public Response<Void> updateCurrentUserInfo(@RequestBody @Valid UserProfileUpdateDTO dto) {
+        return userService.updateCurrentUserInfo(dto);
+    }
+
+    /**
+     * 当前登录用户修改密码（仅登录即可，无需管理权限）
+     * <p>
+     * 手机号须与当前登录用户一致，防越权改密。
+     */
+    @PutMapping("password")
+    @Operation(summary = "修改当前用户密码", description = "修改当前登录用户密码，需验证手机号与当前登录用户一致")
+    public Response<Void> changePassword(@RequestBody @Valid UserChangePasswordDTO dto) {
+        return userService.changePassword(dto);
     }
 
     /**

@@ -21,6 +21,7 @@ jwt:
   security:
     public-paths:
       - /auth/login
+      - /auth/forgot-password
       - /app/auth/login
       - /app/auth/register
       - /app/user/forgot-password

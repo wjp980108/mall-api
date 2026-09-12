@@ -1,9 +1,11 @@
 package com.atguigu.meet.service.permission.user;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.dto.permission.user.UserChangePasswordDTO;
 import com.atguigu.meet.model.dto.permission.user.UserCreateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
+import com.atguigu.meet.model.dto.permission.user.UserProfileUpdateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
@@ -48,6 +50,12 @@ public interface UserService {
 
     /** 将指定用户手动转为老会员（member_type 0→1，兜底机制） */
     Response toOldMember(Long userId);
+
+    /** 当前登录用户修改个人信息（未传字段不更新），返回更新后的最新用户信息 */
+    Response updateCurrentUserInfo(UserProfileUpdateDTO dto);
+
+    /** 当前登录用户修改密码（手机号须与当前登录用户一致，防越权） */
+    Response changePassword(UserChangePasswordDTO dto);
 
     /*List<Map<String, Object>> mapList();
 

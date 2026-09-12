@@ -9,9 +9,11 @@ import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
 import com.atguigu.meet.mapper.permission.role.SysRoleMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.permission.userRole.SysUserRoleMapper;
+import com.atguigu.meet.model.dto.permission.user.UserChangePasswordDTO;
 import com.atguigu.meet.model.dto.permission.user.UserCreateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserDeleteDTO;
 import com.atguigu.meet.model.dto.permission.user.UserPageQueryDTO;
+import com.atguigu.meet.model.dto.permission.user.UserProfileUpdateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.entity.permission.menu.SysMenu;
@@ -605,6 +607,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         List<MenuVO> menuTree = filterMenuTree(buildMenuTree(allMenus, 0L), authorizedMenuIds, userPermissions);
         log.info("[菜单] 普通用户菜单树，userId={}, menuTree={}", userId, menuTree);
         return Response.ok(menuTree);
+    }
+
+    @Override
+    public Response updateCurrentUserInfo(UserProfileUpdateDTO dto) {
+        AdminUser currentUser = AdminContext.get();
+        if (currentUser == null) {
+            return Response.fail(401, "未登录");
+        }
+        Long userId = currentUser.getUserId();
+        SysUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Response.fail(404, "用户不存在");
+        }
+        // 性别只允许 0/1/2
+        if (dto.getGender() != null && Gender.of(dto.getGender()) == null) {
+            return Response.fail(500, "性别取值不正确");
+        }
+        // 目标字段更新（未传字段不更新），避免实体内联默认值（gender/status）被覆盖
+        lambdaUpdate()
+                .set(dto.getNickname() != null, SysUser::getNickname, dto.getNickname())
+                .set(dto.getEmail() != null, SysUser::getEmail, dto.getEmail())
+                .set(dto.getGender() != null, SysUser::getGender, dto.getGender())
+                .set(dto.getAge() != null, SysUser::getAge, dto.getAge())
+                .set(dto.getBirthday() != null, SysUser::getBirthday, dto.getBirthday())
+                .set(dto.getAvatar() != null, SysUser::getAvatar, dto.getAvatar())
+                .set(dto.getAvatarPlatform() != null, SysUser::getAvatarPlatform, dto.getAvatarPlatform())
+                .eq(SysUser::getId, userId)
+                .update();
+        log.info("[用户中心] 后台修改用户信息成功，userId={}", userId);
+        // 返回更新后的最新用户信息，前端直接刷新展示
+        return getCurrentUserInfo();
+    }
+
+    @Override
+    public Response changePassword(UserChangePasswordDTO dto) {
+        AdminUser currentUser = AdminContext.get();
+        if (currentUser == null) {
+            return Response.fail(401, "未登录");
+        }
+        Long userId = currentUser.getUserId();
+        SysUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Response.fail(404, "用户不存在");
+        }
+        // 手机号必须与当前登录用户一致，防止凭他人手机号越权改密
+        if (!dto.getPhone().equals(user.getPhone())) {
+            return Response.fail(500, "手机号与当前登录用户不匹配");
+        }
+        // 仅更新密码字段，避免实体内联默认值（gender/status）被覆盖
+        lambdaUpdate()
+                .set(SysUser::getPassword, passwordEncoder.encode(dto.getPassword()))
+                .eq(SysUser::getId, userId)
+                .update();
+        log.info("[用户中心] 后台修改密码成功，userId={}", userId);
+        return Response.ok("密码修改成功", null);
     }
 
     @Override

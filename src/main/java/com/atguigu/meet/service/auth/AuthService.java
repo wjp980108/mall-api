@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.auth;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.dto.auth.AuthForgotPasswordDTO;
 import com.atguigu.meet.model.dto.auth.AuthRegisterDTO;
 import com.atguigu.meet.model.dto.auth.AuthLoginDTO;
 
@@ -17,5 +18,10 @@ public interface AuthService {
      * H5 端登录（与 login 共用校验逻辑，仅返回 token）
      */
     Response appLogin(AuthLoginDTO user);
+
+    /**
+     * 忘记密码（无需登录）：凭注册手机号 + 新密码直接重置
+     */
+    Response forgotPassword(AuthForgotPasswordDTO dto);
 
 }

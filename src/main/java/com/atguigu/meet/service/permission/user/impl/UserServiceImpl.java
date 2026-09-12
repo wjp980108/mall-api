@@ -647,17 +647,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return Response.fail(401, "未登录");
         }
         Long userId = currentUser.getUserId();
-        SysUser user = userMapper.selectById(userId);
-        if (user == null) {
-            return Response.fail(404, "用户不存在");
-        }
-        // 账号（手机号或用户名）必须与当前登录用户一致，防止越权改密
-        String account = dto.getAccount();
-        boolean matchByPhone = account.equals(user.getPhone());
-        boolean matchByUsername = account.equals(user.getUsername());
-        if (!matchByPhone && !matchByUsername) {
-            return Response.fail(500, "账号与当前登录用户不匹配");
-        }
         // 仅更新密码字段，避免实体内联默认值（gender/status）被覆盖
         lambdaUpdate()
                 .set(SysUser::getPassword, passwordEncoder.encode(dto.getPassword()))

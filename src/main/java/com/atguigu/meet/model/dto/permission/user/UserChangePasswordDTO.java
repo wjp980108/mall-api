@@ -8,16 +8,11 @@ import org.hibernate.validator.constraints.Length;
 /**
  * 当前登录用户修改密码请求DTO
  * <p>
- * 需接收账号（手机号或用户名）+ 新密码；账号须与当前登录用户一致（服务端校验，防越权改密）。
+ * 用户身份由 token 解析，前端仅需传新密码。
  */
 @Data
 @Schema(description = "当前用户修改密码参数")
 public class UserChangePasswordDTO {
-
-    /** 当前登录用户绑定的账号（手机号或用户名） */
-    @Schema(description = "当前登录用户绑定的账号（手机号或用户名）", example = "13800138000", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "账号不能为空")
-    private String account;
 
     /** 新密码 */
     @Schema(description = "新密码", example = "123456", requiredMode = Schema.RequiredMode.REQUIRED)

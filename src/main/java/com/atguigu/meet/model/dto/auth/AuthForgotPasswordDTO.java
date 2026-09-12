@@ -8,15 +8,15 @@ import org.hibernate.validator.constraints.Length;
 /**
  * 后台忘记密码（重置密码）请求DTO
  * <p>
- * 无需登录：凭账号（手机号或用户名）+ 新密码直接重置，服务端按手机号或用户名匹配账号。
+ * 无需登录：凭用户名 + 新密码直接重置，服务端按用户名匹配账号。
  */
 @Data
 @Schema(description = "后台忘记密码请求参数")
 public class AuthForgotPasswordDTO {
 
-    /** 注册账号绑定的账号（手机号或用户名） */
-    @Schema(description = "注册账号绑定的账号（手机号或用户名）", example = "13800138000", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotBlank(message = "账号不能为空")
+    /** 账号绑定的用户名 */
+    @Schema(description = "账号绑定的用户名", example = "zhangsan", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotBlank(message = "用户名不能为空")
     private String account;
 
     /** 新密码 */

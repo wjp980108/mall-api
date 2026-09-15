@@ -137,6 +137,7 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
         net.setSelfBuyBonusAmount(nz(income.getSelfBuyBonusAmount()).subtract(nz(reversal.getSelfBuyBonusAmount())));
         net.setSelfBuyCouponAmount(nz(income.getSelfBuyCouponAmount()).subtract(nz(reversal.getSelfBuyCouponAmount())));
         net.setReceiptAmount(nz(income.getReceiptAmount()).subtract(nz(reversal.getReceiptAmount())));
+        net.setPaymentAmount(nz(income.getPaymentAmount()).subtract(nz(reversal.getPaymentAmount())));
         return net;
     }
 

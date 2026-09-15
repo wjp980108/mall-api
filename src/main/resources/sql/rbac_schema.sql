@@ -689,6 +689,7 @@ CREATE TABLE IF NOT EXISTS `t_rob_order_operate_log` (
     `operate_user_id`   BIGINT       DEFAULT NULL COMMENT '操作人ID(管理员/会员),关联sys_user.id',
     `operate_user_name` VARCHAR(64)  DEFAULT NULL COMMENT '操作人名称快照',
     `receipt_amount`    DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '回款金额：下单事件快照(自购奖金+付款金额×数量)，取消事件存同值正数，转移为0',
+    `payment_amount`    DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '付款金额(本金总额口径)：下单事件快照(商品付款单价×数量)，取消事件存同值正数，转移为0；注意与t_consign_goods.payment_amount单价口径区分',
     `remark`            VARCHAR(255) DEFAULT NULL COMMENT '操作备注(转移记录原买家→新买家)',
     `create_time`       DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),

@@ -76,6 +76,10 @@ public class RobOrderFlowVO {
     @Schema(description = "带符号回款：下单为正/取消为负(红冲)/转移为0")
     private BigDecimal receiptAmount;
 
+    /** 带符号付款金额（本金总额口径 P×N，事件行落库值按事件类型打符号）：下单为正/取消为负(红冲)/转移为0；存量事件行为0 */
+    @Schema(description = "带符号付款金额(本金总额)：下单为正/取消为负(红冲)/转移为0")
+    private BigDecimal paymentAmount;
+
     @Schema(description = "操作人ID")
     private Long operatorId;
 

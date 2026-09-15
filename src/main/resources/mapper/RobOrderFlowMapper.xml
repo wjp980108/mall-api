@@ -24,6 +24,7 @@
         <result column="unit_price" property="unitPrice"/>
         <result column="signed_total_amount" property="signedTotalAmount"/>
         <result column="signed_receipt_amount" property="receiptAmount"/>
+        <result column="signed_payment_amount" property="paymentAmount"/>
         <result column="operator_id" property="operatorId"/>
         <result column="operator_name" property="operatorName"/>
         <result column="remark" property="remark"/>
@@ -41,6 +42,7 @@
             <result column="income_self_buy_bonus_amount" property="selfBuyBonusAmount"/>
             <result column="income_self_buy_coupon_amount" property="selfBuyCouponAmount"/>
             <result column="income_receipt_amount" property="receiptAmount"/>
+            <result column="income_payment_amount" property="paymentAmount"/>
         </association>
         <association property="reversal" javaType="com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO$FlowAmountSummary">
             <result column="reversal_count" property="count"/>
@@ -52,6 +54,7 @@
             <result column="reversal_self_buy_bonus_amount" property="selfBuyBonusAmount"/>
             <result column="reversal_self_buy_coupon_amount" property="selfBuyCouponAmount"/>
             <result column="reversal_receipt_amount" property="receiptAmount"/>
+            <result column="reversal_payment_amount" property="paymentAmount"/>
         </association>
     </resultMap>
 
@@ -118,6 +121,11 @@
                 WHEN 3 THEN 0
                 ELSE l.receipt_amount
             END                        AS signed_receipt_amount,
+            CASE l.operate_type
+                WHEN 2 THEN -l.payment_amount
+                WHEN 3 THEN 0
+                ELSE l.payment_amount
+            END                        AS signed_payment_amount,
             l.operate_user_id          AS operator_id,
             l.operate_user_name        AS operator_name,
             l.remark
@@ -150,7 +158,9 @@
             COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS income_self_buy_coupon_amount,
             COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS reversal_self_buy_coupon_amount,
             COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN l.receipt_amount ELSE 0 END), 0) AS income_receipt_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN l.receipt_amount ELSE 0 END), 0) AS reversal_receipt_amount
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN l.receipt_amount ELSE 0 END), 0) AS reversal_receipt_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN l.payment_amount ELSE 0 END), 0) AS income_payment_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN l.payment_amount ELSE 0 END), 0) AS reversal_payment_amount
         FROM t_rob_order_operate_log l
         INNER JOIN t_rob_order o
             ON o.id = l.order_id AND o.is_deleted = 0

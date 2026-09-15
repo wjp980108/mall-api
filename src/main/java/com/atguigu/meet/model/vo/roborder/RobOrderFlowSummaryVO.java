@@ -57,5 +57,8 @@ public class RobOrderFlowSummaryVO {
 
         @Schema(description = "回款金额（红冲组为冲销规模正数）")
         private BigDecimal receiptAmount = BigDecimal.ZERO;
+
+        @Schema(description = "付款金额（本金总额口径，红冲组为冲销规模正数）")
+        private BigDecimal paymentAmount = BigDecimal.ZERO;
     }
 }

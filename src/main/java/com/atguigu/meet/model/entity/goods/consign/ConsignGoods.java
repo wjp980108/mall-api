@@ -39,6 +39,10 @@ public class ConsignGoods extends Model<ConsignGoods> {
     @Schema(description = "商品价格")
     private BigDecimal goodsPrice;
 
+    /** 付款金额（单价口径）：当前轮次买入单价，抢购成交后由 Service 回写为成交单价；仅后台管理端可见，App/H5 不返回（无实例默认值，DB 列 DEFAULT 0 兜底） */
+    @Schema(description = "付款金额(单价口径)")
+    private BigDecimal paymentAmount;
+
     /** 本轮委托人ID，关联 sys_user.id */
     @Schema(description = "委托人ID")
     private Long memberId;

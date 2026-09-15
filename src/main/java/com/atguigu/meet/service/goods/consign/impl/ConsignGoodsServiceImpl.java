@@ -95,6 +95,16 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
 
     @Override
     public Response getPageList(ConsignGoodsPageQueryDTO parameter) {
+        // 管理端分页：付款金额仅管理端可见（queryPaymentAmount=true）
+        return doPageList(parameter, true);
+    }
+
+    /**
+     * 分页查询主体（管理端与 C 端卖方仓库复用）
+     *
+     * @param queryPaymentAmount 是否返回付款金额：管理端 true；C 端/App 端一律 false（付款金额不暴露给 H5）
+     */
+    private Response doPageList(ConsignGoodsPageQueryDTO parameter, boolean queryPaymentAmount) {
         // 解析时间范围：timeRange[0] -> 当天 00:00:00，timeRange[1] -> 当天 23:59:59
         LocalDateTime startTime = null;
         LocalDateTime endTime = null;
@@ -120,7 +130,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                 parameter.getAuditStatus(),
                 parameter.getOnlineStatus(),
                 startTime,
-                endTime
+                endTime,
+                queryPaymentAmount
         );
         // 组装商品业务状态/委托状态/审核状态中文名（VO 层派生字段，数据库不存）
         result.getRecords().forEach(vo -> {
@@ -291,7 +302,7 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
                     page, null, memberId, null, null,
                     Arrays.asList(GoodsStatus.ON_SALE.getCode(), GoodsStatus.PENDING.getCode(),
                             GoodsStatus.AGENT_SALE.getCode()),
-                    null, null, onlineFilter, null, null);
+                    null, null, onlineFilter, null, null, false);
             result.getRecords().forEach(vo -> {
                 vo.setGoodsStatusName(GoodsStatus.descOf(vo.getGoodsStatus()));
                 vo.setEntrustStatusName(EntrustStatus.descOf(vo.getEntrustStatus()));
@@ -299,7 +310,8 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
             });
             return Response.ok(PageResultVO.of(result));
         }
-        return getPageList(dto);
+        // C 端卖方仓库按状态筛选：付款金额不暴露给 H5（queryPaymentAmount=false）
+        return doPageList(dto, false);
     }
 
     /**

@@ -8,6 +8,7 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -54,6 +55,10 @@ public class RobOrderOperateLog extends Model<RobOrderOperateLog> {
     /** 操作人名称快照 */
     @Schema(description = "操作人名称")
     private String operateUserName;
+
+    /** 回款金额（下单事件：自购奖金+付款金额×数量；取消事件：同订单下单事件同值正数；转移事件：0。无实例默认值，DB 列 DEFAULT 0 兜底） */
+    @Schema(description = "回款金额")
+    private BigDecimal receiptAmount;
 
     /** 操作备注（转移记录原买家→新买家） */
     @Schema(description = "操作备注")

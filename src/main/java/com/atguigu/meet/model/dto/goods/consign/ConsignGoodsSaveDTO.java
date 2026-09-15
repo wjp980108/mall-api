@@ -34,6 +34,12 @@ public class ConsignGoodsSaveDTO {
     @DecimalMin(value = "0.00", message = "商品价格不能为负数")
     private BigDecimal goodsPrice;
 
+    /** 付款金额（单价口径）：当前轮次买入单价，抢购成交后系统自动回写为成交单价；仅后台可见 */
+    @Schema(description = "付款金额(单价口径)", example = "8888.00", requiredMode = Schema.RequiredMode.REQUIRED)
+    @NotNull(message = "付款金额不能为空")
+    @DecimalMin(value = "0.00", message = "付款金额不能为负数")
+    private BigDecimal paymentAmount;
+
     /** 本轮委托人ID，关联 sys_user.id（可选，不传则为空） */
     @Schema(description = "委托人ID", example = "1")
     @Min(value = 1, message = "委托人ID不合法")

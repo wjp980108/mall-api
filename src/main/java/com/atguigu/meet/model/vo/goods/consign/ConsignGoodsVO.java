@@ -20,6 +20,9 @@ public class ConsignGoodsVO {
     private String goodsName;
     @Schema(description = "商品价格")
     private BigDecimal goodsPrice;
+    /** 付款金额（单价口径）：当前轮次买入单价，仅后台可见 */
+    @Schema(description = "付款金额(单价口径)")
+    private BigDecimal paymentAmount;
     @Schema(description = "会员ID")
     private Long memberId;
     @Schema(description = "场次ID")

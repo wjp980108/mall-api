@@ -139,11 +139,12 @@ public class UserController {
     /**
      * 当前登录用户修改个人信息（仅登录即可，无需管理权限）
      * <p>
-     * 可修改昵称、邮箱、性别、年龄、生日、头像等；未传字段不更新；
-     * 用户名/手机号/密码/状态不可通过此接口修改。
+     * 可修改昵称、手机号、邮箱、性别、头像等；未传字段不更新；
+     * 手机号需符合格式且不能与其他用户撞号（内置超管 admin 初始无手机号，可通过此接口首次绑定）；
+     * 用户名/密码/状态不可通过此接口修改。
      */
     @PutMapping("profile")
-    @Operation(summary = "修改当前用户信息", description = "当前登录用户修改自己的昵称、邮箱、性别、年龄、生日、头像等信息")
+    @Operation(summary = "修改当前用户信息", description = "当前登录用户修改自己的昵称、手机号、邮箱、性别、头像等信息（手机号格式校验+撞号校验，未传字段不更新）")
     public Response<Void> updateCurrentUserInfo(@RequestBody @Valid UserProfileUpdateDTO dto) {
         return userService.updateCurrentUserInfo(dto);
     }

@@ -54,5 +54,8 @@ public class RobOrderFlowSummaryVO {
 
         @Schema(description = "购物券金额")
         private BigDecimal selfBuyCouponAmount = BigDecimal.ZERO;
+
+        @Schema(description = "回款金额（红冲组为冲销规模正数）")
+        private BigDecimal receiptAmount = BigDecimal.ZERO;
     }
 }

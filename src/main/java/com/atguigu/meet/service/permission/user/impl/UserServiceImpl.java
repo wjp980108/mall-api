@@ -624,13 +624,24 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (dto.getGender() != null && Gender.of(dto.getGender()) == null) {
             return Response.fail(500, "性别取值不正确");
         }
+        // 手机号变更查重（提交值非空且与本人现值不同才查）：
+        // 内置超管 admin 初始 phone 为 NULL（首次绑定），这里必须以提交值调 equals（null 安全），
+        // 禁止反向 user.getPhone().equals(...)，否则 admin 首次绑号直接 NPE；
+        // 登录走 phone/username 双通道（见 AuthServiceImpl.validateLogin），撞号会导致账号匹配歧义，故与创建用户同口径拒绝
+        if (dto.getPhone() != null && !dto.getPhone().equals(user.getPhone())) {
+            Long phoneCount = userMapper.selectCount(new LambdaQueryWrapper<SysUser>()
+                    .eq(SysUser::getPhone, dto.getPhone())
+                    .ne(SysUser::getId, userId));
+            if (phoneCount != null && phoneCount > 0) {
+                return Response.fail(500, "手机号已存在");
+            }
+        }
         // 目标字段更新（未传字段不更新），避免实体内联默认值（gender/status）被覆盖
         lambdaUpdate()
                 .set(dto.getNickname() != null, SysUser::getNickname, dto.getNickname())
+                .set(dto.getPhone() != null, SysUser::getPhone, dto.getPhone())
                 .set(dto.getEmail() != null, SysUser::getEmail, dto.getEmail())
                 .set(dto.getGender() != null, SysUser::getGender, dto.getGender())
-                .set(dto.getAge() != null, SysUser::getAge, dto.getAge())
-                .set(dto.getBirthday() != null, SysUser::getBirthday, dto.getBirthday())
                 .set(dto.getAvatar() != null, SysUser::getAvatar, dto.getAvatar())
                 .set(dto.getAvatarPlatform() != null, SysUser::getAvatarPlatform, dto.getAvatarPlatform())
                 .eq(SysUser::getId, userId)
@@ -684,7 +695,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         List<OptionVO<Long>> options = new ArrayList<>(users.size());
         for (SysUser u : users) {
-            String label = "用户账号: " + u.getPhone() + "; 用户 ID: " + u.getId();
+            String nickname = u.getNickname();
+            String label = "用户昵称: " + (nickname != null ? nickname : "")
+                    + "; 用户账号: " + u.getPhone()
+                    + "; 用户 ID: " + u.getId();
             options.add(new OptionVO<>(label, u.getId()));
         }
         return Response.ok(options);

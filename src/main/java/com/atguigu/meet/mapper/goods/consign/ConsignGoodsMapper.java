@@ -30,6 +30,7 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
      * @param onlineStatus 上下架状态
      * @param startTime 创建开始时间
      * @param endTime   创建结束时间
+     * @param queryPaymentAmount 是否查询付款金额（仅管理端 true；C 端/App 端一律 false，保证付款金额不暴露给 H5）
      */
     IPage<ConsignGoodsVO> selectConsignGoodsPage(Page<ConsignGoodsVO> page,
                                                  @Param("goodsName") String goodsName,
@@ -41,7 +42,8 @@ public interface ConsignGoodsMapper extends BaseMapper<ConsignGoods> {
                                                  @Param("auditStatus") Integer auditStatus,
                                                  @Param("onlineStatus") Integer onlineStatus,
                                                  @Param("startTime") Object startTime,
-                                                 @Param("endTime") Object endTime);
+                                                 @Param("endTime") Object endTime,
+                                                 @Param("queryPaymentAmount") Boolean queryPaymentAmount);
 
     /**
      * 根据ID查询抢购托售商品详情（含委托人信息 + 场次名称）

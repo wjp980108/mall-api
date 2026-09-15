@@ -9,6 +9,8 @@
         <id column="id" property="id"/>
         <result column="goods_name" property="goodsName"/>
         <result column="goods_price" property="goodsPrice"/>
+        <!-- 付款金额仅由管理端查询(selectConsignGoodsPage/selectConsignGoodsById)显式 SELECT，C 端查询不含该列则不映射，保证 App/H5 不暴露 -->
+        <result column="payment_amount" property="paymentAmount"/>
         <result column="member_id" property="memberId"/>
         <result column="session_id" property="sessionId"/>
         <result column="cover_img" property="coverImg"/>
@@ -48,6 +50,9 @@
     <!-- 分页查询：JOIN sys_user 实时获取委托人信息 -->
     <select id="selectConsignGoodsPage" resultMap="ConsignGoodsResultMap">
         SELECT <include refid="baseColumnList"/>
+        <if test="queryPaymentAmount != null and queryPaymentAmount">
+            , g.payment_amount
+        </if>
         FROM t_consign_goods g
         LEFT JOIN sys_user u ON g.member_id = u.id AND u.is_deleted = 0
         LEFT JOIN t_session s ON g.session_id = s.id
@@ -91,6 +96,7 @@
     <!-- 根据ID查询详情：JOIN sys_user 实时获取委托人信息 -->
     <select id="selectConsignGoodsById" resultMap="ConsignGoodsResultMap">
         SELECT <include refid="baseColumnList"/>,
+               g.payment_amount,
                CASE WHEN s.session_status = 1 
                     AND CURTIME() BETWEEN s.rush_start_time AND s.rush_end_time 
                     THEN 1 ELSE 0 END AS can_purchase

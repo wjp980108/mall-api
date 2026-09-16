@@ -230,6 +230,25 @@ public class UserPointsServiceImpl extends ServiceImpl<UserPointsMapper, UserPoi
     }
 
     @Override
+    public Response<PointsBalanceVO> getBalanceReadOnly(Long userId) {
+        if (userId == null) {
+            return Response.fail(401, "未登录");
+        }
+        // 管理端只读：不调用 initAccount，避免查询行为引入账户初始化副作用
+        UserPoints account = userPointsMapper.selectOne(
+                new LambdaQueryWrapper<UserPoints>().eq(UserPoints::getUserId, userId));
+        PointsBalanceVO vo = new PointsBalanceVO();
+        if (account == null) {
+            vo.setPoints(BigDecimal.ZERO);
+            vo.setCouponPoints(BigDecimal.ZERO);
+        } else {
+            vo.setPoints(nz(account.getPoints()));
+            vo.setCouponPoints(nz(account.getCouponPoints()));
+        }
+        return Response.ok(vo);
+    }
+
+    @Override
     public Response<PageResultVO<PointsFlowVO>> pageFlow(Long userId, Integer bizType, Integer pageNum, Integer pageSize) {
         if (userId == null) {
             return Response.fail(401, "未登录");

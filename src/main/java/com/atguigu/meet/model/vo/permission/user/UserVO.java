@@ -4,6 +4,7 @@ import com.atguigu.meet.model.vo.permission.role.RoleVO;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -67,6 +68,18 @@ public class UserVO {
     /** 我的邀请码（1人1码；存量无码用户为空，可在邀请页调生成接口补得） */
     @Schema(description = "我的邀请码")
     private String inviteCode;
+
+    /** 可用积分（推荐奖+自购奖金），可转让 */
+    @Schema(description = "可用积分（推荐奖+自购奖金），可转让")
+    private BigDecimal points;
+
+    /** 购物券积分（自购返券），锁死不可转让 */
+    @Schema(description = "购物券积分（自购返券），锁死不可转让")
+    private BigDecimal couponPoints;
+
+    /** 总积分 = 可用积分 + 购物券积分 */
+    @Schema(description = "总积分（=可用积分+购物券积分）")
+    private BigDecimal totalPoints;
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;

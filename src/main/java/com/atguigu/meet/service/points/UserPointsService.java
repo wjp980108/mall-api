@@ -66,8 +66,19 @@ public interface UserPointsService {
 
     /**
      * 查询我的积分余额（账户不存在返回双 0）
+     * <p>C 端自助查看用：账户不存在时调用 {@code initAccount} 初始化一行，再返回双 0。
      */
     Response<PointsBalanceVO> getBalance(Long userId);
+
+    /**
+     * 管理端只读核查专用：查询用户积分余额。
+     * <p>与 {@link #getBalance(Long)} 的唯一差异：不调用 {@code initAccount}，不产生写副作用；
+     * 账户行不存在时直接返回双 0，不创建账户行。
+     *
+     * @param userId 目标用户ID（由管理端按路径参数传入，非 JWT 自取）
+     * @return 积分余额（可用积分 + 购物券积分）
+     */
+    Response<PointsBalanceVO> getBalanceReadOnly(Long userId);
 
     /**
      * 分页查询我的积分明细（可按业务类型筛选）

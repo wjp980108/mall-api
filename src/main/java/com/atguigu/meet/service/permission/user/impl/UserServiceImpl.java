@@ -21,6 +21,17 @@ import com.atguigu.meet.model.entity.permission.role.SysRole;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
 import com.atguigu.meet.model.entity.permission.userRole.SysUserRole;
+import com.atguigu.meet.mapper.permission.invite.SysInviteCodeMapper;
+import com.atguigu.meet.mapper.points.UserPointsMapper;
+import com.atguigu.meet.model.entity.permission.invite.SysInviteCode;
+import com.atguigu.meet.model.entity.points.UserPoints;
+import com.atguigu.meet.model.vo.permission.user.AdminUserPointsVO;
+import com.atguigu.meet.model.vo.permission.user.SimpleUserVO;
+import com.atguigu.meet.model.vo.permission.user.UserRelationVO;
+import com.atguigu.meet.model.vo.points.PointsBalanceVO;
+import com.atguigu.meet.model.vo.points.PointsFlowVO;
+import com.atguigu.meet.service.points.UserPointsService;
+import java.math.BigDecimal;
 import com.atguigu.meet.model.vo.OptionVO;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.permission.menu.MenuVO;
@@ -104,6 +115,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
     @Autowired
     private UserRoleService userRoleService;
+
+    @Autowired
+    private UserPointsService userPointsService;
+
+    @Autowired
+    private UserPointsMapper userPointsMapper;
+
+    @Autowired
+    private SysInviteCodeMapper sysInviteCodeMapper;
 
     @Override
     @Transactional(rollbackFor = Exception.class) // 所有异常都回滚，保证原子性
@@ -427,7 +447,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                                 (a, b) -> a));
             }
 
-            // 3. 组装 UserVO（含角色 ID 列表 + 角色名称拼接 + 角色完整信息列表）
+            // 3. 批量查积分账户（t_user_points），按 userId 映射；账户不存在按 0 处理（不调 initAccount，纯读无副作用）
+            java.util.Map<Long, UserPoints> pointsMap = userPointsMapper.selectList(
+                            new LambdaQueryWrapper<UserPoints>().in(UserPoints::getUserId, userIds))
+                    .stream()
+                    .collect(Collectors.toMap(UserPoints::getUserId, p -> p, (a, b) -> a));
+
+            // 4. 组装 UserVO（含角色 ID 列表 + 角色名称拼接 + 角色完整信息列表 + 积分字段）
             final java.util.Map<Long, RoleVO> finalRoleIdToVOMap = roleIdToVOMap;
             for (SysUser user : records) {
                 UserVO vo = new UserVO();
@@ -446,6 +472,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                             .collect(Collectors.joining(","));
                     vo.setRoleNames(roleNames);
                 }
+                // 积分字段回填（账户不存在按 0 处理；不调用 initAccount，避免查询行为产生写副作用）
+                UserPoints userPoints = pointsMap.get(user.getId());
+                BigDecimal pointsVal = (userPoints != null && userPoints.getPoints() != null)
+                        ? userPoints.getPoints() : BigDecimal.ZERO;
+                BigDecimal couponVal = (userPoints != null && userPoints.getCouponPoints() != null)
+                        ? userPoints.getCouponPoints() : BigDecimal.ZERO;
+                vo.setPoints(pointsVal);
+                vo.setCouponPoints(couponVal);
+                vo.setTotalPoints(pointsVal.add(couponVal));
                 voList.add(vo);
             }
         }
@@ -458,6 +493,105 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         pageVO.setCurrent(result.getCurrent());
         pageVO.setSize(result.getSize());
         return Response.ok(pageVO);
+    }
+
+    /**
+     * 查询用户上下级邀请关系（一级直邀，不递归）。
+     * <p>上级：inviterId 为 null 或上级为内置超管（userId 数值常量 + username 保留名双判据）时 upline=null；
+     * 否则取上级用户组装为简化对象，并通过 InviteCodeService.getInviteCodeByUserId 回填邀请码。
+     * <p>下级：所有 inviter_id = 目标 userId 的用户，转简化对象数组；
+     * 邀请码批量查 sys_invite_code 后 map 回填（避免 N+1，单邀请码最多 10 个直邀，集合很小）。
+     *
+     * @param userId 目标用户ID
+     * @return 上级简化对象 + 直邀下级简化对象数组
+     */
+    @Override
+    public Response<UserRelationVO> getRelations(Long userId) {
+        if (userId == null) {
+            return Response.fail(500, "用户ID不能为空");
+        }
+        SysUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Response.fail(500, "用户不存在");
+        }
+        // 上级处理
+        SimpleUserVO upline = null;
+        Long inviterId = user.getInviterId();
+        if (inviterId != null && inviterId != PermissionConst.SUPER_ADMIN_USER_ID) {
+            SysUser uplineUser = userMapper.selectById(inviterId);
+            // 双判据兜底：userId 数值常量 + username 保留名（防 SUPER_ADMIN_USER_ID 与实际 admin id 不一致）
+            if (uplineUser != null && !PermissionConst.isReservedSuperAdminName(uplineUser.getUsername())) {
+                upline = toSimpleUser(uplineUser);
+                // 上级单查一次邀请码（与既有用户信息接口同口径，纯读无副作用）
+                upline.setInviteCode(inviteCodeService.getInviteCodeByUserId(uplineUser.getId()));
+            }
+        }
+        // 下级处理：仅一级直邀，不递归
+        List<SysUser> downlineUsers = userMapper.selectList(
+                new LambdaQueryWrapper<SysUser>().eq(SysUser::getInviterId, userId));
+        List<SimpleUserVO> downlines = new ArrayList<>(downlineUsers.size());
+        if (!downlineUsers.isEmpty()) {
+            // 批量查下级邀请码避免 N+1（sys_invite_code 1人1码，uk_inviter 唯一）
+            List<Long> downlineIds = downlineUsers.stream().map(SysUser::getId).collect(Collectors.toList());
+            java.util.Map<Long, String> codeMap = sysInviteCodeMapper.selectList(
+                            new LambdaQueryWrapper<SysInviteCode>().in(SysInviteCode::getInviterId, downlineIds))
+                    .stream()
+                    .collect(Collectors.toMap(SysInviteCode::getInviterId, SysInviteCode::getInviteCode, (a, b) -> a));
+            for (SysUser d : downlineUsers) {
+                SimpleUserVO vo = toSimpleUser(d);
+                vo.setInviteCode(codeMap.get(d.getId()));
+                downlines.add(vo);
+            }
+        }
+        UserRelationVO result = new UserRelationVO();
+        result.setUpline(upline);
+        result.setDownlines(downlines);
+        return Response.ok(result);
+    }
+
+    /**
+     * 查询用户积分余额与流水分页（管理端只读核查专用，合并 C 端余额 + 流水契约）。
+     * <p>余额走 getBalanceReadOnly（不调 initAccount）；流水复用 pageFlow（已带枚举中文名组装）。
+     *
+     * @param userId   目标用户ID
+     * @param bizType  业务类型筛选（1推荐奖 2自购奖 3购物券奖 4积分对冲；null 查全部）
+     * @param pageNum  分页页码
+     * @param pageSize 每页条数
+     * @return 余额 + 流水分页
+     */
+    @Override
+    public Response<AdminUserPointsVO> getPointsDetail(Long userId, Integer bizType, Integer pageNum, Integer pageSize) {
+        if (userId == null) {
+            return Response.fail(500, "用户ID不能为空");
+        }
+        SysUser user = userMapper.selectById(userId);
+        if (user == null) {
+            return Response.fail(500, "用户不存在");
+        }
+        // 余额：只读查询（不调 initAccount）
+        Response<PointsBalanceVO> balanceRes = userPointsService.getBalanceReadOnly(userId);
+        // 流水：复用 pageFlow，与 C 端 /app/assets/points/flow 同口径（含枚举中文名、排序 create_time DESC, id DESC）
+        Response<PageResultVO<PointsFlowVO>> flowRes = userPointsService.pageFlow(userId, bizType, pageNum, pageSize);
+        AdminUserPointsVO vo = new AdminUserPointsVO();
+        vo.setBalance(balanceRes.getData());
+        vo.setFlowPage(flowRes.getData());
+        return Response.ok(vo);
+    }
+
+    /**
+     * 把 SysUser 转成简化 VO（不含 inviteCode，由调用方按上下级批量策略回填）
+     */
+    private SimpleUserVO toSimpleUser(SysUser u) {
+        SimpleUserVO vo = new SimpleUserVO();
+        vo.setId(u.getId());
+        vo.setUsername(u.getUsername());
+        vo.setNickname(u.getNickname());
+        vo.setPhone(u.getPhone());
+        // status: "1" -> true，"0" -> false（与 UserVO 同口径）
+        vo.setStatus("1".equals(u.getStatus()));
+        vo.setMemberType(u.getMemberType());
+        vo.setCreateTime(u.getCreateTime());
+        return vo;
     }
 
     @Override

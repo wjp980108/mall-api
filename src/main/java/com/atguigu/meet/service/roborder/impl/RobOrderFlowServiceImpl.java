@@ -25,7 +25,6 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.List;
 
 /**
@@ -33,9 +32,6 @@ import java.util.List;
  */
 @Service
 public class RobOrderFlowServiceImpl implements RobOrderFlowService {
-
-    /** 账务日界统一按东八区计算（JDBC 连接为 UTC，不依赖容器默认时区） */
-    private static final ZoneId BIZ_ZONE = ZoneId.of("Asia/Shanghai");
 
     @Autowired
     private RobOrderFlowMapper robOrderFlowMapper;
@@ -155,12 +151,11 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
 
     /**
      * 解析事件时间区间：
-     * 空 → 东八区当日 [00:00:00, 23:59:59]；单日期 → 起止同为该日；多日期 → 起首日 00:00:00 至止日 23:59:59。
+     * 空 → 不限时间（查全部）；单日期 → 起止同为该日；多日期 → 起首日 00:00:00 至止日 23:59:59。
      */
     private LocalDateTime[] parseRange(List<String> timeRange) {
         if (timeRange == null || timeRange.isEmpty()) {
-            LocalDate today = LocalDate.now(BIZ_ZONE);
-            return new LocalDateTime[]{today.atStartOfDay(), today.atTime(23, 59, 59)};
+            return new LocalDateTime[]{null, null};
         }
         String startDate = timeRange.get(0);
         String endDate = timeRange.size() > 1 ? timeRange.get(timeRange.size() - 1) : startDate;

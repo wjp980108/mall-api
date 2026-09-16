@@ -25,8 +25,8 @@ public class RobOrderFlowPageQueryDTO {
     @NotNull(message = "每页条数不能为空")
     private Integer pageSize;
 
-    /** 事件发生时间范围（yyyy-MM-dd 起, yyyy-MM-dd 止）；不传默认当日 */
-    @Schema(description = "事件发生时间范围（不传默认今日）", example = "2026-09-12,2026-09-12")
+    /** 事件发生时间范围（yyyy-MM-dd 起, yyyy-MM-dd 止）；不传默认查全部 */
+    @Schema(description = "事件发生时间范围（不传默认查全部）", example = "2026-09-12,2026-09-12")
     private List<String> timeRange;
 
     /** 事件类型：1下单 2取消订单 3转移订单；不传查全部 */

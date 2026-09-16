@@ -11,7 +11,7 @@ import java.util.List;
 public interface RobOrderFlowService {
 
     /**
-     * 事件流水分页：按事件发生时间区间（不传默认今日）+ 可选事件类型
+     * 事件流水分页：按事件发生时间区间（不传默认查全部）+ 可选事件类型
      */
     Response getFlowPage(RobOrderFlowPageQueryDTO parameter);
 

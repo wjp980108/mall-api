@@ -12,7 +12,9 @@ import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.vo.OptionVO;
 import com.atguigu.meet.model.vo.permission.menu.MenuVO;
+import com.atguigu.meet.model.vo.permission.user.AdminUserPointsVO;
 import com.atguigu.meet.model.vo.permission.user.UserLoginVO;
+import com.atguigu.meet.model.vo.permission.user.UserRelationVO;
 import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.permission.user.UserService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -57,6 +59,38 @@ public class UserController {
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserVO.class)))
     public Response<UserVO> pageList(@Valid UserPageQueryDTO parameter) {
         return userService.getPageList(parameter);
+    }
+
+    /**
+     * 查询用户上下级邀请关系（一级直邀，不递归）
+     *
+     * @param id 目标用户ID
+     * @return 上级简化对象 + 直邀下级简化对象数组
+     */
+    @GetMapping("relations/{id}")
+    @Operation(summary = "查询用户上下级邀请关系", description = "返回指定用户的直接上级与直接下级邀请关系（仅一级直邀，不递归；上级为内置超管或无邀请人时 upline 为 null）")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = UserRelationVO.class)))
+    public Response<UserRelationVO> getRelations(@PathVariable("id") Long id) {
+        return userService.getRelations(id);
+    }
+
+    /**
+     * 查询用户积分详情（合并 C 端余额 + 流水契约为后台单接口，只读，不初始化账户）
+     *
+     * @param id       目标用户ID
+     * @param pageNum  分页页码（默认 1）
+     * @param pageSize 每页条数（默认 10）
+     * @param bizType  业务类型筛选：1推荐奖 2自购奖 3购物券奖 4积分对冲；不传查全部
+     * @return 余额 + 流水分页
+     */
+    @GetMapping("points/{id}")
+    @Operation(summary = "查询用户积分详情", description = "合并返回指定用户的积分余额与流水分页（管理端只读核查专用，不初始化账户；流水字段、排序、中文名与 C 端 /app/assets/points/flow 同口径）")
+    @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdminUserPointsVO.class)))
+    public Response<AdminUserPointsVO> getPointsDetail(@PathVariable("id") Long id,
+                                                       @RequestParam(value = "pageNum", defaultValue = "1") Integer pageNum,
+                                                       @RequestParam(value = "pageSize", defaultValue = "10") Integer pageSize,
+                                                       @RequestParam(value = "bizType", required = false) Integer bizType) {
+        return userService.getPointsDetail(id, bizType, pageNum, pageSize);
     }
 
     /**

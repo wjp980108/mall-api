@@ -9,6 +9,8 @@ import com.atguigu.meet.model.dto.permission.user.UserProfileUpdateDTO;
 import com.atguigu.meet.model.dto.permission.user.UserStatusDTO;
 import com.atguigu.meet.model.dto.permission.user.UserUpdateDTO;
 import com.atguigu.meet.model.entity.permission.user.AdminUser;
+import com.atguigu.meet.model.vo.permission.user.AdminUserPointsVO;
+import com.atguigu.meet.model.vo.permission.user.UserRelationVO;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -56,6 +58,29 @@ public interface UserService {
 
     /** 当前登录用户修改密码（用户身份由 token 解析，前端仅需传新密码） */
     Response changePassword(UserChangePasswordDTO dto);
+
+    /**
+     * 查询用户上下级邀请关系（一级直邀，不递归）。
+     * <p>上级为目标用户 inviterId 指向的人；inviterId 为 null 或上级为内置超管（userId/username 双判据）时 upline=null。
+     * <p>下级为所有 inviter_id 等于目标 userId 的用户，仅一级不递归。
+     *
+     * @param userId 目标用户ID
+     * @return 上级简化对象 + 直邀下级简化对象数组
+     */
+    Response<UserRelationVO> getRelations(Long userId);
+
+    /**
+     * 查询用户积分余额与流水分页（管理端只读核查专用）。
+     * <p>余额走 {@code getBalanceReadOnly}（不调 initAccount，不产生写副作用）；
+     * 流水复用 {@code pageFlow}（已带枚举中文名组装），与 C 端 /app/assets/points/flow 同口径。
+     *
+     * @param userId   目标用户ID
+     * @param bizType  业务类型筛选（1推荐奖 2自购奖 3购物券奖 4积分对冲；null 查全部）
+     * @param pageNum  分页页码
+     * @param pageSize 每页条数
+     * @return 余额 + 流水分页
+     */
+    Response<AdminUserPointsVO> getPointsDetail(Long userId, Integer bizType, Integer pageNum, Integer pageSize);
 
     /*List<Map<String, Object>> mapList();
 

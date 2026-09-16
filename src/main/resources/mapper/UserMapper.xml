@@ -38,4 +38,37 @@
                            ON u.id = o.user_id
         WHERE u.phone = #{phone};
     </select>
+
+    <!-- 到期新会员自动禁用的管辖条件：
+         1. 新会员(member_type=0) + 状态正常(status=1) + 注册时间超过 cutoff
+         2. 无任何管理角色(超级管理员/平台管理员) 或 拥有会员角色(role_id=3)
+            —— 仅拥有管理角色而不拥有会员角色的账号豁免自动禁用 -->
+    <sql id="expiredNewMemberCondition">
+        u.member_type = 0
+        AND u.status = 1
+        AND u.create_time &lt;= #{cutoff}
+        AND (
+            NOT EXISTS (SELECT 1 FROM sys_user_role ur
+                        WHERE ur.user_id = u.id
+                          AND ur.role_id IN (#{superAdminRoleId}, #{platformAdminRoleId}))
+            OR EXISTS (SELECT 1 FROM sys_user_role ur
+                       WHERE ur.user_id = u.id
+                         AND ur.role_id = #{memberRoleId})
+        )
+    </sql>
+
+    <!-- 预演：查询本轮将被自动禁用的到期新会员ID（只读，供上线核对命中名单） -->
+    <select id="selectExpiredNewMemberIds" resultType="java.lang.Long">
+        SELECT u.id
+        FROM sys_user u
+        WHERE <include refid="expiredNewMemberCondition"/>
+    </select>
+
+    <!-- 逐行条件禁用：全部管辖条件在 UPDATE 内原子重查，幂等（已禁用/已转老会员不命中） -->
+    <update id="disableOneExpiredNewMember">
+        UPDATE sys_user u
+        SET u.status = 0
+        WHERE u.id = #{userId}
+        AND <include refid="expiredNewMemberCondition"/>
+    </update>
 </mapper>

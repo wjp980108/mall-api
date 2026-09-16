@@ -40,6 +40,18 @@ public final class PermissionConst {
      */
     public static final long MEMBER_ROLE_ID = 3L;
 
+    /**
+     * 超级管理员角色的固定 roleId。
+     * 与 add.sql 初始化数据保持一致：sys_role 中 id=1 为 SUPER_ADMIN(超级管理员)。
+     */
+    public static final long SUPER_ADMIN_ROLE_ID = 1L;
+
+    /**
+     * 平台管理员角色的固定 roleId。
+     * 与 add.sql 初始化数据保持一致：sys_role 中 id=2 为 PLATFORM_ADMIN(平台管理员)。
+     */
+    public static final long PLATFORM_ADMIN_ROLE_ID = 2L;
+
     // ==========================================
     // 内置超级管理员账户常量
     // ==========================================

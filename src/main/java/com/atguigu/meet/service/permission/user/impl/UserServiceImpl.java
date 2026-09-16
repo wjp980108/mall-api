@@ -1,9 +1,11 @@
 package com.atguigu.meet.service.permission.user.impl;
 
+import com.alibaba.fastjson.JSON;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.config.BuiltinSuperAdminIdCache;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.enums.Gender;
+import com.atguigu.meet.enums.UserOperateType;
 import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.menu.SysMenuMapper;
 import com.atguigu.meet.mapper.permission.role.SysRoleMapper;
@@ -41,6 +43,7 @@ import com.atguigu.meet.model.vo.permission.user.UserVO;
 import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.service.file.FileService;
 import com.atguigu.meet.service.permission.invite.InviteCodeService;
+import com.atguigu.meet.service.permission.user.UserOperateLogService;
 import com.atguigu.meet.service.permission.user.UserService;
 import com.atguigu.meet.service.permission.userRole.UserRoleService;
 import com.atguigu.meet.utils.AdminContext;
@@ -72,7 +75,9 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -125,6 +130,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
     @Autowired
     private SysInviteCodeMapper sysInviteCodeMapper;
 
+    @Autowired
+    private UserOperateLogService userOperateLogService;
+
     @Override
     @Transactional(rollbackFor = Exception.class) // 所有异常都回滚，保证原子性
     public Response deleteUserByIds(UserDeleteDTO userDeleteDTO) {
@@ -151,6 +159,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         }
 
         removeByIds(idList);
+
+        // 审计：批量删除逐条记录被删用户（异步独立事务，失败不阻断业务）
+        for (SysUser deletedUser : dbUserList) {
+            userOperateLogService.writeOperateLog(deletedUser.getId(), UserOperateType.DELETE, null, null,
+                    "删除用户:" + deletedUser.getUsername());
+        }
 
         return Response.ok("成功删除" + idList.size() + "个用户", null);
     }
@@ -203,6 +217,10 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         String encodePwd = passwordEncoder.encode(rawPassword);
         BeanConvertUtils.copyProperties(userCreateDTO, user);
         user.setPassword(encodePwd);
+        // 后台建号默认老会员：不参与新会员生命周期（到期自动禁用/提前抢购），
+        // 防止零角色运营账号被 MemberTask 误禁。仅在此处显式设置，
+        // 严禁改 SysUser 实体或 DTO 内联默认值（会破坏 H5 注册产生新会员的行为）
+        user.setMemberType(1);
         userMapper.insert(user);
 
         // 5. 分配角色（写入 sys_user_role 关联）
@@ -217,6 +235,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
 
         // 6. 建号即生成邀请码（幂等；生成失败则整体回滚）
         inviteCodeService.generateInviteCode(user.getId());
+
+        // 审计：后台建号落用户操作日志（关键入参JSON摘要，异步独立事务，失败不阻断业务）
+        Map<String, Object> createSummary = new LinkedHashMap<>();
+        createSummary.put("username", userCreateDTO.getUsername());
+        createSummary.put("phone", userCreateDTO.getPhone());
+        createSummary.put("roleIds", roleIds);
+        userOperateLogService.writeOperateLog(user.getId(), UserOperateType.CREATE, null, null,
+                JSON.toJSONString(createSummary));
 
         log.info("[用户管理] 创建用户成功，userId={}, roleIds={}", user.getId(), roleIds);
         return Response.ok("创建用户成功", null);
@@ -266,6 +292,16 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                 throw new BusinessException(roleResult.getMsg() != null ? roleResult.getMsg() : "角色同步失败");
             }
         }
+
+        // 审计：编辑用户落用户操作日志（放在角色同步之后，整体回滚时不留孤儿日志；异步独立事务，失败不阻断业务）
+        Map<String, Object> updateSummary = new LinkedHashMap<>();
+        updateSummary.put("username", userUpdateDTO.getUsername());
+        updateSummary.put("phone", userUpdateDTO.getPhone());
+        updateSummary.put("status", userUpdateDTO.getStatus());
+        updateSummary.put("roleIds", roleIds);
+        userOperateLogService.writeOperateLog(userId, UserOperateType.UPDATE, null, null,
+                JSON.toJSONString(updateSummary));
+
         return Response.ok("更新用户信息成功", null);
     }
 
@@ -286,10 +322,17 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
             return Response.fail(500, "系统内置超级管理员账户不允许禁用");
         }
         // 实体字段带内联默认值(gender=0等)，updateById 会把默认值一并写入覆盖真实数据，改用定点更新
+        int beforeStatus = "1".equals(existUser.getStatus()) ? 1 : 0;
+        int afterStatus = Boolean.TRUE.equals(userStatusDTO.getStatus()) ? 1 : 0;
         lambdaUpdate()
                 .eq(SysUser::getId, userId)
                 .set(SysUser::getStatus, Boolean.TRUE.equals(userStatusDTO.getStatus()) ? "1" : "0")
                 .update();
+
+        // 审计：启停操作记录变更前后状态（放在缓存失效之前，状态已变更即应留痕；异步独立事务，失败不阻断业务）
+        userOperateLogService.writeOperateLog(userId,
+                afterStatus == 1 ? UserOperateType.ENABLE : UserOperateType.DISABLE,
+                beforeStatus, afterStatus, "账号启停");
 
         // 用户状态变更后失效自己的权限缓存
         permissionCacheService.invalidateUserPermissions(userId);
@@ -325,6 +368,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (!updated) {
             return Response.fail(500, "转老会员失败，请刷新后重试");
         }
+        // 审计：手动转老会员落用户操作日志（异步独立事务，失败不阻断业务）
+        userOperateLogService.writeOperateLog(userId, UserOperateType.TO_OLD_MEMBER, null, null,
+                "手动转老会员 member_type 0->1");
         log.info("[用户管理] 手动转老会员成功，userId={}，操作人={}", userId, AdminContext.getLoginUserId());
         return Response.ok("转老会员成功", null);
     }

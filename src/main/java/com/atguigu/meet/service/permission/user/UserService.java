@@ -78,7 +78,7 @@ public interface UserService {
      * @param bizType  业务类型筛选（1推荐奖 2自购奖 3购物券奖 4积分对冲；null 查全部）
      * @param pageNum  分页页码
      * @param pageSize 每页条数
-     * @return 余额 + 流水分页
+     * @return 流水分页（分页字段平铺最外层）+ 余额（balance 字段）
      */
     Response<AdminUserPointsVO> getPointsDetail(Long userId, Integer bizType, Integer pageNum, Integer pageSize);
 

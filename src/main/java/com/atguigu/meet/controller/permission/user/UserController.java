@@ -81,10 +81,10 @@ public class UserController {
      * @param pageNum  分页页码（默认 1）
      * @param pageSize 每页条数（默认 10）
      * @param bizType  业务类型筛选：1推荐奖 2自购奖 3购物券奖 4积分对冲；不传查全部
-     * @return 余额 + 流水分页
+     * @return 流水分页（分页字段平铺最外层）+ 余额（balance 字段）
      */
     @GetMapping("points/{id}")
-    @Operation(summary = "查询用户积分详情", description = "合并返回指定用户的积分余额与流水分页（管理端只读核查专用，不初始化账户；流水字段、排序、中文名与 C 端 /app/assets/points/flow 同口径）")
+    @Operation(summary = "查询用户积分详情", description = "合并返回指定用户的积分余额与流水分页（分页字段 list/total/pages/current/size 平铺最外层，余额以 balance 字段附加；管理端只读核查专用，不初始化账户；流水字段、排序、中文名与 C 端 /app/assets/points/flow 同口径）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = AdminUserPointsVO.class)))
     public Response<AdminUserPointsVO> getPointsDetail(@PathVariable("id") Long id,
                                                        @RequestParam(value = "pageNum", defaultValue = "1") Integer pageNum,

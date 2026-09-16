@@ -557,7 +557,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
      * @param bizType  业务类型筛选（1推荐奖 2自购奖 3购物券奖 4积分对冲；null 查全部）
      * @param pageNum  分页页码
      * @param pageSize 每页条数
-     * @return 余额 + 流水分页
+     * @return 流水分页（分页字段平铺最外层）+ 余额（balance 字段）
      */
     @Override
     public Response<AdminUserPointsVO> getPointsDetail(Long userId, Integer bizType, Integer pageNum, Integer pageSize) {
@@ -572,9 +572,15 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         Response<PointsBalanceVO> balanceRes = userPointsService.getBalanceReadOnly(userId);
         // 流水：复用 pageFlow，与 C 端 /app/assets/points/flow 同口径（含枚举中文名、排序 create_time DESC, id DESC）
         Response<PageResultVO<PointsFlowVO>> flowRes = userPointsService.pageFlow(userId, bizType, pageNum, pageSize);
+        // 分页字段平铺 VO 最外层，余额作为附加字段（对齐 RobOrderFlowPageResultVO 的分页壳惯例）
+        PageResultVO<PointsFlowVO> page = flowRes.getData();
         AdminUserPointsVO vo = new AdminUserPointsVO();
+        vo.setList(page.getList());
+        vo.setTotal(page.getTotal());
+        vo.setPages(page.getPages());
+        vo.setCurrent(page.getCurrent());
+        vo.setSize(page.getSize());
         vo.setBalance(balanceRes.getData());
-        vo.setFlowPage(flowRes.getData());
         return Response.ok(vo);
     }
 

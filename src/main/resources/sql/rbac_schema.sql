@@ -646,6 +646,7 @@ CREATE TABLE IF NOT EXISTS `t_rob_order` (
     `goods_thumb`            VARCHAR(512)  DEFAULT NULL COMMENT '商品缩略图URL快照',
     `goods_thumb_platform`   VARCHAR(32)   DEFAULT NULL COMMENT '商品缩略图存储平台',
     `unit_price`             DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '商品单价快照',
+    `prev_payment_amount`    DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT '下单时点回写前的商品付款金额旧值(单价口径)，取消链式回滚基数',
     `quantity`               INT           NOT NULL DEFAULT 1 COMMENT '购买数量',
     `total_amount`           DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '订单实付总额=单价×数量',
     `profit_amount`          DECIMAL(12,2) NOT NULL DEFAULT 0.00 COMMENT '利润池上限=总额×订单利润比例%',
@@ -672,7 +673,8 @@ CREATE TABLE IF NOT EXISTS `t_rob_order` (
     KEY `idx_session_id` (`session_id`) COMMENT '按场次筛选',
     KEY `idx_buyer_id` (`buyer_id`) COMMENT '按买家查询(我的订单/限购统计)',
     KEY `idx_inviter_id` (`inviter_id`) COMMENT '按推荐人查询',
-    KEY `idx_session_product_id` (`session_product_id`) COMMENT '库存锚点反查'
+    KEY `idx_session_product_id` (`session_product_id`) COMMENT '库存锚点反查',
+    KEY `idx_goods_id` (`goods_id`) COMMENT '按商品查询(取消付款金额链式回滚)'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='抢购订单表(场次商品库存下单,金额快照冻结)';
 
 -- =============================================

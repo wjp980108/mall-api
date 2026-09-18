@@ -190,6 +190,9 @@ public class RobOrderServiceImpl implements RobOrderService {
         order.setGoodsThumb(spVO != null ? spVO.getGoodsThumb() : null);
         order.setGoodsThumbPlatform(spVO != null ? spVO.getGoodsThumbPlatform() : null);
         order.setUnitPrice(unitPrice);
+        // 冻结回写前商品付款金额旧值（与第5.5步回款/本金同一读旧值时点，复用已加载的 goods，不新增查询），
+        // 供取消订单链式回滚 t_consign_goods.payment_amount 使用
+        order.setPrevPaymentAmount(nz(goods.getPaymentAmount()));
         order.setQuantity(quantity);
         order.setTotalAmount(totalAmount);
         order.setProfitAmount(profitAmount);
@@ -281,6 +284,22 @@ public class RobOrderServiceImpl implements RobOrderService {
 
         // 回滚库存
         sessionProductMapper.addStock(order.getSessionProductId(), order.getQuantity());
+
+        // 回滚商品付款金额链式指针（与下单第10步回写对偶）：重算"假设本单从未成交"的目标单价——
+        // 优先最新剩余有效订单单价，无有效订单则恢复首轮成交前基数；条件守卫保证仅当本单仍是
+        // 最近一次成交写入者（商品当前付款金额=本单单价）时才回写，链条已被后续成交/手工改价
+        // 推进时 affected=0 静默跳过，绝不阻断取消主流程
+        BigDecimal rollbackTarget =
+                robOrderMapper.selectPaymentRollbackTarget(order.getGoodsId(), order.getId());
+        int paymentAffected = consignGoodsMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ConsignGoods>()
+                        .eq(ConsignGoods::getId, order.getGoodsId())
+                        .eq(ConsignGoods::getPaymentAmount, order.getUnitPrice())
+                        .set(ConsignGoods::getPaymentAmount, rollbackTarget));
+        if (paymentAffected == 0) {
+            log.info("[抢购订单取消] 商品付款金额链条已推进，跳过回滚 orderNo={} goodsId={} 本单单价={}",
+                    order.getOrderNo(), order.getGoodsId(), order.getUnitPrice());
+        }
 
         // 冲回积分（按订单当前快照；允许负余额）
         if (order.getInviterId() != null && nz(order.getRecommendAmount()).signum() > 0) {

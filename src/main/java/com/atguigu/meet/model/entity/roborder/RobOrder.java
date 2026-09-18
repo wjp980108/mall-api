@@ -79,6 +79,14 @@ public class RobOrder extends Model<RobOrder> {
     @Schema(description = "商品单价")
     private BigDecimal unitPrice;
 
+    /**
+     * 下单时点回写前的商品付款金额旧值（单价口径，对齐 t_consign_goods.payment_amount 精度）。
+     * 与回款/付款本金在同一读旧值时点冻结，成交单价回写商品后本值不变；
+     * 取消订单链式回滚商品付款金额时作为"首轮成交前基数"兜底。无实例默认值，DB 列 DEFAULT 0 兜底。
+     */
+    @Schema(description = "下单时点商品付款金额旧值快照(单价口径)")
+    private BigDecimal prevPaymentAmount;
+
     /** 购买数量 */
     @Schema(description = "购买数量")
     private Integer quantity;

@@ -6,9 +6,7 @@ import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
-import org.apache.ibatis.annotations.Select;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 /**
@@ -49,26 +47,4 @@ public interface RobOrderMapper extends BaseMapper<RobOrder> {
     int countRushedByUserAndDate(@Param("buyerId") Long buyerId,
                                  @Param("startTime") LocalDateTime startTime,
                                  @Param("endTime") LocalDateTime endTime);
-
-    /**
-     * 取消订单时重算商品付款金额（t_consign_goods.payment_amount）链式指针的目标值：
-     * ① 该商品除本单外最新一笔有效（order_status=1、未删除）订单的成交单价 unit_price；
-     * ② 不存在有效订单时，取该商品最早一笔订单的 prev_payment_amount（首轮成交前基数）；
-     * ③ 均无（理论上不会发生，本单自身即最早订单）按 0。
-     * <p>注意子查询②不过滤 excludeOrderId：本单可能就是最早订单，其 prev 正是需要恢复的基数。
-     *
-     * @param goodsId       商品ID
-     * @param excludeOrderId 当前取消的订单ID（①中排除自身）
-     * @return 链式回滚目标单价（永不返回 null）
-     */
-    @Select("SELECT COALESCE( "
-            + "(SELECT o.unit_price FROM t_rob_order o "
-            + "  WHERE o.goods_id = #{goodsId} AND o.id <> #{excludeOrderId} "
-            + "    AND o.order_status = 1 AND o.is_deleted = 0 "
-            + "  ORDER BY o.id DESC LIMIT 1), "
-            + "(SELECT o.prev_payment_amount FROM t_rob_order o "
-            + "  WHERE o.goods_id = #{goodsId} AND o.is_deleted = 0 "
-            + "  ORDER BY o.id ASC LIMIT 1), 0)")
-    BigDecimal selectPaymentRollbackTarget(@Param("goodsId") Long goodsId,
-                                           @Param("excludeOrderId") Long excludeOrderId);
 }

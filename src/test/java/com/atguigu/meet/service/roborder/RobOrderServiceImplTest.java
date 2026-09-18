@@ -96,14 +96,12 @@ class RobOrderServiceImplTest {
 
     /**
      * 纯 Mockito 环境无 MyBatis-Plus 启动流程，手动初始化实体列缓存，
-     * 使 LambdaUpdateWrapper.set(RobOrder::getXxx, ...) 可正常解析列名。
-     * ConsignGoods：placeOrder 成功路径第 10 步定点回写 payment_amount 使用 LambdaUpdateWrapper<ConsignGoods>。
+     * 使取消/转移订单的 LambdaUpdateWrapper.set(RobOrder::getXxx, ...) 可正常解析列名。
      */
     @BeforeAll
     static void initMybatisPlusTableInfo() {
         MapperBuilderAssistant assistant = new MapperBuilderAssistant(new MybatisConfiguration(), "");
         TableInfoHelper.initTableInfo(assistant, RobOrder.class);
-        TableInfoHelper.initTableInfo(assistant, ConsignGoods.class);
     }
 
     @Test

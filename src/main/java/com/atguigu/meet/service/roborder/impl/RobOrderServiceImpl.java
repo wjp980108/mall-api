@@ -166,8 +166,8 @@ public class RobOrderServiceImpl implements RobOrderService {
         BigDecimal selfBuyBonusAmount = percent(selfBuyAmount, bonusRatio);
         BigDecimal selfBuyCouponAmount = percent(selfBuyAmount, couponRatio);
 
-        // 5.5 回款快照（与自购奖积分同构 + 本金项）：自购奖金 + 商品付款金额(下单时点旧值)×数量。
-        // 先读后写：旧值在此读取，成交单价回写在其后（第 10 步），保证本单回款使用回写前的旧值。
+        // 5.5 回款快照（与自购奖积分同构 + 本金项）：自购奖金 + 商品付款金额（管理端固定配置值）×数量。
+        // payment_amount 与 goods_price 均为管理端手工维护的固定值，下单/取消/转移业务流程一律不写。
         // 付款金额未设置（首轮商品）按 0 参与，回款退化为自购奖金部分；纯快照不实发积分。
         BigDecimal paymentAmount = nz(goods.getPaymentAmount()).multiply(BigDecimal.valueOf(quantity));
         BigDecimal receiptAmount = selfBuyBonusAmount.add(paymentAmount);
@@ -190,9 +190,6 @@ public class RobOrderServiceImpl implements RobOrderService {
         order.setGoodsThumb(spVO != null ? spVO.getGoodsThumb() : null);
         order.setGoodsThumbPlatform(spVO != null ? spVO.getGoodsThumbPlatform() : null);
         order.setUnitPrice(unitPrice);
-        // 冻结回写前商品付款金额旧值（与第5.5步回款/本金同一读旧值时点，复用已加载的 goods，不新增查询），
-        // 供取消订单链式回滚 t_consign_goods.payment_amount 使用
-        order.setPrevPaymentAmount(nz(goods.getPaymentAmount()));
         order.setQuantity(quantity);
         order.setTotalAmount(totalAmount);
         order.setProfitAmount(profitAmount);
@@ -238,13 +235,6 @@ public class RobOrderServiceImpl implements RobOrderService {
                 RobOrderOperateType.PLACE_ORDER, buyer.getId(), pickName(buyer), "用户抢购下单",
                 receiptAmount, paymentAmount, null, null, null, null);
 
-        // 10. 回写商品付款金额为本次成交单价（仅此一个字段；商品业务状态/委托人/委托/审核/上下架等
-        // 两流隔离语义保持不变。回写竞态为 last-write-wins，不影响任何已落库回款）
-        consignGoodsMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ConsignGoods>()
-                        .eq(ConsignGoods::getId, goods.getId())
-                        .set(ConsignGoods::getPaymentAmount, unitPrice));
-
         log.info("[抢购下单] orderNo={} buyer={} total={} receipt={} 库存扣减 spId={} qty={}",
                 order.getOrderNo(), buyer.getId(), totalAmount, receiptAmount, sp.getId(), quantity);
         return Response.ok("抢购成功", order.getOrderNo());
@@ -284,22 +274,6 @@ public class RobOrderServiceImpl implements RobOrderService {
 
         // 回滚库存
         sessionProductMapper.addStock(order.getSessionProductId(), order.getQuantity());
-
-        // 回滚商品付款金额链式指针（与下单第10步回写对偶）：重算"假设本单从未成交"的目标单价——
-        // 优先最新剩余有效订单单价，无有效订单则恢复首轮成交前基数；条件守卫保证仅当本单仍是
-        // 最近一次成交写入者（商品当前付款金额=本单单价）时才回写，链条已被后续成交/手工改价
-        // 推进时 affected=0 静默跳过，绝不阻断取消主流程
-        BigDecimal rollbackTarget =
-                robOrderMapper.selectPaymentRollbackTarget(order.getGoodsId(), order.getId());
-        int paymentAffected = consignGoodsMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<ConsignGoods>()
-                        .eq(ConsignGoods::getId, order.getGoodsId())
-                        .eq(ConsignGoods::getPaymentAmount, order.getUnitPrice())
-                        .set(ConsignGoods::getPaymentAmount, rollbackTarget));
-        if (paymentAffected == 0) {
-            log.info("[抢购订单取消] 商品付款金额链条已推进，跳过回滚 orderNo={} goodsId={} 本单单价={}",
-                    order.getOrderNo(), order.getGoodsId(), order.getUnitPrice());
-        }
 
         // 冲回积分（按订单当前快照；允许负余额）
         if (order.getInviterId() != null && nz(order.getRecommendAmount()).signum() > 0) {

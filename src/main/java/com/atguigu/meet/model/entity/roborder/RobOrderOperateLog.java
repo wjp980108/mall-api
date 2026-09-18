@@ -56,18 +56,34 @@ public class RobOrderOperateLog extends Model<RobOrderOperateLog> {
     @Schema(description = "操作人名称")
     private String operateUserName;
 
-    /** 回款金额（下单事件：自购奖金+付款金额×数量；取消事件：同订单下单事件行同值正数；转移事件：0。无实例默认值，DB 列 DEFAULT 0 兜底） */
+    /** 回款金额（下单事件：自购奖金+付款金额×数量；取消/转移事件：同订单下单事件行同值正数，展示符号由流水查询层决定。无实例默认值，DB 列 DEFAULT 0 兜底） */
     @Schema(description = "回款金额")
     private BigDecimal receiptAmount;
 
     /**
      * 付款金额（本金总额口径 = 商品付款单价 t_consign_goods.payment_amount × 购买数量）。
-     * 下单事件：下单时点商品付款单价旧值×数量；取消事件：同订单下单事件行同值正数；转移事件：0。
+     * 下单事件：下单时点商品付款单价旧值×数量；取消/转移事件：同订单下单事件行同值正数。
      * 注意与 {@link com.atguigu.meet.model.entity.goods.consign.ConsignGoods#getPaymentAmount()}
      * 的单价口径区分：本字段为总额口径 P×N。无实例默认值，DB 列 DEFAULT 0 兜底。
      */
     @Schema(description = "付款金额(本金总额口径：商品付款单价×数量)")
     private BigDecimal paymentAmount;
+
+    /** 转移前买家ID（仅转移事件在订单 UPDATE 前写入的快照；下单/取消事件为 NULL） */
+    @Schema(description = "转移前买家ID(仅转移事件快照)")
+    private Long prevBuyerId;
+
+    /** 转移前买家名称快照（仅转移事件） */
+    @Schema(description = "转移前买家名称快照(仅转移事件)")
+    private String prevBuyerName;
+
+    /** 转移前买家手机号快照（仅转移事件） */
+    @Schema(description = "转移前买家手机号快照(仅转移事件)")
+    private String prevBuyerPhone;
+
+    /** 转移前推荐人ID（仅转移事件在订单 UPDATE 前写入的快照） */
+    @Schema(description = "转移前推荐人ID(仅转移事件快照)")
+    private Long prevInviterId;
 
     /** 操作备注（转移记录原买家→新买家） */
     @Schema(description = "操作备注")

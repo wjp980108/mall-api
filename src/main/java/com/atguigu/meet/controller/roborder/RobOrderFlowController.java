@@ -53,12 +53,13 @@ public class RobOrderFlowController {
      *                  查单日起止传同一天）；
      *                  operateType 事件类型（1下单 2取消订单 3转移订单，不传查全部）
      * @return 事件行分页，每行含事件类型及中文名、事件时间、订单ID/编号、商品（图/名/货号）、
-     *         买家（姓名/手机号）、场次、数量、带符号订单总额（下单正/取消负/转移0）、操作人、备注；
+     *         买家（姓名/手机号）、场次、数量、带符号订单总额（下单正/取消负/转移拆两行：红冲负+正向正）、操作人、备注；
+     *         转移事件固定拆成两行——红冲行买家为原买家快照、金额为负，正向行买家为当前买家、金额为正（两行同属转移发生日）；
      *         另含 totalAmount 字段：当前筛选条件（含事件类型）下全部匹配事件的带符号金额合计
-     *         （非仅当前页；下单正/取消负/转移0；筛取消时为负，无匹配为0）
+     *         （非仅当前页；下单正/取消负/转移两行抵消为0；筛取消时为负，无匹配为0）
      */
     @GetMapping
-    @Operation(summary = "订单流水分页", description = "按事件发生时间（不传默认查全部）分页返回下单/取消/转移事件；下单金额为正、取消为负(红冲)、转移为0；支持事件类型筛选。响应另含 totalAmount：当前筛选结果全部事件的带符号金额合计（受事件类型筛选影响）")
+    @Operation(summary = "订单流水分页", description = "按事件发生时间（不传默认查全部）分页返回下单/取消/转移事件；下单金额为正、取消为负(红冲)、转移拆成红冲(原买家,负额)+正向(当前买家,正额)两行，分页 total 相应翻倍，totalAmount 中两行抵消为0；支持事件类型筛选。响应另含 totalAmount：当前筛选结果全部事件的带符号金额合计（受事件类型筛选影响）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderFlowPageResultVO.class)))
     public Response getFlowPage(@Valid RobOrderFlowPageQueryDTO parameter) {
         return robOrderFlowService.getFlowPage(parameter);
@@ -67,7 +68,8 @@ public class RobOrderFlowController {
     /**
      * 订单流水区间汇总
      *
-     * <p>对事件发生时间落在区间内的事件做成交（下单）/红冲（取消）条件聚合，转移事件不计入。
+     * <p>对事件发生时间落在区间内的事件做成交/红冲条件聚合：成交 income 统计下单事件与转移正向视角（均正额），
+     * 红冲 reversal 统计取消事件与转移红冲视角（取正表示冲销规模）；转移在两组各计一次，净额中自我抵消，资金池规模不变。
      * 跨日取消只体现在取消发生日（取消日净额可为负），下单日数字保持不变。
      *
      * @param timeRange 事件发生日期范围字符串（格式 yyyy-MM-dd,yyyy-MM-dd，逗号分隔；
@@ -78,7 +80,7 @@ public class RobOrderFlowController {
      *         购物券 selfBuyCouponAmount；区间无事件时全部字段为 0（不为 null）
      */
     @GetMapping("/summary")
-    @Operation(summary = "订单流水区间汇总", description = "返回成交(下单)/红冲(取消)/净额三组：笔数、商品件数、订单总额、利润池、推荐奖、自购奖、自购奖金、购物券；时间参数不传默认查全部")
+    @Operation(summary = "订单流水区间汇总", description = "返回成交(下单+转移正向)/红冲(取消+转移红冲)/净额三组：笔数、商品件数、订单总额、利润池、推荐奖、自购奖、自购奖金、购物券、回款/付款金额；转移在成交与红冲各计一次且金额相等，净额不变；时间参数不传默认查全部")
     public Response<RobOrderFlowSummaryVO> getFlowSummary(
             @Parameter(description = "事件发生时间范围 yyyy-MM-dd,yyyy-MM-dd（不传默认查全部）", example = "2026-09-12,2026-09-12")
             @RequestParam(required = false) String timeRange) {

@@ -233,10 +233,10 @@ public class RobOrderServiceImpl implements RobOrderService {
                     order.getId(), order.getOrderNo(), "抢购订单购物券 " + order.getOrderNo());
         }
 
-        // 9. 审计日志（下单事件行落库回款/付款金额快照）
+        // 9. 审计日志（下单事件行落库回款/付款金额快照；无原买家快照，四个 prev 参数传 null）
         writeLog(order.getId(), null, RobOrderStatus.NORMAL.getCode(),
                 RobOrderOperateType.PLACE_ORDER, buyer.getId(), pickName(buyer), "用户抢购下单",
-                receiptAmount, paymentAmount);
+                receiptAmount, paymentAmount, null, null, null, null);
 
         // 10. 回写商品付款金额为本次成交单价（仅此一个字段；商品业务状态/委托人/委托/审核/上下架等
         // 两流隔离语义保持不变。回写竞态为 last-write-wins，不影响任何已落库回款）
@@ -330,7 +330,7 @@ public class RobOrderServiceImpl implements RobOrderService {
         writeLog(order.getId(), RobOrderStatus.NORMAL.getCode(), RobOrderStatus.CANCEL.getCode(),
                 RobOrderOperateType.CANCEL_ORDER,
                 admin != null ? admin.getUserId() : null, admin != null ? admin.getUsername() : null,
-                remark, placeReceipt, placePayment);
+                remark, placeReceipt, placePayment, null, null, null, null);
 
         log.info("[抢购订单取消] orderNo={} operator={}", order.getOrderNo(),
                 admin != null ? admin.getUsername() : "system");
@@ -358,7 +358,11 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
         SysUser newInviter = newBuyer.getInviterId() != null ? userMapper.selectById(newBuyer.getInviterId()) : null;
 
+        // 原买家/原推荐人快照：必须在订单 UPDATE 之前从已加载的 order 捕获（wrapper 更新 DB 但不刷新本对象，
+        // 显式落局部变量杜绝时序耦合），供积分冲回与转移事件日志 prev_buyer_* 快照使用
         Long oldBuyerId = order.getBuyerId();
+        String oldBuyerName = order.getBuyerName();
+        String oldBuyerPhone = order.getBuyerPhone();
         Long oldInviterId = order.getInviterId();
 
         // 积分不足预检（先于一切写操作）：未确认且不足时返回提示等待二次确认，事务内无任何变更
@@ -420,10 +424,16 @@ public class RobOrderServiceImpl implements RobOrderService {
         AdminUser admin = AdminContext.get();
         String transferRemark = "订单由买家[" + oldBuyerId + "]转移给买家[" + newBuyer.getId() + "]"
                 + (insufficient != null ? "；积分不足经确认强制执行（负余额）" : "");
+        // 转移事件行回款/付款金额：与取消同逻辑，取同订单下单事件行正额快照（流水查询层拆行时打正负号；
+        // 下单行不存在或存量行两值为 0 时自然退化）；prev_buyer_* 写 UPDATE 前捕获的原买家/原推荐人快照
+        RobOrderOperateLog placeAmounts = operateLogMapper.selectPlaceAmounts(order.getId());
+        BigDecimal placeReceipt = placeAmounts != null ? placeAmounts.getReceiptAmount() : null;
+        BigDecimal placePayment = placeAmounts != null ? placeAmounts.getPaymentAmount() : null;
         writeLog(order.getId(), RobOrderStatus.NORMAL.getCode(), RobOrderStatus.NORMAL.getCode(),
                 RobOrderOperateType.TRANSFER_ORDER,
                 admin != null ? admin.getUserId() : null, admin != null ? admin.getUsername() : null,
-                transferRemark, BigDecimal.ZERO, BigDecimal.ZERO);
+                transferRemark, placeReceipt, placePayment,
+                oldBuyerId, oldBuyerName, oldBuyerPhone, oldInviterId);
 
         log.info("[抢购订单转移] orderNo={} buyer: {}->{} inviter: {}->{} operator={}",
                 order.getOrderNo(), oldBuyerId, newBuyer.getId(), oldInviterId,
@@ -663,12 +673,17 @@ public class RobOrderServiceImpl implements RobOrderService {
     /**
      * 写订单操作事件行（回款、付款金额均为事件维度快照）
      *
-     * @param receiptAmount 该事件行的回款金额：下单事件=自购奖金+付款金额×数量；取消事件=同订单下单事件行同值（正数原值，展示符号由查询层决定）；转移事件=0；传 null 按 0 落库
-     * @param paymentAmount 该事件行的付款金额（本金总额口径=商品付款单价×数量）：下单事件=付款单价旧值×数量；取消事件=同订单下单事件行同值（正数原值）；转移事件=0；传 null 按 0 落库
+     * @param receiptAmount 该事件行的回款金额：下单事件=自购奖金+付款金额×数量；取消/转移事件=同订单下单事件行同值（正数原值，展示符号由查询层决定）；传 null 按 0 落库
+     * @param paymentAmount 该事件行的付款金额（本金总额口径=商品付款单价×数量）：下单事件=付款单价旧值×数量；取消/转移事件=同订单下单事件行同值（正数原值）；传 null 按 0 落库
+     * @param prevBuyerId   转移前买家ID快照：仅转移事件传值（须在订单 UPDATE 前捕获），下单/取消传 null 落 NULL
+     * @param prevBuyerName 转移前买家名称快照：仅转移事件传值，其余传 null
+     * @param prevBuyerPhone 转移前买家手机号快照：仅转移事件传值，其余传 null
+     * @param prevInviterId 转移前推荐人ID快照：仅转移事件传值，其余传 null
      */
     private void writeLog(Long orderId, Integer beforeStatus, Integer afterStatus,
                           RobOrderOperateType type, Long operateUserId, String operateUserName, String remark,
-                          BigDecimal receiptAmount, BigDecimal paymentAmount) {
+                          BigDecimal receiptAmount, BigDecimal paymentAmount,
+                          Long prevBuyerId, String prevBuyerName, String prevBuyerPhone, Long prevInviterId) {
         RobOrderOperateLog log = new RobOrderOperateLog();
         log.setOrderId(orderId);
         log.setBeforeStatus(beforeStatus);
@@ -680,6 +695,10 @@ public class RobOrderServiceImpl implements RobOrderService {
         log.setRemark(remark);
         log.setReceiptAmount(nz(receiptAmount));
         log.setPaymentAmount(nz(paymentAmount));
+        log.setPrevBuyerId(prevBuyerId);
+        log.setPrevBuyerName(prevBuyerName);
+        log.setPrevBuyerPhone(prevBuyerPhone);
+        log.setPrevInviterId(prevInviterId);
         operateLogMapper.insert(log);
     }
 

@@ -75,24 +75,38 @@
         </if>
     </sql>
 
-    <!-- 当前筛选条件下全部事件的带符号金额合计（下单正/取消负/转移0），空集兜底 0 -->
+    <!--
+        当前筛选条件下全部事件的带符号金额合计（下单正/取消负），空集兜底 0。
+        转移事件经 split 拆成 -X(红冲) 与 +X(正向) 两行，合计恰好抵消；
+        存量转移行金额快照为 0，-0/+0 同样合计 0。回款/付款口径与分页行一致，此处仅聚合订单总额。
+    -->
     <select id="selectFlowTotalAmount" resultType="java.math.BigDecimal">
         SELECT COALESCE(SUM(
-            CASE l.operate_type
-                WHEN 2 THEN -o.total_amount
-                WHEN 3 THEN 0
+            CASE
+                WHEN l.operate_type = 2 THEN -o.total_amount
+                WHEN l.operate_type = 3 AND split.n = 1 THEN -o.total_amount
+                WHEN l.operate_type = 3 AND split.n = 2 THEN o.total_amount
                 ELSE o.total_amount
             END
         ), 0)
         FROM t_rob_order_operate_log l
         INNER JOIN t_rob_order o
             ON o.id = l.order_id AND o.is_deleted = 0
+        LEFT JOIN (SELECT 1 AS n UNION ALL SELECT 2 AS n) split
+            ON l.operate_type = 3
         WHERE 1 = 1
         <include refid="eventTimeFilter"/>
         <include refid="eventTypeFilter"/>
     </select>
 
-    <!-- 事件流水分页 -->
+    <!--
+        事件流水分页
+        拆行规则：LEFT JOIN 常量派生表 split 仅在转移事件(operate_type=3)上命中两行——
+          split.n=1 红冲视角：买家取原买家快照(prev_buyer_*，存量 NULL 时 COALESCE 兜底为当前买家)，金额/件数带负号
+          split.n=2 正向视角：买家取订单当前买家，金额/件数带正号
+        下单(1)/取消(2)事件 split.n 为 NULL，仍为一行；取消金额打负号逻辑不变。
+        存量转移行 receipt/payment=0 时 -0/+0 自然退化为两行 0 金额。
+    -->
     <select id="selectFlowPage" resultMap="RobOrderFlowVOResultMap">
         SELECT
             l.id                       AS log_id,
@@ -106,24 +120,37 @@
             o.goods_thumb,
             o.session_id,
             o.session_name,
-            o.buyer_id,
-            o.buyer_name,
-            o.buyer_phone,
-            CASE WHEN l.operate_type = 3 THEN 0 ELSE o.quantity END AS flow_quantity,
+            CASE WHEN l.operate_type = 3 AND split.n = 1
+                 THEN COALESCE(l.prev_buyer_id, o.buyer_id)
+                 ELSE o.buyer_id END   AS buyer_id,
+            CASE WHEN l.operate_type = 3 AND split.n = 1
+                 THEN COALESCE(l.prev_buyer_name, o.buyer_name)
+                 ELSE o.buyer_name END AS buyer_name,
+            CASE WHEN l.operate_type = 3 AND split.n = 1
+                 THEN COALESCE(l.prev_buyer_phone, o.buyer_phone)
+                 ELSE o.buyer_phone END AS buyer_phone,
+            CASE
+                WHEN l.operate_type = 3 AND split.n = 1 THEN -o.quantity
+                WHEN l.operate_type = 3 AND split.n = 2 THEN o.quantity
+                ELSE o.quantity
+            END                        AS flow_quantity,
             o.unit_price,
-            CASE l.operate_type
-                WHEN 2 THEN -o.total_amount
-                WHEN 3 THEN 0
+            CASE
+                WHEN l.operate_type = 2 THEN -o.total_amount
+                WHEN l.operate_type = 3 AND split.n = 1 THEN -o.total_amount
+                WHEN l.operate_type = 3 AND split.n = 2 THEN o.total_amount
                 ELSE o.total_amount
             END                        AS signed_total_amount,
-            CASE l.operate_type
-                WHEN 2 THEN -l.receipt_amount
-                WHEN 3 THEN 0
+            CASE
+                WHEN l.operate_type = 2 THEN -l.receipt_amount
+                WHEN l.operate_type = 3 AND split.n = 1 THEN -l.receipt_amount
+                WHEN l.operate_type = 3 AND split.n = 2 THEN l.receipt_amount
                 ELSE l.receipt_amount
             END                        AS signed_receipt_amount,
-            CASE l.operate_type
-                WHEN 2 THEN -l.payment_amount
-                WHEN 3 THEN 0
+            CASE
+                WHEN l.operate_type = 2 THEN -l.payment_amount
+                WHEN l.operate_type = 3 AND split.n = 1 THEN -l.payment_amount
+                WHEN l.operate_type = 3 AND split.n = 2 THEN l.payment_amount
                 ELSE l.payment_amount
             END                        AS signed_payment_amount,
             l.operate_user_id          AS operator_id,
@@ -132,35 +159,41 @@
         FROM t_rob_order_operate_log l
         INNER JOIN t_rob_order o
             ON o.id = l.order_id AND o.is_deleted = 0
+        LEFT JOIN (SELECT 1 AS n UNION ALL SELECT 2 AS n) split
+            ON l.operate_type = 3
         WHERE 1 = 1
         <include refid="eventTimeFilter"/>
         <include refid="eventTypeFilter"/>
-        ORDER BY l.create_time DESC, l.id DESC
+        ORDER BY l.create_time DESC, l.id DESC, split.n ASC
     </select>
 
-    <!-- 区间汇总：成交(下单事件,正额) / 红冲(取消事件,正额表示冲销规模)；转移事件不参与 -->
+    <!--
+        区间汇总：成交 income(下单事件 + 转移事件正向视角，正额) / 红冲 reversal(取消事件 + 转移事件红冲视角，正额表示冲销规模)。
+        转移事件不拆行：同一条 type=3 日志同时计入 income 与 reversal 各一次（笔数/件数/金额），净额由 Service 层相减自我抵消。
+        存量转移行 receipt/payment=0，对金额项贡献 0，笔数/件数仍各计 1（与分页拆行的退化口径一致）。
+    -->
     <select id="selectFlowSummary" resultMap="RobOrderFlowSummaryResultMap">
         SELECT
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN 1 ELSE 0 END), 0) AS income_count,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN 1 ELSE 0 END), 0) AS reversal_count,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.quantity ELSE 0 END), 0) AS income_quantity,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.quantity ELSE 0 END), 0) AS reversal_quantity,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.total_amount ELSE 0 END), 0) AS income_total_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.total_amount ELSE 0 END), 0) AS reversal_total_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.profit_amount ELSE 0 END), 0) AS income_profit_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.profit_amount ELSE 0 END), 0) AS reversal_profit_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.recommend_amount ELSE 0 END), 0) AS income_recommend_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.recommend_amount ELSE 0 END), 0) AS reversal_recommend_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_amount ELSE 0 END), 0) AS income_self_buy_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_amount ELSE 0 END), 0) AS reversal_self_buy_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS income_self_buy_bonus_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS reversal_self_buy_bonus_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS income_self_buy_coupon_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS reversal_self_buy_coupon_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN l.receipt_amount ELSE 0 END), 0) AS income_receipt_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN l.receipt_amount ELSE 0 END), 0) AS reversal_receipt_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 1 THEN l.payment_amount ELSE 0 END), 0) AS income_payment_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type = 2 THEN l.payment_amount ELSE 0 END), 0) AS reversal_payment_amount
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN 1 ELSE 0 END), 0) AS income_count,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN 1 ELSE 0 END), 0) AS reversal_count,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.quantity ELSE 0 END), 0) AS income_quantity,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.quantity ELSE 0 END), 0) AS reversal_quantity,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.total_amount ELSE 0 END), 0) AS income_total_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.total_amount ELSE 0 END), 0) AS reversal_total_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.profit_amount ELSE 0 END), 0) AS income_profit_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.profit_amount ELSE 0 END), 0) AS reversal_profit_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.recommend_amount ELSE 0 END), 0) AS income_recommend_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.recommend_amount ELSE 0 END), 0) AS reversal_recommend_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.self_buy_amount ELSE 0 END), 0) AS income_self_buy_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.self_buy_amount ELSE 0 END), 0) AS reversal_self_buy_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS income_self_buy_bonus_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS reversal_self_buy_bonus_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS income_self_buy_coupon_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS reversal_self_buy_coupon_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN l.receipt_amount ELSE 0 END), 0) AS income_receipt_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN l.receipt_amount ELSE 0 END), 0) AS reversal_receipt_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN l.payment_amount ELSE 0 END), 0) AS income_payment_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN l.payment_amount ELSE 0 END), 0) AS reversal_payment_amount
         FROM t_rob_order_operate_log l
         INNER JOIN t_rob_order o
             ON o.id = l.order_id AND o.is_deleted = 0

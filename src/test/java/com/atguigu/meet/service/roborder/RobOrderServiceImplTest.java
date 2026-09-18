@@ -425,6 +425,11 @@ class RobOrderServiceImplTest {
         stubTransferPrerequisites();
         stubWrites();
         when(userPointsService.checkReverseBalance(any())).thenReturn(null);
+        // 转移事件金额取同订单下单事件行正额快照（与取消同逻辑）
+        RobOrderOperateLog placeAmounts = new RobOrderOperateLog();
+        placeAmounts.setReceiptAmount(new BigDecimal("11.00"));
+        placeAmounts.setPaymentAmount(new BigDecimal("22.00"));
+        when(operateLogMapper.selectPlaceAmounts(ORDER_ID)).thenReturn(placeAmounts);
 
         Response resp = robOrderService.transferOrder(transferDTO(null));
 
@@ -435,6 +440,12 @@ class RobOrderServiceImplTest {
         verify(userPointsService, times(2)).credit(anyLong(), anyInt(), any(), anyInt(), anyLong(), any(), any());
         ArgumentCaptor<RobOrderOperateLog> logCaptor = ArgumentCaptor.forClass(RobOrderOperateLog.class);
         verify(operateLogMapper).insert(logCaptor.capture());
-        assertFalse(logCaptor.getValue().getRemark().contains("积分不足经确认强制执行"));
+        RobOrderOperateLog flowLog = logCaptor.getValue();
+        assertFalse(flowLog.getRemark().contains("积分不足经确认强制执行"));
+        // 原买家/原推荐人快照在订单 UPDATE 前捕获并落转移事件行；金额透传下单行正额快照
+        assertEquals(BUYER_ID, flowLog.getPrevBuyerId());
+        assertEquals(INVITER_ID, flowLog.getPrevInviterId());
+        assertEquals(new BigDecimal("11.00"), flowLog.getReceiptAmount());
+        assertEquals(new BigDecimal("22.00"), flowLog.getPaymentAmount());
     }
 }

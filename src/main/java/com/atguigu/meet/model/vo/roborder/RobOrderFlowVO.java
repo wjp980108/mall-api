@@ -10,8 +10,8 @@ import java.time.LocalDateTime;
 /**
  * 订单流水事件行 VO（管理端算账读模型）
  * <p>
- * 一行 = 一条订单操作事件（下单/取消/转移）。商品/买家/场次/金额取订单下单快照，
- * 金额按事件类型带符号：下单为正、取消为负（红冲）、转移为 0。
+ * 一行 = 一条订单操作事件（下单/取消/转移，转移拆红冲+正向两行）。商品/场次/金额取订单下单快照，
+ * 金额按事件视角带符号：下单为正、取消为负（红冲）、转移红冲为负/正向为正。
  */
 @Data
 @Schema(description = "订单流水事件行")
@@ -63,21 +63,21 @@ public class RobOrderFlowVO {
     @Schema(description = "买家手机号")
     private String buyerPhone;
 
-    @Schema(description = "购买数量（转移事件为0）")
+    @Schema(description = "带符号购买数量：下单为正/取消为负/转移红冲负、正向正")
     private Integer quantity;
 
     @Schema(description = "商品单价快照")
     private BigDecimal unitPrice;
 
-    @Schema(description = "带符号订单总额：下单为正/取消为负(红冲)/转移为0")
+    @Schema(description = "带符号订单总额：下单正/取消负(红冲)/转移红冲负、正向正")
     private BigDecimal signedTotalAmount;
 
-    /** 带符号回款（事件行落库值按事件类型打符号）：下单为正/取消为负(红冲)/转移为0；存量事件行为0 */
-    @Schema(description = "带符号回款：下单为正/取消为负(红冲)/转移为0")
+    /** 带符号回款（事件行落库值按事件视角打符号）：下单为正/取消为负(红冲)/转移红冲负、正向正；存量事件行为0 */
+    @Schema(description = "带符号回款：下单正/取消负(红冲)/转移红冲负、正向正")
     private BigDecimal receiptAmount;
 
-    /** 带符号付款金额（本金总额口径 P×N，事件行落库值按事件类型打符号）：下单为正/取消为负(红冲)/转移为0；存量事件行为0 */
-    @Schema(description = "带符号付款金额(本金总额)：下单为正/取消为负(红冲)/转移为0")
+    /** 带符号付款金额（本金总额口径 P×N，事件行落库值按事件视角打符号）：下单为正/取消为负(红冲)/转移红冲负、正向正；存量事件行为0 */
+    @Schema(description = "带符号付款金额(本金总额)：下单正/取消负(红冲)/转移红冲负、正向正")
     private BigDecimal paymentAmount;
 
     @Schema(description = "操作人ID")

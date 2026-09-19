@@ -100,14 +100,35 @@
     </select>
 
     <!--
-        事件流水分页
+        第 1 层·订单组分页：筛选条件（时间区间+事件类型）下至少含一条匹配事件的订单为一组。
+        组间排序键取组内匹配行的 MAX(create_time)/MAX(id) DESC——与第 2 层及 totalAmount 的行集合口径一致。
+        MyBatis-Plus 分页插件检测到 GROUP BY 时计数 SQL 自动包一层 SELECT COUNT(*) FROM (...)，total 即订单组数。
+    -->
+    <select id="selectFlowOrderGroups" resultType="com.atguigu.meet.model.vo.roborder.RobOrderFlowGroupVO">
+        SELECT
+            l.order_id              AS order_id,
+            MAX(l.create_time)      AS latest_event_time,
+            MAX(l.id)               AS latest_log_id
+        FROM t_rob_order_operate_log l
+        INNER JOIN t_rob_order o
+            ON o.id = l.order_id AND o.is_deleted = 0
+        WHERE 1 = 1
+        <include refid="eventTimeFilter"/>
+        <include refid="eventTypeFilter"/>
+        GROUP BY l.order_id
+        ORDER BY latest_event_time DESC, latest_log_id DESC
+    </select>
+
+    <!--
+        第 2 层·按订单组整组取事件行（筛选条件与组分页完全同参，额外限定 orderIds）。
         拆行规则：LEFT JOIN 常量派生表 split 仅在转移事件(operate_type=3)上命中两行——
-          split.n=1 红冲视角：买家取原买家快照(prev_buyer_*，存量 NULL 时 COALESCE 兜底为当前买家)，金额/件数带负号
-          split.n=2 正向视角：买家取订单当前买家，金额/件数带正号
-        下单(1)/取消(2)事件 split.n 为 NULL，仍为一行；取消金额打负号逻辑不变。
+          split.n=1 红冲视角：买家取原买家快照(prev_buyer_*，存量 NULL 时 COALESCE 兜底为当前买家)，数量/金额带负号
+          split.n=2 正向视角：买家取事件买家快照(buyer_*，即转移新买家；存量 NULL 时 COALESCE 兜底为当前买家)，数量/金额带正号
+        下单(1)/取消(2)事件 split.n 为 NULL，仍为一行；下单/取消买家同样取事件买家快照 l.buyer_*，缺失 COALESCE 当前买家；取消金额打负号逻辑不变。
+        组间顺序由 Service 按第 1 层 orderId 顺序保证，本 SQL 只保组内：事件时间/日志 ID 正序 + 红冲在前正向在后。
         存量转移行 receipt/payment=0 时 -0/+0 自然退化为两行 0 金额。
     -->
-    <select id="selectFlowPage" resultMap="RobOrderFlowVOResultMap">
+    <select id="selectFlowRowsByOrderIds" resultMap="RobOrderFlowVOResultMap">
         SELECT
             l.id                       AS log_id,
             l.operate_type             AS event_type,
@@ -122,13 +143,13 @@
             o.session_name,
             CASE WHEN l.operate_type = 3 AND split.n = 1
                  THEN COALESCE(l.prev_buyer_id, o.buyer_id)
-                 ELSE o.buyer_id END   AS buyer_id,
+                 ELSE COALESCE(l.buyer_id, o.buyer_id) END   AS buyer_id,
             CASE WHEN l.operate_type = 3 AND split.n = 1
                  THEN COALESCE(l.prev_buyer_name, o.buyer_name)
-                 ELSE o.buyer_name END AS buyer_name,
+                 ELSE COALESCE(l.buyer_name, o.buyer_name) END AS buyer_name,
             CASE WHEN l.operate_type = 3 AND split.n = 1
                  THEN COALESCE(l.prev_buyer_phone, o.buyer_phone)
-                 ELSE o.buyer_phone END AS buyer_phone,
+                 ELSE COALESCE(l.buyer_phone, o.buyer_phone) END AS buyer_phone,
             CASE
                 WHEN l.operate_type = 3 AND split.n = 1 THEN -o.quantity
                 WHEN l.operate_type = 3 AND split.n = 2 THEN o.quantity
@@ -162,9 +183,13 @@
         LEFT JOIN (SELECT 1 AS n UNION ALL SELECT 2 AS n) split
             ON l.operate_type = 3
         WHERE 1 = 1
+        AND l.order_id IN
+        <foreach collection="orderIds" item="oid" open="(" separator="," close=")">
+            #{oid}
+        </foreach>
         <include refid="eventTimeFilter"/>
         <include refid="eventTypeFilter"/>
-        ORDER BY l.create_time DESC, l.id DESC, split.n ASC
+        ORDER BY l.create_time ASC, l.id ASC, split.n ASC
     </select>
 
     <!--

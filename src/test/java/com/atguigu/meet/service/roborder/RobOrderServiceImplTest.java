@@ -155,6 +155,18 @@ class RobOrderServiceImplTest {
         assertEquals("北京市朝阳区某街道1号", order.getReceiveAddress());
         assertEquals(BUYER_ID, order.getBuyerId());
         assertEquals(RobOrderStatus.NORMAL.getCode(), order.getOrderStatus());
+
+        // 下单事件行落库事件买家快照（=下单买家），prev_buyer_* 一律为 NULL
+        ArgumentCaptor<RobOrderOperateLog> placeLogCaptor = ArgumentCaptor.forClass(RobOrderOperateLog.class);
+        verify(operateLogMapper).insert(placeLogCaptor.capture());
+        RobOrderOperateLog placeLog = placeLogCaptor.getValue();
+        assertEquals(BUYER_ID, placeLog.getBuyerId());
+        assertEquals("buyer10", placeLog.getBuyerName());
+        assertEquals("13900002222", placeLog.getBuyerPhone());
+        assertNull(placeLog.getPrevBuyerId());
+        assertNull(placeLog.getPrevBuyerName());
+        assertNull(placeLog.getPrevBuyerPhone());
+        assertNull(placeLog.getPrevInviterId());
     }
 
     // ====================== 跨零点场次 canPurchase 回归（fix-new-member-advance-midnight-wrap） ======================
@@ -269,6 +281,8 @@ class RobOrderServiceImplTest {
         order.setQuantity(1);
         order.setOrderStatus(RobOrderStatus.NORMAL.getCode());
         order.setBuyerId(BUYER_ID);
+        order.setBuyerName("buyer10");
+        order.setBuyerPhone("13900002222");
         order.setInviterId(INVITER_ID);
         order.setRecommendAmount(new BigDecimal("5.00"));
         order.setSelfBuyBonusAmount(new BigDecimal("3.00"));
@@ -420,7 +434,14 @@ class RobOrderServiceImplTest {
         // 余额充足时审计备注不含确认标注（与改造前行为一致）
         ArgumentCaptor<RobOrderOperateLog> logCaptor = ArgumentCaptor.forClass(RobOrderOperateLog.class);
         verify(operateLogMapper).insert(logCaptor.capture());
-        assertFalse(logCaptor.getValue().getRemark().contains("积分不足经确认强制执行"));
+        RobOrderOperateLog cancelLog = logCaptor.getValue();
+        assertFalse(cancelLog.getRemark().contains("积分不足经确认强制执行"));
+        // 取消事件行落库取消时买家快照（=订单当前买家），prev_buyer_* 为 NULL
+        assertEquals(BUYER_ID, cancelLog.getBuyerId());
+        assertEquals("buyer10", cancelLog.getBuyerName());
+        assertEquals("13900002222", cancelLog.getBuyerPhone());
+        assertNull(cancelLog.getPrevBuyerId());
+        assertNull(cancelLog.getPrevInviterId());
     }
 
     private void stubTransferPrerequisites() {
@@ -510,7 +531,13 @@ class RobOrderServiceImplTest {
         assertFalse(flowLog.getRemark().contains("积分不足经确认强制执行"));
         // 原买家/原推荐人快照在订单 UPDATE 前捕获并落转移事件行；金额透传下单行正额快照
         assertEquals(BUYER_ID, flowLog.getPrevBuyerId());
+        assertEquals("buyer10", flowLog.getPrevBuyerName());
+        assertEquals("13900002222", flowLog.getPrevBuyerPhone());
         assertEquals(INVITER_ID, flowLog.getPrevInviterId());
+        // 事件买家快照=转入新买家（正向行展示用）
+        assertEquals(30L, flowLog.getBuyerId());
+        assertEquals("buyer30", flowLog.getBuyerName());
+        assertEquals("13800003000", flowLog.getBuyerPhone());
         assertEquals(new BigDecimal("11.00"), flowLog.getReceiptAmount());
         assertEquals(new BigDecimal("22.00"), flowLog.getPaymentAmount());
     }

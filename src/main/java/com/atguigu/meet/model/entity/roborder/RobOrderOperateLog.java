@@ -69,6 +69,21 @@ public class RobOrderOperateLog extends Model<RobOrderOperateLog> {
     @Schema(description = "付款金额(本金总额口径：商品付款单价×数量)")
     private BigDecimal paymentAmount;
 
+    /**
+     * 事件发生时买家ID快照：下单事件=下单买家，取消事件=取消时订单当前买家，转移事件=转入新买家（正向行用）。
+     * 供流水查询的下单/取消/转移正向行展示，防止订单转移后历史行买家漂移；存量历史行为 NULL，查询层 COALESCE 兜底。
+     */
+    @Schema(description = "事件买家ID(下单=下单买家/取消=取消时买家/转移=新买家)")
+    private Long buyerId;
+
+    /** 事件发生时买家名称快照（下单/取消/转移正向行买家） */
+    @Schema(description = "事件买家名称快照")
+    private String buyerName;
+
+    /** 事件发生时买家手机号快照（下单/取消/转移正向行买家） */
+    @Schema(description = "事件买家手机号快照")
+    private String buyerPhone;
+
     /** 转移前买家ID（仅转移事件在订单 UPDATE 前写入的快照；下单/取消事件为 NULL） */
     @Schema(description = "转移前买家ID(仅转移事件快照)")
     private Long prevBuyerId;

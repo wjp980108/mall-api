@@ -11,6 +11,7 @@ import com.atguigu.meet.model.entity.roborder.RobOrder;
 import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowEventVO;
+import com.atguigu.meet.model.vo.roborder.RobOrderFlowGroupVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowPageResultVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowVO;
@@ -25,7 +26,10 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 订单流水 Service 实现：事件轴算账读模型，纯只读，不改订单/库存/积分/审计任何数据。
@@ -43,22 +47,39 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
     @Override
     public Response getFlowPage(RobOrderFlowPageQueryDTO parameter) {
         LocalDateTime[] range = parseRange(parameter.getTimeRange());
-        Page<RobOrderFlowVO> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
-        IPage<RobOrderFlowVO> result = robOrderFlowMapper.selectFlowPage(page,
+
+        // 第 1 层：订单组分页（页大小=订单组数，total=组总数，转移拆行不翻倍）
+        Page<RobOrderFlowGroupVO> groupPage = new Page<>(parameter.getPageNum(), parameter.getPageSize());
+        IPage<RobOrderFlowGroupVO> groups = robOrderFlowMapper.selectFlowOrderGroups(groupPage,
                 parameter.getOperateType(), range[0], range[1]);
-        result.getRecords().forEach(vo ->
-                vo.setEventTypeName(RobOrderOperateType.descOf(vo.getEventType())));
+
+        // 第 2 层：按组序整组取事件行并拼装平铺 list（同组连续、组间顺序锁定为第 1 层顺序，组内 SQL 已保正序）
+        List<RobOrderFlowVO> flatRows = new ArrayList<>();
+        if (!groups.getRecords().isEmpty()) {
+            List<Long> orderIds = groups.getRecords().stream()
+                    .map(RobOrderFlowGroupVO::getOrderId)
+                    .toList();
+            List<RobOrderFlowVO> rows = robOrderFlowMapper.selectFlowRowsByOrderIds(
+                    orderIds, parameter.getOperateType(), range[0], range[1]);
+            Map<Long, List<RobOrderFlowVO>> rowsByOrder = rows.stream()
+                    .collect(Collectors.groupingBy(RobOrderFlowVO::getOrderId));
+            for (Long orderId : orderIds) {
+                flatRows.addAll(rowsByOrder.getOrDefault(orderId, List.of()));
+            }
+        }
+        flatRows.forEach(vo -> vo.setEventTypeName(RobOrderOperateType.descOf(vo.getEventType())));
 
         // 当前筛选条件（含事件类型）下全部匹配事件的带符号金额合计
         BigDecimal totalAmount = robOrderFlowMapper.selectFlowTotalAmount(
                 parameter.getOperateType(), range[0], range[1]);
 
         RobOrderFlowPageResultVO pageResult = new RobOrderFlowPageResultVO();
-        pageResult.setList(result.getRecords());
-        pageResult.setTotal(result.getTotal());
-        pageResult.setPages(result.getPages());
-        pageResult.setCurrent(result.getCurrent());
-        pageResult.setSize(result.getSize());
+        pageResult.setList(flatRows);
+        // 分页元数据以订单组计（非拆行行数）
+        pageResult.setTotal(groups.getTotal());
+        pageResult.setPages(groups.getPages());
+        pageResult.setCurrent(groups.getCurrent());
+        pageResult.setSize(groups.getSize());
         pageResult.setTotalAmount(totalAmount != null ? totalAmount : BigDecimal.ZERO);
         return Response.ok(pageResult);
     }

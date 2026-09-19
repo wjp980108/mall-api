@@ -27,7 +27,8 @@ import org.springframework.web.bind.annotation.RestController;
  * 订单流水（管理端算账读模型）
  * <p>
  * 与「订单管理」（运营操作视角）刻意隔离：本类全部为只读接口，以订单操作事件发生日为轴，
- * 下单为正、取消红冲为负、转移为 0 元事件，历史账目不随后续操作改写。
+ * 下单为正、取消红冲为负、转移拆红冲（原买家、负额）与正向（新买家、正额）两行，历史账目不随后续操作改写。
+ * 明细分页以订单组为单位，同一订单事件行连续、组内按「下单→红冲→正向」正序。
  * 仅要求登录态，不做按钮权限校验（与后台查询类接口惯例一致）。
  */
 @RestController
@@ -40,26 +41,29 @@ public class RobOrderFlowController {
     private RobOrderFlowService robOrderFlowService;
 
     /**
-     * 事件流水分页
+     * 事件流水分页（按订单组）
      *
-     * <p>以订单操作事件的发生时间（t_rob_order_operate_log.create_time，非订单下单时间）为轴，
-     * 分页返回下单/取消/转移事件，用于按日算账。金额取订单下单时冻结的快照：
-     * 下单为正、取消为负（红冲）、转移为 0；取消事件归属取消实际发生日，
-     * 历史日流水不会因后续取消而被改写。
+     * <p>分页单位为<b>订单组</b>：筛选条件下至少含一条匹配事件的订单为一组，分页 total/pages 以组计数
+     * （转移拆两行不再使 total 翻倍），同组事件行不会被翻页切开。{@code list} 仍为平铺事件行：
+     * 同一订单的行连续出现，组间按组内最新匹配事件倒序（最近变动的订单在最前），
+     * 组内按事件时间正序排列为「下单(正) → 转移红冲(原买家,负) → 转移正向(新买家,正)」。
+     * 买家取各事件发生时落库的快照（下单行永远显示真实下单人，不随后续转移漂移）。
      *
      * @param parameter 分页 + 事件日期范围/事件类型：
-     *                  pageNum/pageSize 必填；
+     *                  pageNum/pageSize 必填（页大小=订单组数，每页实际渲染行数可大于组数）；
      *                  timeRange 事件发生日期范围（yyyy-MM-dd 起,止，逗号分隔；不传默认查全部，
      *                  查单日起止传同一天）；
-     *                  operateType 事件类型（1下单 2取消订单 3转移订单，不传查全部）
-     * @return 事件行分页，每行含事件类型及中文名、事件时间、订单ID/编号、商品（图/名/货号）、
-     *         买家（姓名/手机号）、场次、数量、带符号订单总额（下单正/取消负/转移拆两行：红冲负+正向正）、操作人、备注；
-     *         转移事件固定拆成两行——红冲行买家为原买家快照、金额为负，正向行买家为当前买家、金额为正（两行同属转移发生日）；
+     *                  operateType 事件类型（1下单 2取消订单 3转移订单，不传查全部）；
+     *                  筛选同时作用于组定位与组内行——只筛下单时仅含下单事件的订单入组且组内只返回下单行
+     * @return 平铺事件行分页（同订单行连续，可按相邻 orderId 合并单元格），每行含事件类型及中文名、事件时间、
+     *         订单ID/编号、商品（图/名/货号）、事件买家（姓名/手机号）、场次、数量、
+     *         带符号订单总额（下单正/取消负/转移红冲负+正向正）、操作人、备注；
+     *         分页字段 total/pages/current/size 以订单组计；
      *         另含 totalAmount 字段：当前筛选条件（含事件类型）下全部匹配事件的带符号金额合计
      *         （非仅当前页；下单正/取消负/转移两行抵消为0；筛取消时为负，无匹配为0）
      */
     @GetMapping
-    @Operation(summary = "订单流水分页", description = "按事件发生时间（不传默认查全部）分页返回下单/取消/转移事件；下单金额为正、取消为负(红冲)、转移拆成红冲(原买家,负额)+正向(当前买家,正额)两行，分页 total 相应翻倍，totalAmount 中两行抵消为0；支持事件类型筛选。响应另含 totalAmount：当前筛选结果全部事件的带符号金额合计（受事件类型筛选影响）")
+    @Operation(summary = "订单流水分页（按订单组）", description = "分页单位=订单组：至少含一条匹配事件的订单为一组，total/pages 以组计数（转移拆行不翻倍），同组行不跨页；list 保持平铺，同订单行连续，组间按最新匹配事件倒序、组内按事件时间正序（下单+ → 转移红冲- → 转移正向+，链式转移按时间成对排列）；买家取事件发生时快照（下单行不随后续转移漂移）；事件类型筛选同时作用于组定位与组内行。响应另含 totalAmount：当前筛选结果全部事件的带符号金额合计（受事件类型筛选影响）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderFlowPageResultVO.class)))
     public Response getFlowPage(@Valid RobOrderFlowPageQueryDTO parameter) {
         return robOrderFlowService.getFlowPage(parameter);

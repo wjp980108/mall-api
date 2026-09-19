@@ -38,6 +38,7 @@ import com.atguigu.meet.service.user.UserAddressService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.OrderNoUtil;
+import com.atguigu.meet.utils.RushWindowUtils;
 import com.atguigu.meet.utils.TimeRangeUtils;
 import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -509,24 +510,24 @@ public class RobOrderServiceImpl implements RobOrderService {
         vo.setLimitRuleName(limitRuleName(limitRule));
 
         // 3. 抢购时间窗口（新会员需 newMemberDays>0 且 advanceMin>0 双开关开启才提前；未登录按普通窗口）
+        // 窗口数学统一走 RushWindowUtils（跨零点安全），本处只负责「是否享有提前资格」的身份/开关判定
         boolean inWindow = false;
-        boolean isNewMember = false;
         if (vo.getRushStartTime() != null && vo.getRushEndTime() != null) {
-            LocalTime effectiveStart = vo.getRushStartTime();
-            if (currentUserId != null) {
+            Integer advanceMin = null;
+            if (currentUserId != null && settings != null) {
                 SysUser buyer = userMapper.selectById(currentUserId);
-                isNewMember = buyer != null && buyer.getMemberType() != null && buyer.getMemberType() == 0;
-                if (isNewMember && settings != null) {
+                boolean isNewMember = buyer != null && buyer.getMemberType() != null && buyer.getMemberType() == 0;
+                if (isNewMember) {
                     Integer newMemberDays = settings.getNewMemberDays();
-                    Integer advanceMin = settings.getNewMemberAdvanceMinutes();
+                    Integer advanceMinutes = settings.getNewMemberAdvanceMinutes();
                     if (newMemberDays != null && newMemberDays > 0
-                            && advanceMin != null && advanceMin > 0) {
-                        effectiveStart = vo.getRushStartTime().minusMinutes(advanceMin);
+                            && advanceMinutes != null && advanceMinutes > 0) {
+                        advanceMin = advanceMinutes;
                     }
                 }
             }
-            LocalTime now = LocalTime.now();
-            inWindow = !now.isBefore(effectiveStart) && !now.isAfter(vo.getRushEndTime());
+            inWindow = RushWindowUtils.inWindow(vo.getRushStartTime(), vo.getRushEndTime(),
+                    LocalTime.now(), advanceMin);
         }
 
         // 4. 限购命中（未登录或不限购视为未命中，点击下单仍走登录校验）
@@ -602,19 +603,15 @@ public class RobOrderServiceImpl implements RobOrderService {
         if (start == null || end == null) {
             return Response.fail(500, "场次抢购时间未配置");
         }
-        LocalTime now = LocalTime.now();
-        LocalTime effectiveStart = start;
         // 新会员提前进场：需同时开启新会员权益(newMemberDays>0)与提前抢购(advanceMin>0)，且用户为新会员(member_type=0)
         boolean isNewMember = buyer.getMemberType() != null && buyer.getMemberType() == 0;
         Integer newMemberDays = settings.getNewMemberDays();
         Integer advanceMin = settings.getNewMemberAdvanceMinutes();
-        boolean newMemberAdvance = isNewMember
+        Integer effectiveAdvance = (isNewMember
                 && newMemberDays != null && newMemberDays > 0
-                && advanceMin != null && advanceMin > 0;
-        if (newMemberAdvance) {
-            effectiveStart = start.minusMinutes(advanceMin);
-        }
-        if (now.isBefore(effectiveStart) || now.isAfter(end)) {
+                && advanceMin != null && advanceMin > 0) ? advanceMin : null;
+        // 窗口数学统一走 RushWindowUtils（跨零点安全），闭区间边界与「不在抢购时间内」文案保持不变
+        if (!RushWindowUtils.inWindow(start, end, LocalTime.now(), effectiveAdvance)) {
             return Response.fail(500, "不在抢购时间内");
         }
         return null;

@@ -31,6 +31,7 @@ import com.atguigu.meet.service.seckill.guard.SeckillSellingGuard;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.atguigu.meet.utils.RequestContextUtil;
+import com.atguigu.meet.utils.RushWindowUtils;
 import com.atguigu.meet.utils.TimeRangeUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
@@ -353,6 +354,11 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
      * 此处对登录的新会员且 sys_settings 开启提前抢购(advance>0 且 new_member_days>0)时，
      * 将提前窗口 [rush_start - advance, rush_end] 内但 XML 判定为 false 的商品放宽为 true。
      * 未登录/老会员/功能关闭 → 保持 XML 原值不动。
+     * <p>
+     * 已知限制：场次取遗留列 t_consign_goods.session_id（见 ConsignGoodsVO.sessionId），
+     * 可能与 t_session_product 实时关联错位；本方法只保证「拿到同一场次后窗口数学正确」
+     * （跨零点安全，口径同 RushWindowUtils），场次来源错位另案处理，
+     * 前端抢购以 /app/robOrder 新链路为准。
      */
     private void applyNewMemberAdvancePurchase(List<ConsignGoodsVO> records) {
         if (records == null || records.isEmpty()) {
@@ -400,9 +406,9 @@ public class ConsignGoodsServiceImpl extends ServiceImpl<ConsignGoodsMapper, Con
             if (session.getRushStartTime() == null || session.getRushEndTime() == null) {
                 continue;
             }
-            LocalTime advanceStart = session.getRushStartTime().minusMinutes(advanceMinutes);
-            // 在提前窗口 [advanceStart, rush_end] 内则放宽为可购
-            if (!now.isBefore(advanceStart) && !now.isAfter(session.getRushEndTime())) {
+            // 在提前窗口内则放宽为可购（跨零点安全：00:00~00:29 开场场次当天下界退化为 00:00）
+            if (RushWindowUtils.inWindow(session.getRushStartTime(), session.getRushEndTime(),
+                    now, advanceMinutes)) {
                 vo.setCanPurchase(true);
             }
         }

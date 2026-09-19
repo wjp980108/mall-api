@@ -21,6 +21,7 @@ import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.entity.user.UserAddress;
 import com.atguigu.meet.model.vo.roborder.InsufficientUserVO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
+import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.points.UserPointsService;
@@ -34,7 +35,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
+import org.mockito.MockedStatic;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
@@ -52,6 +55,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.mockingDetails;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -151,6 +155,70 @@ class RobOrderServiceImplTest {
         assertEquals("北京市朝阳区某街道1号", order.getReceiveAddress());
         assertEquals(BUYER_ID, order.getBuyerId());
         assertEquals(RobOrderStatus.NORMAL.getCode(), order.getOrderStatus());
+    }
+
+    // ====================== 跨零点场次 canPurchase 回归（fix-new-member-advance-midnight-wrap） ======================
+
+    /** 构造可购详情 VO：场次开启、商品上架挂卖、库存充足，抢购窗口按用例给定 */
+    private RobGoodsDetailVO saleGoodsDetailVO(LocalTime start, LocalTime end) {
+        RobGoodsDetailVO vo = new RobGoodsDetailVO();
+        vo.setSessionProductId(SP_ID);
+        vo.setSessionId(3L);
+        vo.setSessionStatus(1);
+        vo.setOnlineStatus(1);
+        vo.setGoodsStatus(1);
+        vo.setStock(10);
+        vo.setRushStartTime(start);
+        vo.setRushEndTime(end);
+        return vo;
+    }
+
+    /** 桩详情查询 + 指定会员类型买家 + 新会员双开关（newMemberDays=7、advance=30、不限购） */
+    private void stubSaleGoodsDetail(LocalTime start, LocalTime end, Integer memberType) {
+        when(sessionProductMapper.selectRobGoodsDetailById(SP_ID)).thenReturn(saleGoodsDetailVO(start, end));
+        SysUser buyer = new SysUser();
+        buyer.setId(BUYER_ID);
+        buyer.setMemberType(memberType);
+        when(userMapper.selectById(BUYER_ID)).thenReturn(buyer);
+        SysSettings settings = new SysSettings();
+        settings.setNewMemberDays(7);
+        settings.setNewMemberAdvanceMinutes(30);
+        settings.setLimitRule(0);
+        when(sysSettingsService.get()).thenReturn(settings);
+    }
+
+    /** 在固定时钟下调用详情接口并取出 VO */
+    private RobGoodsDetailVO detailAt(LocalTime fixedNow) {
+        // CALLS_REAL_METHODS：仅桩 now()，LocalTime 的时间算术（minusMinutes 等内部静态调用）保持真实
+        try (MockedStatic<LocalTime> mockedClock = mockStatic(LocalTime.class, Mockito.CALLS_REAL_METHODS)) {
+            mockedClock.when(LocalTime::now).thenReturn(fixedNow);
+            Response resp = robOrderService.getSaleGoodsDetail(SP_ID, BUYER_ID);
+            assertEquals(200, resp.getCode());
+            return (RobGoodsDetailVO) resp.getData();
+        }
+    }
+
+    @Test
+    void saleGoodsDetail_allDaySession_newMember_canPurchaseAtNoon() {
+        // 全天场 00:00~23:59 + 新会员双开关：修复前 12:00 因 00:00-30分回绕为 23:30 而误判 false
+        stubSaleGoodsDetail(LocalTime.of(0, 0), LocalTime.of(23, 59), 0);
+        assertTrue(detailAt(LocalTime.of(12, 0)).getCanPurchase());
+    }
+
+    @Test
+    void saleGoodsDetail_allDaySession_oldMember_canPurchaseAtNoon() {
+        // 同条件老会员对照：正常窗口本就覆盖全天，新老结果一致
+        stubSaleGoodsDetail(LocalTime.of(0, 0), LocalTime.of(23, 59), 1);
+        assertTrue(detailAt(LocalTime.of(12, 0)).getCanPurchase());
+    }
+
+    @Test
+    void saleGoodsDetail_normalSession_newMemberBeforeWindow_cannotPurchase() {
+        // 防过度放宽：正常场 18:30 开场（提前后 18:00），新会员 12:00 仍不可购
+        stubSaleGoodsDetail(LocalTime.of(18, 30), LocalTime.of(23, 30), 0);
+        assertFalse(detailAt(LocalTime.of(12, 0)).getCanPurchase());
+        // 提前窗口生效：18:00 整点可购
+        assertTrue(detailAt(LocalTime.of(18, 0)).getCanPurchase());
     }
 
     /** 桩齐地址校验之前的全部下单前置：买家、场次商品关联、场次、商品、时间窗口/限购设置 */

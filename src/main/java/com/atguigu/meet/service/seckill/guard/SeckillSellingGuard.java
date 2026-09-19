@@ -6,6 +6,7 @@ import com.atguigu.meet.model.entity.general.settings.SysSettings;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
+import com.atguigu.meet.utils.RushWindowUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
@@ -152,6 +153,10 @@ public class SeckillSellingGuard {
 
     /**
      * 售卖窗口判定：now ∈ [effectiveStart, rushEnd]（每日时段，不含场次启用状态，由调用方先行判断）
+     * <p>
+     * 窗口数学统一走 {@link RushWindowUtils}（与 C 端购买链路同口径、跨零点安全）：
+     * advanceMinutes 为 null 表示双开关未开启、按正常窗口；提前量跨入前一日时当日下界退化为 00:00，
+     * 保证全天场（00:00 开场）白天正确判定售卖中，而非被 LocalTime 回绕收缩到深夜时段。
      */
     private boolean isSellingAt(Session session, LocalTime now, Integer advanceMinutes) {
         LocalTime start = session.getRushStartTime();
@@ -159,7 +164,6 @@ public class SeckillSellingGuard {
         if (start == null || end == null) {
             return false;
         }
-        LocalTime effectiveStart = advanceMinutes != null ? start.minusMinutes(advanceMinutes) : start;
-        return !now.isBefore(effectiveStart) && !now.isAfter(end);
+        return RushWindowUtils.inWindow(start, end, now, advanceMinutes);
     }
 }

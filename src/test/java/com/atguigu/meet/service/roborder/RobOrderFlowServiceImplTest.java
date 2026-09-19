@@ -5,7 +5,6 @@ import com.atguigu.meet.mapper.roborder.RobOrderFlowMapper;
 import com.atguigu.meet.mapper.roborder.RobOrderMapper;
 import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
 import com.atguigu.meet.model.dto.roborder.RobOrderFlowPageQueryDTO;
-import com.atguigu.meet.model.vo.roborder.RobOrderFlowGroupVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowPageResultVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowVO;
 import com.atguigu.meet.service.roborder.impl.RobOrderFlowServiceImpl;
@@ -18,24 +17,21 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
  * RobOrderFlowServiceImpl 单元测试
  * <p>
- * 聚焦按订单组两层分页的 Java 组装契约（fix-rob-order-flow-group-by-order）：
- * 第 2 层 SQL 只保组内正序，组间顺序必须由 Service 按第 1 层 orderId 序列重排；
- * 分页元数据以订单组计，空页不得发起第 2 层查询。
+ * 聚焦单层事件物理行分页契约（fix-rob-order-flow-page-by-time）：
+ * Service 直出 Mapper 行分页结果——全局事件时间倒序，同一转移事件的正向行(+)
+ * MUST 在红冲行(-)之前；不按订单聚合，分页元数据以物理行计。
  */
 @ExtendWith(MockitoExtension.class)
 class RobOrderFlowServiceImplTest {
@@ -50,12 +46,6 @@ class RobOrderFlowServiceImplTest {
     @InjectMocks
     private RobOrderFlowServiceImpl robOrderFlowService;
 
-    private RobOrderFlowGroupVO group(long orderId) {
-        RobOrderFlowGroupVO g = new RobOrderFlowGroupVO();
-        g.setOrderId(orderId);
-        return g;
-    }
-
     private RobOrderFlowVO row(long orderId, int eventType, LocalDateTime time, String amount) {
         RobOrderFlowVO vo = new RobOrderFlowVO();
         vo.setOrderId(orderId);
@@ -67,28 +57,25 @@ class RobOrderFlowServiceImplTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void getFlowPage_reordersRowsByGroupSequence_andKeepsWithinGroupAsc() {
+    void getFlowPage_passesThroughRowPage_sameTimePositiveBeforeReversal() {
         RobOrderFlowPageQueryDTO dto = new RobOrderFlowPageQueryDTO();
         dto.setPageNum(1);
         dto.setPageSize(10);
 
-        // 第 1 层：当页组序 O1 在前、O3 在后（组总数 7）
-        Page<RobOrderFlowGroupVO> groupPage = new Page<>(1, 10);
-        groupPage.setRecords(List.of(group(1L), group(3L)));
-        groupPage.setTotal(7L);
-        when(robOrderFlowMapper.selectFlowOrderGroups(any(), any(), any(), any())).thenReturn(groupPage);
-
-        // 第 2 层：SQL 全局时间正序返回——O3 的 5 行（16 点）整体早于 O1 的 3 行（17 点）
-        List<RobOrderFlowVO> sqlOrderRows = new ArrayList<>();
-        sqlOrderRows.add(row(3L, 1, LocalDateTime.of(2026, 9, 19, 16, 0), "10400.00"));
-        sqlOrderRows.add(row(3L, 3, LocalDateTime.of(2026, 9, 19, 16, 10), "-10400.00"));
-        sqlOrderRows.add(row(3L, 3, LocalDateTime.of(2026, 9, 19, 16, 10), "10400.00"));
-        sqlOrderRows.add(row(3L, 3, LocalDateTime.of(2026, 9, 19, 16, 20), "-10400.00"));
-        sqlOrderRows.add(row(3L, 3, LocalDateTime.of(2026, 9, 19, 16, 20), "10400.00"));
-        sqlOrderRows.add(row(1L, 1, LocalDateTime.of(2026, 9, 19, 17, 5), "10400.00"));
-        sqlOrderRows.add(row(1L, 3, LocalDateTime.of(2026, 9, 19, 17, 6), "-10400.00"));
-        sqlOrderRows.add(row(1L, 3, LocalDateTime.of(2026, 9, 19, 17, 6), "10400.00"));
-        when(robOrderFlowMapper.selectFlowRowsByOrderIds(anyList(), any(), any(), any())).thenReturn(sqlOrderRows);
+        // Mapper 行分页结果（ORDER BY create_time DESC, id DESC, split.n DESC 的直出顺序）
+        List<RobOrderFlowVO> records = List.of(
+                // 18:00 订单3 下单
+                row(3L, 1, LocalDateTime.of(2026, 9, 19, 18, 0), "100.00"),
+                // 17:10 订单1 第二次转移正向(C) +
+                row(1L, 3, LocalDateTime.of(2026, 9, 19, 17, 10), "100.00"),
+                // 17:10 订单1 第二次转移红冲(B) -
+                row(1L, 3, LocalDateTime.of(2026, 9, 19, 17, 10), "-100.00"),
+                // 17:05 订单1 下单（同订单行不连续，排在其转移行下方）
+                row(1L, 1, LocalDateTime.of(2026, 9, 19, 17, 5), "100.00"));
+        Page<RobOrderFlowVO> rowPage = new Page<>(1, 10);
+        rowPage.setRecords(records);
+        rowPage.setTotal(9L);
+        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any())).thenReturn(rowPage);
         when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any())).thenReturn(BigDecimal.ZERO);
 
         Response resp = robOrderFlowService.getFlowPage(dto);
@@ -98,38 +85,35 @@ class RobOrderFlowServiceImplTest {
         assertNotNull(result);
         List<RobOrderFlowVO> list = result.getList();
 
-        // 平铺 8 行：先整组 O1（3 行），再整组 O3（5 行），同组连续且组内保持 SQL 正序
-        assertEquals(8, list.size());
-        assertEquals(List.of(1L, 1L, 1L, 3L, 3L, 3L, 3L, 3L),
+        // 4 行直出，顺序不被重排；不按订单聚合（orderIds = 3,1,1,1）
+        assertEquals(4, list.size());
+        assertEquals(List.of(3L, 1L, 1L, 1L),
                 list.stream().map(RobOrderFlowVO::getOrderId).toList());
-        // O1 组内：下单(1) -> 红冲(3,-) -> 正向(3,+)
-        assertEquals(List.of(1, 3, 3), list.subList(0, 3).stream().map(RobOrderFlowVO::getEventType).toList());
-        assertEquals("10400.00", list.get(0).getSignedTotalAmount().toPlainString());
-        assertEquals("-10400.00", list.get(1).getSignedTotalAmount().toPlainString());
-        assertEquals("10400.00", list.get(2).getSignedTotalAmount().toPlainString());
-        // O3 链式两次转移的五行顺序原样保留
-        assertEquals(List.of(1, 3, 3, 3, 3),
-                list.subList(3, 8).stream().map(RobOrderFlowVO::getEventType).toList());
+        // 同刻正向行(+100) 在红冲行(-100) 之前
+        assertEquals("100.00", list.get(1).getSignedTotalAmount().toPlainString());
+        assertEquals("-100.00", list.get(2).getSignedTotalAmount().toPlainString());
         // 中文名已回填
         assertNotNull(list.get(0).getEventTypeName());
+        assertNotNull(list.get(1).getEventTypeName());
 
-        // 分页元数据以订单组计
-        assertEquals(7L, result.getTotal());
+        // 分页元数据以事件物理行计
+        assertEquals(9L, result.getTotal());
         assertEquals(1L, result.getCurrent());
         assertEquals(10L, result.getSize());
         assertEquals(0, BigDecimal.ZERO.compareTo(result.getTotalAmount()));
     }
 
     @Test
-    void getFlowPage_emptyPage_skipsSecondLayerQuery() {
+    @SuppressWarnings("unchecked")
+    void getFlowPage_emptyPage_returnsEmptyList() {
         RobOrderFlowPageQueryDTO dto = new RobOrderFlowPageQueryDTO();
         dto.setPageNum(99);
         dto.setPageSize(10);
 
-        Page<RobOrderFlowGroupVO> emptyPage = new Page<>(99, 10);
+        Page<RobOrderFlowVO> emptyPage = new Page<>(99, 10);
         emptyPage.setRecords(List.of());
         emptyPage.setTotal(0L);
-        when(robOrderFlowMapper.selectFlowOrderGroups(any(), any(), any(), any())).thenReturn(emptyPage);
+        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any())).thenReturn(emptyPage);
         when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any())).thenReturn(BigDecimal.ZERO);
 
         Response resp = robOrderFlowService.getFlowPage(dto);
@@ -139,7 +123,7 @@ class RobOrderFlowServiceImplTest {
         assertNotNull(result);
         assertTrue(result.getList().isEmpty());
         assertEquals(0L, result.getTotal());
-        // 无订单组时不得发起第 2 层 IN 查询
-        verify(robOrderFlowMapper, never()).selectFlowRowsByOrderIds(anyList(), any(), any(), any());
+        // 单层分页：只查一次分页、一次合计
+        verify(robOrderFlowMapper).selectFlowPage(any(), any(), any(), any());
     }
 }

@@ -406,6 +406,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         UserVO userVO = new UserVO();
         BeanConvertUtils.copyProperties(existUser, userVO);
         userVO.setGenderName(Gender.descOf(userVO.getGender()));
+        // 邀请码在 sys_invite_code 表，纯读回填；无码存量用户返回 null
+        userVO.setInviteCode(inviteCodeService.getInviteCodeByUserId(existUser.getId()));
         return Response.ok("查询用户成功", userVO);
     }
 
@@ -499,7 +501,13 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                     .stream()
                     .collect(Collectors.toMap(UserPoints::getUserId, p -> p, (a, b) -> a));
 
-            // 4. 组装 UserVO（含角色 ID 列表 + 角色名称拼接 + 角色完整信息列表 + 积分字段）
+            // 4. 批量查邀请码（sys_invite_code，uk_inviter 保证1人1码），按 inviterId 映射；无码存量用户映射缺失保持 null（纯读不懒生成）
+            java.util.Map<Long, String> inviteCodeMap = sysInviteCodeMapper.selectList(
+                            new LambdaQueryWrapper<SysInviteCode>().in(SysInviteCode::getInviterId, userIds))
+                    .stream()
+                    .collect(Collectors.toMap(SysInviteCode::getInviterId, SysInviteCode::getInviteCode, (a, b) -> a));
+
+            // 5. 组装 UserVO（含角色 ID 列表 + 角色名称拼接 + 角色完整信息列表 + 积分字段 + 邀请码）
             final java.util.Map<Long, RoleVO> finalRoleIdToVOMap = roleIdToVOMap;
             for (SysUser user : records) {
                 UserVO vo = new UserVO();
@@ -527,6 +535,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
                 vo.setPoints(pointsVal);
                 vo.setCouponPoints(couponVal);
                 vo.setTotalPoints(pointsVal.add(couponVal));
+                // 邀请码回填（无码存量用户为 null，需在邀请页调 /invite/code/generate 补得）
+                vo.setInviteCode(inviteCodeMap.get(user.getId()));
                 voList.add(vo);
             }
         }

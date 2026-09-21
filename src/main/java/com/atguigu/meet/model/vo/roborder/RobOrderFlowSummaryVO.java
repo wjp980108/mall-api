@@ -24,6 +24,30 @@ public class RobOrderFlowSummaryVO {
     @Schema(description = "净额（成交 - 红冲）")
     private FlowAmountSummary net;
 
+    /** 回款总金额（净额口径：成交回款取整 - 红冲回款取整） */
+    @Schema(description = "回款总金额（净额口径）")
+    private BigDecimal totalReceiptAmount = BigDecimal.ZERO;
+
+    /** 付款总金额（净额口径：成交付款 - 红冲付款） */
+    @Schema(description = "付款总金额（净额口径）")
+    private BigDecimal totalPaymentAmount = BigDecimal.ZERO;
+
+    /** 销售奖 = 净订单总额 × 系统推荐奖比例(%) */
+    @Schema(description = "销售奖（净订单总额×推荐奖比例）")
+    private BigDecimal salesAward = BigDecimal.ZERO;
+
+    /** 技术服务费 = 净订单总额 × 0.2% */
+    @Schema(description = "技术服务费（净订单总额×0.2%）")
+    private BigDecimal techServiceFee = BigDecimal.ZERO;
+
+    /** 站长服务费 = 净订单总额 × 1.2% */
+    @Schema(description = "站长服务费（净订单总额×1.2%）")
+    private BigDecimal stationServiceFee = BigDecimal.ZERO;
+
+    /** 订单利润差 = (回款总金额 - 付款总金额) + 销售奖 + 技术服务费 + 站长服务费 */
+    @Schema(description = "订单利润差")
+    private BigDecimal orderProfitDiff = BigDecimal.ZERO;
+
     /**
      * 一组金额聚合指标
      */
@@ -55,8 +79,8 @@ public class RobOrderFlowSummaryVO {
         @Schema(description = "购物券金额")
         private BigDecimal selfBuyCouponAmount = BigDecimal.ZERO;
 
-        @Schema(description = "回款金额（红冲组为冲销规模正数）")
-        private BigDecimal receiptAmount = BigDecimal.ZERO;
+        @Schema(description = "回款取整金额（红冲组为冲销规模正数）")
+        private BigDecimal receiptRoundAmount = BigDecimal.ZERO;
 
         @Schema(description = "付款金额（本金总额口径，红冲组为冲销规模正数）")
         private BigDecimal paymentAmount = BigDecimal.ZERO;

@@ -9,11 +9,13 @@ import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
 import com.atguigu.meet.model.dto.roborder.RobOrderFlowPageQueryDTO;
 import com.atguigu.meet.model.entity.roborder.RobOrder;
 import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
+import com.atguigu.meet.model.entity.general.settings.SysSettings;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowEventVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowPageResultVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderFlowVO;
+import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.roborder.RobOrderFlowService;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
@@ -23,6 +25,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -33,12 +36,20 @@ import java.util.List;
 @Service
 public class RobOrderFlowServiceImpl implements RobOrderFlowService {
 
+    /** 技术服务费率（0.2%） */
+    private static final BigDecimal TECH_SERVICE_FEE_RATE = new BigDecimal("0.2");
+    /** 站长服务费率（1.2%） */
+    private static final BigDecimal STATION_SERVICE_FEE_RATE = new BigDecimal("1.2");
+    private static final BigDecimal HUNDRED = new BigDecimal("100");
+
     @Autowired
     private RobOrderFlowMapper robOrderFlowMapper;
     @Autowired
     private RobOrderMapper robOrderMapper;
     @Autowired
     private RobOrderOperateLogMapper operateLogMapper;
+    @Autowired
+    private SysSettingsService sysSettingsService;
 
     @Override
     public Response getFlowPage(RobOrderFlowPageQueryDTO parameter) {
@@ -47,13 +58,13 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
         // 单层拆行行级分页：total/pages 按事件物理行计（转移翻倍），全局事件时间倒序、同刻正向(+)在红冲(-)之上
         Page<RobOrderFlowVO> page = new Page<>(parameter.getPageNum(), parameter.getPageSize());
         IPage<RobOrderFlowVO> flowPage = robOrderFlowMapper.selectFlowPage(
-                page, parameter.getOperateType(), range[0], range[1]);
+                page, parameter.getOperateType(), range[0], range[1], parameter.getKeyword());
         flowPage.getRecords()
                 .forEach(vo -> vo.setEventTypeName(RobOrderOperateType.descOf(vo.getEventType())));
 
-        // 当前筛选条件（含事件类型）下全部匹配事件的带符号金额合计
+        // 当前筛选条件（含事件类型、keyword）下全部匹配事件的带符号金额合计
         BigDecimal totalAmount = robOrderFlowMapper.selectFlowTotalAmount(
-                parameter.getOperateType(), range[0], range[1]);
+                parameter.getOperateType(), range[0], range[1], parameter.getKeyword());
 
         RobOrderFlowPageResultVO pageResult = new RobOrderFlowPageResultVO();
         pageResult.setList(flowPage.getRecords());
@@ -79,7 +90,32 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
                 vo.getReversal() != null ? vo.getReversal() : new RobOrderFlowSummaryVO.FlowAmountSummary();
         vo.setIncome(income);
         vo.setReversal(reversal);
-        vo.setNet(buildNet(income, reversal));
+        RobOrderFlowSummaryVO.FlowAmountSummary net = buildNet(income, reversal);
+        vo.setNet(net);
+
+        // 顶层总额（净额口径）
+        BigDecimal totalReceipt = nz(net.getReceiptRoundAmount());
+        BigDecimal totalPayment = nz(net.getPaymentAmount());
+        vo.setTotalReceiptAmount(totalReceipt);
+        vo.setTotalPaymentAmount(totalPayment);
+
+        // 三项平台服务费：基数 = 净订单总额
+        BigDecimal base = nz(net.getTotalAmount());
+        SysSettings settings = sysSettingsService.get();
+        BigDecimal recommendRate = (settings != null && settings.getRecommendRate() != null)
+                ? settings.getRecommendRate() : BigDecimal.ZERO;
+        BigDecimal salesAward = percent(base, recommendRate);
+        BigDecimal techServiceFee = percent(base, TECH_SERVICE_FEE_RATE);
+        BigDecimal stationServiceFee = percent(base, STATION_SERVICE_FEE_RATE);
+        vo.setSalesAward(salesAward);
+        vo.setTechServiceFee(techServiceFee);
+        vo.setStationServiceFee(stationServiceFee);
+
+        // 订单利润差 = (回款总 - 付款总) + 销售奖 + 技术服务费 + 站长服务费
+        BigDecimal orderProfitDiff = totalReceipt.subtract(totalPayment)
+                .add(salesAward).add(techServiceFee).add(stationServiceFee);
+        vo.setOrderProfitDiff(orderProfitDiff);
+
         return Response.ok(vo);
     }
 
@@ -135,7 +171,7 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
         net.setSelfBuyAmount(nz(income.getSelfBuyAmount()).subtract(nz(reversal.getSelfBuyAmount())));
         net.setSelfBuyBonusAmount(nz(income.getSelfBuyBonusAmount()).subtract(nz(reversal.getSelfBuyBonusAmount())));
         net.setSelfBuyCouponAmount(nz(income.getSelfBuyCouponAmount()).subtract(nz(reversal.getSelfBuyCouponAmount())));
-        net.setReceiptAmount(nz(income.getReceiptAmount()).subtract(nz(reversal.getReceiptAmount())));
+        net.setReceiptRoundAmount(nz(income.getReceiptRoundAmount()).subtract(nz(reversal.getReceiptRoundAmount())));
         net.setPaymentAmount(nz(income.getPaymentAmount()).subtract(nz(reversal.getPaymentAmount())));
         return net;
     }
@@ -150,6 +186,14 @@ public class RobOrderFlowServiceImpl implements RobOrderFlowService {
 
     private BigDecimal nz(BigDecimal v) {
         return v == null ? BigDecimal.ZERO : v;
+    }
+
+    /** 按百分比计算金额（rate 为百分数，如 0.2 表示 0.2%），保留两位小数四舍五入 */
+    private BigDecimal percent(BigDecimal base, BigDecimal rate) {
+        if (base == null || rate == null) {
+            return BigDecimal.ZERO;
+        }
+        return base.multiply(rate).divide(HUNDRED, 2, RoundingMode.HALF_UP);
     }
 
     /**

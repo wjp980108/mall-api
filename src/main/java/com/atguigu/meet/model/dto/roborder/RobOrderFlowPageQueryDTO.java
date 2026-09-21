@@ -33,6 +33,10 @@ public class RobOrderFlowPageQueryDTO {
     @Schema(description = "事件类型 1下单 2取消订单 3转移订单")
     private Integer operateType;
 
+    /** 买家模糊查询关键词（按事件行展示买家匹配：买家姓名/手机号/买家ID；不传查全部） */
+    @Schema(description = "买家模糊查询关键词（姓名、手机号或买家ID）")
+    private String keyword;
+
     /**
      * 兼容 GET 请求参数绑定，支持将逗号分隔字符串解析为 List
      */

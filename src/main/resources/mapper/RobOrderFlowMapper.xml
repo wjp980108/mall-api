@@ -23,7 +23,7 @@
         <result column="flow_quantity" property="quantity"/>
         <result column="unit_price" property="unitPrice"/>
         <result column="signed_total_amount" property="signedTotalAmount"/>
-        <result column="signed_receipt_amount" property="receiptAmount"/>
+        <result column="signed_receipt_amount" property="receiptRoundAmount"/>
         <result column="signed_payment_amount" property="paymentAmount"/>
         <result column="operator_id" property="operatorId"/>
         <result column="operator_name" property="operatorName"/>
@@ -41,7 +41,7 @@
             <result column="income_self_buy_amount" property="selfBuyAmount"/>
             <result column="income_self_buy_bonus_amount" property="selfBuyBonusAmount"/>
             <result column="income_self_buy_coupon_amount" property="selfBuyCouponAmount"/>
-            <result column="income_receipt_amount" property="receiptAmount"/>
+            <result column="income_receipt_round_amount" property="receiptRoundAmount"/>
             <result column="income_payment_amount" property="paymentAmount"/>
         </association>
         <association property="reversal" javaType="com.atguigu.meet.model.vo.roborder.RobOrderFlowSummaryVO$FlowAmountSummary">
@@ -53,7 +53,7 @@
             <result column="reversal_self_buy_amount" property="selfBuyAmount"/>
             <result column="reversal_self_buy_bonus_amount" property="selfBuyBonusAmount"/>
             <result column="reversal_self_buy_coupon_amount" property="selfBuyCouponAmount"/>
-            <result column="reversal_receipt_amount" property="receiptAmount"/>
+            <result column="reversal_receipt_round_amount" property="receiptRoundAmount"/>
             <result column="reversal_payment_amount" property="paymentAmount"/>
         </association>
     </resultMap>
@@ -72,6 +72,28 @@
     <sql id="eventTypeFilter">
         <if test="operateType != null">
             AND l.operate_type = #{operateType}
+        </if>
+    </sql>
+
+    <!--
+        买家模糊查询过滤（按事件行展示买家匹配）：
+          下单/取消/转移正向行(split.n!=1) → 事件买家 l.buyer_*，COALESCE 回退 o.buyer_*
+          转移红冲行(split.n=1)            → 转移前买家 l.prev_buyer_*，COALESCE 回退 o.buyer_*
+        命中时转移事件红冲+正向两行同时返回（行级过滤自然行为）。
+    -->
+    <sql id="keywordFilter">
+        <if test="keyword != null and keyword != ''">
+            AND (
+                (CASE WHEN l.operate_type = 3 AND split.n = 1
+                      THEN COALESCE(l.prev_buyer_name, o.buyer_name)
+                      ELSE COALESCE(l.buyer_name, o.buyer_name) END) LIKE CONCAT('%', #{keyword}, '%')
+                OR (CASE WHEN l.operate_type = 3 AND split.n = 1
+                         THEN COALESCE(l.prev_buyer_phone, o.buyer_phone)
+                         ELSE COALESCE(l.buyer_phone, o.buyer_phone) END) LIKE CONCAT('%', #{keyword}, '%')
+                OR CAST((CASE WHEN l.operate_type = 3 AND split.n = 1
+                              THEN COALESCE(l.prev_buyer_id, o.buyer_id)
+                              ELSE COALESCE(l.buyer_id, o.buyer_id) END) AS CHAR) LIKE CONCAT('%', #{keyword}, '%')
+            )
         </if>
     </sql>
 
@@ -97,6 +119,7 @@
         WHERE 1 = 1
         <include refid="eventTimeFilter"/>
         <include refid="eventTypeFilter"/>
+        <include refid="keywordFilter"/>
     </select>
 
     <!--
@@ -143,10 +166,10 @@
                 ELSE o.total_amount
             END                        AS signed_total_amount,
             CASE
-                WHEN l.operate_type = 2 THEN -l.receipt_amount
-                WHEN l.operate_type = 3 AND split.n = 1 THEN -l.receipt_amount
-                WHEN l.operate_type = 3 AND split.n = 2 THEN l.receipt_amount
-                ELSE l.receipt_amount
+                WHEN l.operate_type = 2 THEN -l.receipt_round_amount
+                WHEN l.operate_type = 3 AND split.n = 1 THEN -l.receipt_round_amount
+                WHEN l.operate_type = 3 AND split.n = 2 THEN l.receipt_round_amount
+                ELSE l.receipt_round_amount
             END                        AS signed_receipt_amount,
             CASE
                 WHEN l.operate_type = 2 THEN -l.payment_amount
@@ -165,6 +188,7 @@
         WHERE 1 = 1
         <include refid="eventTimeFilter"/>
         <include refid="eventTypeFilter"/>
+        <include refid="keywordFilter"/>
         ORDER BY l.create_time DESC, l.id DESC, split.n DESC
     </select>
 
@@ -191,8 +215,8 @@
             COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.self_buy_bonus_amount ELSE 0 END), 0) AS reversal_self_buy_bonus_amount,
             COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS income_self_buy_coupon_amount,
             COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN o.self_buy_coupon_amount ELSE 0 END), 0) AS reversal_self_buy_coupon_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN l.receipt_amount ELSE 0 END), 0) AS income_receipt_amount,
-            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN l.receipt_amount ELSE 0 END), 0) AS reversal_receipt_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN l.receipt_round_amount ELSE 0 END), 0) AS income_receipt_round_amount,
+            COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN l.receipt_round_amount ELSE 0 END), 0) AS reversal_receipt_round_amount,
             COALESCE(SUM(CASE WHEN l.operate_type IN (1, 3) THEN l.payment_amount ELSE 0 END), 0) AS income_payment_amount,
             COALESCE(SUM(CASE WHEN l.operate_type IN (2, 3) THEN l.payment_amount ELSE 0 END), 0) AS reversal_payment_amount
         FROM t_rob_order_operate_log l

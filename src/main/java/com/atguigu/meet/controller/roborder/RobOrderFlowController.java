@@ -49,11 +49,12 @@ public class RobOrderFlowController {
      * 红冲行(原买家,负)在下。不按订单聚合：同一订单行不保证连续（其下单行排在转移行下方），
      * 转移两行允许被翻页边界切开。买家取各事件发生时落库的快照（下单行永远显示真实下单人，不随后续转移漂移）。
      *
-     * @param parameter 分页 + 事件日期范围/事件类型：
+     * @param parameter 分页 + 事件日期范围/事件类型/买家关键词：
      *                  pageNum/pageSize 必填（页大小=事件行数）；
      *                  timeRange 事件发生日期范围（yyyy-MM-dd 起,止，逗号分隔；不传默认查全部，
      *                  查单日起止传同一天）；
      *                  operateType 事件类型（1下单 2取消订单 3转移订单，不传查全部）；
+     *                  keyword 买家模糊查询关键词（姓名/手机号/买家ID，按事件行展示买家匹配；不传查全部）；
      *                  筛选直接作用于事件行——只筛下单时只返回下单行，筛转移时每次转移仍返回红冲+正向两行
      * @return 平铺事件行分页（全局时间倒序，同订单行不保证连续），每行含事件类型及中文名、事件时间、
      *         订单ID/编号、商品（图/名/货号）、事件买家（姓名/手机号）、场次、数量、
@@ -81,10 +82,14 @@ public class RobOrderFlowController {
      * @return 三组汇总（income 成交 / reversal 红冲 / net 净额=成交-红冲），
      *         每组含：笔数 count、商品件数 quantity、订单总额 totalAmount、利润池 profitAmount、
      *         推荐奖 recommendAmount、自购奖 selfBuyAmount、自购奖金 selfBuyBonusAmount、
-     *         购物券 selfBuyCouponAmount；区间无事件时全部字段为 0（不为 null）
+     *         购物券 selfBuyCouponAmount、回款取整金额 receiptRoundAmount、付款金额 paymentAmount；
+     *         另含顶层字段：回款总金额 totalReceiptAmount、付款总金额 totalPaymentAmount（净额口径）、
+     *         销售奖 salesAward（净订单总额×推荐奖比例）、技术服务费 techServiceFee（净订单总额×0.2%）、
+     *         站长服务费 stationServiceFee（净订单总额×1.2%）、订单利润差 orderProfitDiff
+     *         （=(回款总-付款总)+销售奖+技术服务费+站长服务费）；区间无事件时全部字段为 0（不为 null）
      */
     @GetMapping("/summary")
-    @Operation(summary = "订单流水区间汇总", description = "返回成交(下单+转移正向)/红冲(取消+转移红冲)/净额三组：笔数、商品件数、订单总额、利润池、推荐奖、自购奖、自购奖金、购物券、回款/付款金额；转移在成交与红冲各计一次且金额相等，净额不变；时间参数不传默认查全部")
+    @Operation(summary = "订单流水区间汇总", description = "返回成交(下单+转移正向)/红冲(取消+转移红冲)/净额三组：笔数、商品件数、订单总额、利润池、推荐奖、自购奖、自购奖金、购物券、回款取整/付款金额；另含顶层：回款/付款总金额(净额)、销售奖(×推荐奖比例)、技术服务费(×0.2%)、站长服务费(×1.2%)、订单利润差；时间参数不传默认查全部")
     public Response<RobOrderFlowSummaryVO> getFlowSummary(
             @Parameter(description = "事件发生时间范围 yyyy-MM-dd,yyyy-MM-dd（不传默认查全部）", example = "2026-09-12,2026-09-12")
             @RequestParam(required = false) String timeRange) {

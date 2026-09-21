@@ -27,19 +27,22 @@ public interface RobOrderFlowMapper {
      * @param operateType 事件类型（传 null 查全部：1下单 2取消 3转移）
      * @param startTime   事件起始时间（传 null 忽略）
      * @param endTime     事件结束时间（传 null 忽略）
+     * @param keyword     买家模糊查询关键词（姓名/手机号/买家ID，按事件行展示买家匹配；传 null/空忽略）
      */
     IPage<RobOrderFlowVO> selectFlowPage(Page<RobOrderFlowVO> page,
                                          @Param("operateType") Integer operateType,
                                          @Param("startTime") LocalDateTime startTime,
-                                         @Param("endTime") LocalDateTime endTime);
+                                         @Param("endTime") LocalDateTime endTime,
+                                         @Param("keyword") String keyword);
 
     /**
-     * 当前筛选条件（与分页同条件，含 operateType）下全部匹配事件的带符号金额合计：
+     * 当前筛选条件（与分页同条件，含 operateType、keyword）下全部匹配事件的带符号金额合计：
      * 下单正额、取消负额、转移拆 -X/+X 两行抵消为 0；无匹配返回 0（SQL COALESCE 兜底）。
      */
     BigDecimal selectFlowTotalAmount(@Param("operateType") Integer operateType,
                                      @Param("startTime") LocalDateTime startTime,
-                                     @Param("endTime") LocalDateTime endTime);
+                                     @Param("endTime") LocalDateTime endTime,
+                                     @Param("keyword") String keyword);
 
     /**
      * 区间汇总：下单(1)/转移(3)事件进成交组、取消(2)/转移(3)事件进红冲组，返回成交/红冲两组原始指标（净额由 Service 计算）。

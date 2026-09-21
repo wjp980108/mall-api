@@ -75,8 +75,8 @@ class RobOrderFlowServiceImplTest {
         Page<RobOrderFlowVO> rowPage = new Page<>(1, 10);
         rowPage.setRecords(records);
         rowPage.setTotal(9L);
-        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any())).thenReturn(rowPage);
-        when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any())).thenReturn(BigDecimal.ZERO);
+        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any(), any())).thenReturn(rowPage);
+        when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any(), any())).thenReturn(BigDecimal.ZERO);
 
         Response resp = robOrderFlowService.getFlowPage(dto);
         assertEquals(200, resp.getCode());
@@ -113,8 +113,8 @@ class RobOrderFlowServiceImplTest {
         Page<RobOrderFlowVO> emptyPage = new Page<>(99, 10);
         emptyPage.setRecords(List.of());
         emptyPage.setTotal(0L);
-        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any())).thenReturn(emptyPage);
-        when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any())).thenReturn(BigDecimal.ZERO);
+        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any(), any())).thenReturn(emptyPage);
+        when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any(), any())).thenReturn(BigDecimal.ZERO);
 
         Response resp = robOrderFlowService.getFlowPage(dto);
         assertEquals(200, resp.getCode());
@@ -124,6 +124,6 @@ class RobOrderFlowServiceImplTest {
         assertTrue(result.getList().isEmpty());
         assertEquals(0L, result.getTotal());
         // 单层分页：只查一次分页、一次合计
-        verify(robOrderFlowMapper).selectFlowPage(any(), any(), any(), any());
+        verify(robOrderFlowMapper).selectFlowPage(any(), any(), any(), any(), any());
     }
 }

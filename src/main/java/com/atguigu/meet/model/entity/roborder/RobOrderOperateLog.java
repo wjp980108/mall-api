@@ -61,6 +61,14 @@ public class RobOrderOperateLog extends Model<RobOrderOperateLog> {
     private BigDecimal receiptAmount;
 
     /**
+     * 回款金额取整值（四舍五入整数，HALF_UP）：
+     * 下单事件对 receiptAmount 做 setScale(0, HALF_UP) 落库；取消/转移事件复制同订单下单事件行取整值（保证三事件整数口径一致）。
+     * 仅作流水整数展示口径，不替代 receiptAmount；无实例默认值，DB 列 DEFAULT 0 兜底。
+     */
+    @Schema(description = "回款金额取整值(四舍五入整数)")
+    private BigDecimal receiptRoundAmount;
+
+    /**
      * 付款金额（本金总额口径 = 商品付款单价 t_consign_goods.payment_amount × 购买数量）。
      * 下单事件：下单时点商品付款单价旧值×数量；取消/转移事件：同订单下单事件行同值正数。
      * 注意与 {@link com.atguigu.meet.model.entity.goods.consign.ConsignGoods#getPaymentAmount()}

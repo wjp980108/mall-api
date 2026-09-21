@@ -72,9 +72,9 @@ public class RobOrderFlowVO {
     @Schema(description = "带符号订单总额：下单正/取消负(红冲)/转移红冲负、正向正")
     private BigDecimal signedTotalAmount;
 
-    /** 带符号回款（事件行落库值按事件视角打符号）：下单为正/取消为负(红冲)/转移红冲负、正向正；存量事件行为0 */
-    @Schema(description = "带符号回款：下单正/取消负(红冲)/转移红冲负、正向正")
-    private BigDecimal receiptAmount;
+    /** 带符号回款取整值（事件行落库值按事件视角打符号）：下单为正/取消为负(红冲)/转移红冲负、正向正；取整口径为回款金额 HALF_UP 整数；存量事件行为0 */
+    @Schema(description = "带符号回款取整值：下单正/取消负(红冲)/转移红冲负、正向正")
+    private BigDecimal receiptRoundAmount;
 
     /** 带符号付款金额（本金总额口径 P×N，事件行落库值按事件视角打符号）：下单为正/取消为负(红冲)/转移红冲负、正向正；存量事件行为0 */
     @Schema(description = "带符号付款金额(本金总额)：下单正/取消负(红冲)/转移红冲负、正向正")

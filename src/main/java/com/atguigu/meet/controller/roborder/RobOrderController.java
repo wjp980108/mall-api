@@ -4,6 +4,7 @@ import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderConfirmPayDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
@@ -69,5 +70,19 @@ public class RobOrderController {
     @ApiResponse(responseCode = "200", description = "成功：data=null；积分不足待二次确认：data=PointsInsufficientVO（users 列表逐用户返回 userId/nickname/phone/identityType/identityName（1=推荐人 2=买家）/pointsInsufficient）", content = @Content(mediaType = "application/json", schema = @Schema(oneOf = {PointsInsufficientVO.class})))
     public Response<Void> cancelOrder(@RequestBody @Valid RobOrderCancelDTO dto) {
         return robOrderService.cancelOrder(dto);
+    }
+
+    /**
+     * 确认收款/回款
+     *
+     * @param dto 订单ID + 动作(1=确认收款 2=确认回款)
+     * @return 操作结果（data 始终为 null）
+     */
+    @PutMapping("/confirmPay")
+    @RequirePermission(PermissionConst.ROB_ORDER_CANCEL)
+    @Operation(summary = "确认收款/回款", description = "按 action 分别执行收款(1=确认收款)或回款(2=确认回款)确认，状态机 0→1→2 单向流转。权限按 action 分流校验（Service 层实现）：action=1 需确认收股权限 system:allOrder:confirmReceive，action=2 需确认回款权限 system:allOrder:confirmPayback。守卫矩阵：未收款可收款(0→1)、未收款不可回款、已收款不可重复收款、已收款可回款(1→2)、已回款不可重复操作、已取消(pay_status=3 或 order_status=2)任一动作均拒。取消订单时 pay_status 统一置为 3=无效且保留审计字段；已收款/回款订单不可转移")
+    @ApiResponse(responseCode = "200", description = "成功：data=null", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Void.class)))
+    public Response<Void> confirmPay(@RequestBody @Valid RobOrderConfirmPayDTO dto) {
+        return robOrderService.confirmPay(dto);
     }
 }

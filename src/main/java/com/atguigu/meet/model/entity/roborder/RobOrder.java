@@ -162,6 +162,33 @@ public class RobOrder extends Model<RobOrder> {
     @Schema(description = "订单状态 1正常 2已取消")
     private Integer orderStatus;
 
+    /**
+     * 收款回款状态：0未收款/1已收款/2已回款/3无效
+     * <p>与 order_status 解耦的独立资金状态机：正向 0→1→2 不可逆，取消订单时统一置 3 无效。
+     * 下单不显式写，靠 DB 列 DEFAULT 0 兜底。
+     * @see com.atguigu.meet.enums.RobOrderPayStatus
+     */
+    @Schema(description = "收款回款状态 0未收款 1已收款 2已回款 3无效")
+    private Integer payStatus;
+
+    /** 确认收款操作人ID（关联 sys_user.id，确认收款时写入，取消订单时保留不清空） */
+    @Schema(description = "确认收款操作人ID")
+    private Long receiptOperateUserId;
+
+    /** 确认收款时间（确认收款动作发生时写入） */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "确认收款时间")
+    private LocalDateTime receiptOperateTime;
+
+    /** 确认回款操作人ID（关联 sys_user.id，确认回款时写入，取消订单时保留不清空） */
+    @Schema(description = "确认回款操作人ID")
+    private Long paybackOperateUserId;
+
+    /** 确认回款时间（确认回款动作发生时写入） */
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "确认回款时间")
+    private LocalDateTime paybackOperateTime;
+
     /** 逻辑删除 0未删 1已删 */
     @JsonIgnore
     @TableLogic

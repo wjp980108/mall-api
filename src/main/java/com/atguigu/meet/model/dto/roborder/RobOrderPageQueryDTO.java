@@ -43,6 +43,10 @@ public class RobOrderPageQueryDTO {
     @Schema(description = "订单状态 1正常 2已取消")
     private Integer orderStatus;
 
+    /** 收款回款状态：0未收款 1已收款 2已回款 3无效；不传查全部 */
+    @Schema(description = "收款回款状态 0未收款 1已收款 2已回款 3无效")
+    private Integer payStatus;
+
     /**
      * 兼容 GET 请求参数绑定，支持将逗号分隔字符串解析为 List
      */

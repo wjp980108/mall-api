@@ -302,6 +302,10 @@ public final class PermissionConst {
     public static final String ROB_ORDER_TRANSFER = "system:allOrder:shift"; // DB id=39
     /** 抢购订单取消（回滚库存与积分） */
     public static final String ROB_ORDER_CANCEL = "system:allOrder:cancel"; // DB id=40
+    /** 抢购订单确认收款（action=1：未收款→已收款，写 receipt_* 审计字段） */
+    public static final String ROB_ORDER_CONFIRM_RECEIPT = "system:allOrder:confirmReceive"; // DB id=49
+    /** 抢购订单确认回款（action=2：已收款→已回款，写 payback_* 审计字段） */
+    public static final String ROB_ORDER_CONFIRM_PAYBACK = "system:allOrder:confirmPayback"; // DB id=50
 
     // ==========================================
     // 常规管理 -> 用户协议

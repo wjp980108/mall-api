@@ -108,6 +108,27 @@ public class RobOrderVO {
     @Schema(description = "订单状态中文名")
     private String orderStatusName;
 
+    @Schema(description = "收款回款状态 0未收款 1已收款 2已回款 3无效")
+    private Integer payStatus;
+
+    /** 由服务层 RobOrderPayStatus.descOf 回填，不落库不前端硬编码 */
+    @Schema(description = "收款回款状态中文名")
+    private String payStatusName;
+
+    @Schema(description = "确认收款操作人ID")
+    private Long receiptOperateUserId;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "确认收款时间")
+    private LocalDateTime receiptOperateTime;
+
+    @Schema(description = "确认回款操作人ID")
+    private Long paybackOperateUserId;
+
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "确认回款时间")
+    private LocalDateTime paybackOperateTime;
+
     @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
     @Schema(description = "下单时间")
     private LocalDateTime createTime;

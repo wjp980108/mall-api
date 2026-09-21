@@ -1,9 +1,12 @@
 package com.atguigu.meet.service.roborder.impl;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.config.BuiltinSuperAdminIdCache;
+import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.enums.PointsAccountType;
 import com.atguigu.meet.enums.PointsBizType;
 import com.atguigu.meet.enums.RobOrderOperateType;
+import com.atguigu.meet.enums.RobOrderPayStatus;
 import com.atguigu.meet.enums.RobOrderStatus;
 import com.atguigu.meet.enums.RobOrderUserIdentity;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
@@ -14,6 +17,7 @@ import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.mapper.seckill.sessionproduct.SessionProductMapper;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderConfirmPayDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 import com.atguigu.meet.model.dto.points.PointsReverseItem;
@@ -31,6 +35,7 @@ import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
+import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.points.UserPointsService;
 import com.atguigu.meet.service.roborder.RobOrderService;
@@ -55,6 +60,7 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 /**
  * 抢购订单 Service 实现
@@ -84,6 +90,10 @@ public class RobOrderServiceImpl implements RobOrderService {
     private UserPointsService userPointsService;
     @Autowired
     private UserAddressService userAddressService;
+    @Autowired
+    private PermissionCacheService permissionCacheService;
+    @Autowired
+    private BuiltinSuperAdminIdCache builtinSuperAdminIdCache;
 
     private static final BigDecimal HUNDRED = new BigDecimal("100");
 
@@ -267,12 +277,13 @@ public class RobOrderServiceImpl implements RobOrderService {
             return Response.ok("用户积分不足，请确认是否继续", insufficient);
         }
 
-        // 条件置已取消（幂等）
+        // 条件置已取消（幂等）：同时将 pay_status 置为 3=无效，保留审计字段以便追溯
         int affected = robOrderMapper.update(null,
                 new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
                         .eq(RobOrder::getId, orderId)
                         .eq(RobOrder::getOrderStatus, RobOrderStatus.NORMAL.getCode())
-                        .set(RobOrder::getOrderStatus, RobOrderStatus.CANCEL.getCode()));
+                        .set(RobOrder::getOrderStatus, RobOrderStatus.CANCEL.getCode())
+                        .set(RobOrder::getPayStatus, 3));
         if (affected == 0) {
             return Response.fail(500, "订单状态已变更，取消失败");
         }
@@ -330,6 +341,10 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
         if (RobOrderStatus.CANCEL.getCode() == order.getOrderStatus()) {
             return Response.fail(500, "已取消订单不可转移");
+        }
+        if (order.getPayStatus() != null
+                && (order.getPayStatus() == 1 || order.getPayStatus() == 2)) {
+            return Response.fail(500, "已确认收款/回款，不可转移");
         }
         SysUser newBuyer = userMapper.selectById(dto.getNewBuyerId());
         if (newBuyer == null || !"1".equals(newBuyer.getStatus())) {
@@ -426,6 +441,90 @@ public class RobOrderServiceImpl implements RobOrderService {
         return Response.ok("订单已转移", null);
     }
 
+    // ====================== 管理端确认收款/回款 ======================
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public Response<Void> confirmPay(RobOrderConfirmPayDTO dto) {
+        Integer action = dto.getAction();
+        // 1. action 取值校验（非法 action 直接拒绝，先于权限与状态守卫）
+        if (!Integer.valueOf(1).equals(action) && !Integer.valueOf(2).equals(action)) {
+            return Response.fail(400, "动作取值非法，仅支持 1=确认收款 2=确认回款");
+        }
+        // 2. 权限校验：按 action 选对应独立权限点（先于状态守卫，无权限直接拒绝且不变更任何字段）
+        AdminUser admin = AdminContext.get();
+        if (admin == null || admin.getUserId() == null) {
+            return Response.fail(401, "未登录，请先进行身份验证");
+        }
+        String requiredPerm = Integer.valueOf(1).equals(action)
+                ? PermissionConst.ROB_ORDER_CONFIRM_RECEIPT
+                : PermissionConst.ROB_ORDER_CONFIRM_PAYBACK;
+        if (!hasPermission(requiredPerm)) {
+            return Response.fail(403, "无操作权限");
+        }
+
+        // 3. 订单存在性守卫
+        RobOrder order = robOrderMapper.selectById(dto.getOrderId());
+        if (order == null) {
+            return Response.fail(500, "订单不存在");
+        }
+        Integer curPayStatus = order.getPayStatus();
+        Integer curOrderStatus = order.getOrderStatus();
+        // 4. 已取消业务态 / pay_status=3 无效：任一动作统一拒绝（取消订单时 order_status=2 且 pay_status=3）
+        if (curOrderStatus != null && RobOrderStatus.CANCEL.getCode() == curOrderStatus) {
+            return Response.fail(500, "订单已取消，不可操作");
+        }
+        if (curPayStatus != null && curPayStatus == 3) {
+            return Response.fail(500, "订单已取消，不可操作");
+        }
+
+        // 5. 守卫矩阵（5 行 × 2 列）+ 条件落库（乐观锁防并发状态翻转）
+        LocalDateTime now = LocalDateTime.now();
+        Long operatorId = admin.getUserId();
+        if (Integer.valueOf(1).equals(action)) {
+            // 确认收款
+            if (curPayStatus != null && curPayStatus == 1) {
+                return Response.fail(500, "已收款，请勿重复操作");
+            }
+            if (curPayStatus != null && curPayStatus == 2) {
+                return Response.fail(500, "已回款，请勿重复操作");
+            }
+            // curPayStatus 为 null 或 0：0 → 1，写 receipt_*
+            int affected = robOrderMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
+                            .eq(RobOrder::getId, order.getId())
+                            .eq(RobOrder::getPayStatus, 0)
+                            .set(RobOrder::getPayStatus, 1)
+                            .set(RobOrder::getReceiptOperateUserId, operatorId)
+                            .set(RobOrder::getReceiptOperateTime, now));
+            if (affected == 0) {
+                return Response.fail(500, "订单收款状态已变更，确认收款失败");
+            }
+            log.info("[确认收款] orderNo={} operator={}", order.getOrderNo(), operatorId);
+            return Response.ok("已确认收款", null);
+        }
+        // action == 2 确认回款
+        if (curPayStatus == null || curPayStatus == 0) {
+            return Response.fail(500, "请先确认收款");
+        }
+        if (curPayStatus == 2) {
+            return Response.fail(500, "已回款，请勿重复操作");
+        }
+        // curPayStatus == 1：1 → 2，写 payback_*
+        int affected = robOrderMapper.update(null,
+                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
+                        .eq(RobOrder::getId, order.getId())
+                        .eq(RobOrder::getPayStatus, 1)
+                        .set(RobOrder::getPayStatus, 2)
+                        .set(RobOrder::getPaybackOperateUserId, operatorId)
+                        .set(RobOrder::getPaybackOperateTime, now));
+        if (affected == 0) {
+            return Response.fail(500, "订单收款状态已变更，确认回款失败");
+        }
+        log.info("[确认回款] orderNo={} operator={}", order.getOrderNo(), operatorId);
+        return Response.ok("已确认回款", null);
+    }
+
     // ====================== 列表 / 详情 / 可抢商品 ======================
 
     @Override
@@ -438,9 +537,13 @@ public class RobOrderServiceImpl implements RobOrderService {
                 StringUtils.hasText(parameter.getKeyword()) ? parameter.getKeyword().trim() : null,
                 parameter.getAmount() != null ? parameter.getAmount().toPlainString() : null,
                 parameter.getOrderStatus(),
+                parameter.getPayStatus(),
                 range != null ? range[0] : null,
                 range != null ? range[1] : null);
-        result.getRecords().forEach(vo -> vo.setOrderStatusName(RobOrderStatus.descOf(vo.getOrderStatus())));
+        result.getRecords().forEach(vo -> {
+            vo.setOrderStatusName(RobOrderStatus.descOf(vo.getOrderStatus()));
+            vo.setPayStatusName(RobOrderPayStatus.descOf(vo.getPayStatus()));
+        });
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -467,8 +570,11 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
         Page<RobOrderVO> page = new Page<>(pageNum, pageSize);
         IPage<RobOrderVO> result = robOrderMapper.selectRobOrderPage(page,
-                buyerId, null, null, null, orderStatus, null, null);
-        result.getRecords().forEach(vo -> vo.setOrderStatusName(RobOrderStatus.descOf(vo.getOrderStatus())));
+                buyerId, null, null, null, orderStatus, null, null, null);
+        result.getRecords().forEach(vo -> {
+            vo.setOrderStatusName(RobOrderStatus.descOf(vo.getOrderStatus()));
+            vo.setPayStatusName(RobOrderPayStatus.descOf(vo.getPayStatus()));
+        });
         return Response.ok(PageResultVO.of(result));
     }
 
@@ -586,6 +692,38 @@ public class RobOrderServiceImpl implements RobOrderService {
             }
         }
         return vo;
+    }
+
+    /**
+     * 当前登录管理员是否拥有指定权限点。
+     * <p>
+     * 复用 {@link com.atguigu.meet.config.aop.PermissionCheckAspect} 的三因子放行逻辑：
+     * ① 内置超级管理员（DB 实时双因子校验通过）直接放行；
+     * ② 超级管理员角色直接放行；
+     * ③ 否则校验权限集合是否包含目标权限点。
+     * <p>
+     * 设计原因：{@code @RequirePermission} 注解只能绑定一组权限标识，而 {@code confirmPay}
+     * 单接口需按 action 分别校验两个独立权限点（收款/回款），故在 Service 层手动复用同款逻辑。
+     */
+    private boolean hasPermission(String perm) {
+        AdminUser admin = AdminContext.get();
+        if (admin == null || admin.getUserId() == null) {
+            return false;
+        }
+        if (admin.isBuiltinSuperAdmin()
+                && builtinSuperAdminIdCache.isBuiltinAdmin(admin.getUserId())
+                && PermissionConst.SUPER_ADMIN_USERNAME.equals(admin.getUsername())) {
+            return true;
+        }
+        Set<String> roleCodes = admin.getRoleCodes();
+        if (roleCodes != null && roleCodes.contains(PermissionConst.ROLE_SUPER_ADMIN)) {
+            return true;
+        }
+        Set<String> perms = AdminContext.getLoginUserPermissions();
+        if (perms == null || perms.isEmpty()) {
+            perms = permissionCacheService.getUserPermissions(admin.getUserId());
+        }
+        return perms != null && perms.contains(perm);
     }
 
     /** 限购规则描述（limit_rule: 0不限购 1同场次限购一次 2当天限购一次） */

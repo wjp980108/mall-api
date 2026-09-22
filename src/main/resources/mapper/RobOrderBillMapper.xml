@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper
+        PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.atguigu.meet.mapper.roborder.RobOrderBillMapper">
+
+    <!-- 账单结果映射 -->
+    <resultMap id="RobOrderBillVOResultMap" type="com.atguigu.meet.model.vo.roborder.RobOrderBillVO">
+        <id column="user_id" property="userId"/>
+        <result column="user_name" property="userName"/>
+        <result column="phone" property="phone"/>
+        <result column="today_purchase_amount" property="todayPurchaseAmount"/>
+        <result column="today_payment_amount" property="todayPaymentAmount"/>
+        <result column="today_receipt_amount" property="todayReceiptAmount"/>
+        <result column="today_share_amount" property="todayShareAmount"/>
+        <result column="yesterday_purchase_amount" property="yesterdayPurchaseAmount"/>
+        <result column="yesterday_payment_amount" property="yesterdayPaymentAmount"/>
+        <result column="yesterday_receipt_amount" property="yesterdayReceiptAmount"/>
+    </resultMap>
+
+    <!-- 买家关键词模糊匹配（姓名/手机号） -->
+    <sql id="keywordFilter">
+        <if test="keyword != null and keyword != ''">
+            AND (
+                o.buyer_name LIKE CONCAT('%', #{keyword}, '%')
+                OR o.buyer_phone LIKE CONCAT('%', #{keyword}, '%')
+            )
+        </if>
+    </sql>
+
+    <!--
+        按买家聚合今日/昨日账单指标：
+        1. 仅统计正常订单（order_status = 1）
+        2. 以订单创建日归属买入/分享/付款/回款
+        3. 付款/回款从 t_rob_order_operate_log 的下单事件行（operate_type = 1）读取
+        4. 按 buyer_id / buyer_name / buyer_phone 分组，无数据买家不出现
+    -->
+    <select id="selectBillPage" resultMap="RobOrderBillVOResultMap">
+        SELECT
+            o.buyer_id                                                AS user_id,
+            MAX(o.buyer_name)                                         AS user_name,
+            MAX(o.buyer_phone)                                        AS phone,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
+                              THEN o.total_amount ELSE 0 END), 0)     AS today_purchase_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
+                              THEN o.recommend_amount ELSE 0 END), 0) AS today_share_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
+                               AND l.operate_type = 1
+                              THEN l.payment_amount ELSE 0 END), 0)   AS today_payment_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
+                               AND l.operate_type = 1
+                              THEN l.receipt_amount ELSE 0 END), 0)   AS today_receipt_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
+                              THEN o.total_amount ELSE 0 END), 0)     AS yesterday_purchase_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
+                              THEN o.recommend_amount ELSE 0 END), 0) AS yesterday_share_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
+                               AND l.operate_type = 1
+                              THEN l.payment_amount ELSE 0 END), 0)   AS yesterday_payment_amount,
+            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
+                               AND l.operate_type = 1
+                              THEN l.receipt_amount ELSE 0 END), 0)   AS yesterday_receipt_amount
+        FROM t_rob_order o
+        LEFT JOIN t_rob_order_operate_log l
+            ON l.order_id = o.id AND l.operate_type = 1
+        WHERE o.is_deleted = 0
+          AND o.order_status = 1
+          AND o.create_time &gt;= #{yesterdayStart}
+          AND o.create_time &lt;= #{todayEnd}
+        <include refid="keywordFilter"/>
+        GROUP BY o.buyer_id, o.buyer_name, o.buyer_phone
+        ORDER BY o.buyer_id DESC
+    </select>
+
+</mapper>

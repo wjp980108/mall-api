@@ -40,3 +40,9 @@ spring:
           max-idle: 8
           min-idle: 0
           max-wait: -1ms
+
+# 抢购订单账单 PDF 导出配置（开发环境可覆盖系统字体路径）
+roborder:
+  bill:
+    pdf:
+      font-path: /Library/Fonts/Arial Unicode.ttf

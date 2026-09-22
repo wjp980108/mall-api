@@ -6,6 +6,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import org.apache.ibatis.annotations.Param;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 抢购订单用户账单 Mapper（管理端算账读模型，只读）
@@ -34,4 +35,15 @@ public interface RobOrderBillMapper {
                                          @Param("yesterdayStart") LocalDateTime yesterdayStart,
                                          @Param("yesterdayEnd") LocalDateTime yesterdayEnd,
                                          @Param("keyword") String keyword);
+
+    /**
+     * 按买家聚合账单全量列表：返回选中日期（今日）及前一日（昨日）每个有数据买家的资金指标。
+     * <p>
+     * 与 {@link #selectBillPage} 口径一致，仅去掉分页，用于 PDF 导出。
+     */
+    List<RobOrderBillVO> selectBillList(@Param("todayStart") LocalDateTime todayStart,
+                                        @Param("todayEnd") LocalDateTime todayEnd,
+                                        @Param("yesterdayStart") LocalDateTime yesterdayStart,
+                                        @Param("yesterdayEnd") LocalDateTime yesterdayEnd,
+                                        @Param("keyword") String keyword);
 }

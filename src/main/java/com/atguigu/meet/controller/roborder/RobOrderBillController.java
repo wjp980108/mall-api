@@ -1,6 +1,7 @@
 package com.atguigu.meet.controller.roborder;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.model.dto.roborder.RobOrderBillExportDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderBillPageQueryDTO;
 import com.atguigu.meet.model.vo.roborder.RobOrderBillVO;
 import com.atguigu.meet.service.roborder.RobOrderBillService;
@@ -9,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.validation.annotation.Validated;
@@ -42,5 +44,17 @@ public class RobOrderBillController {
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderBillVO.class)))
     public Response getBillPage(@Valid RobOrderBillPageQueryDTO parameter) {
         return robOrderBillService.getBillPage(parameter);
+    }
+
+    /**
+     * 导出账单 PDF
+     *
+     * @param parameter 选中日期（yyyy-MM-dd，空则取当天）+ 关键词（买家姓名/手机号）
+     * @param response  HTTP 响应流
+     */
+    @GetMapping("/exportRobOrderBillsPDF")
+    @Operation(summary = "导出抢购订单用户账单 PDF", description = "按选中日期及其前一天导出账单 PDF；date 为空取当天；keyword 支持买家姓名/手机号模糊匹配；无数据返回空表 PDF")
+    public void exportRobOrderBillsPDF(RobOrderBillExportDTO parameter, HttpServletResponse response) {
+        robOrderBillService.exportRobOrderBillsPdf(parameter, response);
     }
 }

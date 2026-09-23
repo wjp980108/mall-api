@@ -307,6 +307,14 @@ class RobOrderBillServiceImplTest {
     }
 
     @Test
+    void buildBalanceTitle_zeroPadsMonthAndDay() {
+        // 欠余表标题日期零填充（与主表标题的非零填充格式刻意不同）
+        String title = ReflectionTestUtils.invokeMethod(
+                robOrderBillService, "buildBalanceTitle", LocalDate.of(2026, 9, 5));
+        assertEquals("欠余合计表 - 2026年09月05日", title);
+    }
+
+    @Test
     @SuppressWarnings("unchecked")
     void getBillPage_cancelSameDay_netAmountsAreZero() {
         RobOrderBillPageQueryDTO dto = query(1, 10, "2026-09-22", null);

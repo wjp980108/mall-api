@@ -41,7 +41,9 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
 
     private static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd");
     private static final DateTimeFormatter CHINESE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy年M月d日");
+    private static final DateTimeFormatter BALANCE_DATE_FORMATTER = DateTimeFormatter.ofPattern("yyyy年MM月dd日");
     private static final String TITLE_SUFFIX = "进货明细表";
+    private static final String BALANCE_TITLE_PREFIX = "欠余合计表";
     private static final String FILE_NAME_SEPARATOR = "_";
 
     @Autowired
@@ -74,6 +76,7 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
 
         String siteName = resolveSiteName();
         String title = buildTitle(siteName, range.selectedDate);
+        String balanceTitle = buildBalanceTitle(range.selectedDate);
         String filename = buildFilename(siteName, range.selectedDate);
 
         // P2 防御网：先生成到内存，校验有效后再写 response。
@@ -81,7 +84,7 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
         // 也防止"半截 PDF + JSON 错误"这类不可恢复的损坏。
         byte[] pdfBytes;
         try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
-            RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator(title);
+            RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator(title, balanceTitle);
             generator.generate(records, baos);
             pdfBytes = baos.toByteArray();
         } catch (IOException e) {
@@ -181,6 +184,10 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
     private String buildTitle(String siteName, LocalDate selectedDate) {
         String prefix = StringUtils.hasText(siteName) ? siteName + TITLE_SUFFIX : TITLE_SUFFIX;
         return prefix + " - " + selectedDate.format(CHINESE_DATE_FORMATTER);
+    }
+
+    private String buildBalanceTitle(LocalDate selectedDate) {
+        return BALANCE_TITLE_PREFIX + " - " + selectedDate.format(BALANCE_DATE_FORMATTER);
     }
 
     private String buildFilename(String siteName, LocalDate selectedDate) {

@@ -2,8 +2,8 @@ package com.atguigu.meet.service.roborder;
 
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
-import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
-import com.atguigu.meet.model.dto.roborder.RobOrderConfirmPayDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchConfirmPayDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 
@@ -17,22 +17,16 @@ public interface RobOrderService {
      */
     Response placeOrder(PlaceRobOrderDTO dto, Long currentUserId);
 
-    /**
-     * 管理端取消订单：积分不足预检（未确认且不足返回提示，data 非空）→ 条件置已取消 → 回滚库存 → 冲回积分（幂等；确认后允许负余额）
-     */
-    Response cancelOrder(RobOrderCancelDTO dto);
+    /** 管理端批量取消；任一订单失败时整批回滚。 */
+    Response<?> cancelOrders(RobOrderBatchCancelDTO dto);
 
     /**
      * 管理端转移订单：重写买家快照 → 积分按冻结金额换受益人
      */
     Response transferOrder(RobOrderTransferDTO dto);
 
-    /**
-     * 管理端确认收款/回款：单接口按 action 分流（1=确认收款 0→1，2=确认回款 1→2），
-     * 按动作校验两独立权限点（ROB_ORDER_CONFIRM_RECEIPT / ROB_ORDER_CONFIRM_PAYBACK），
-     * 守卫矩阵覆盖 pay_status 各状态与 order_status=2 已取消，正向不可逆。
-     */
-    Response<Void> confirmPay(RobOrderConfirmPayDTO dto);
+    /** 管理端批量确认付款/回款；任一订单失败时整批回滚。 */
+    Response<?> confirmPays(RobOrderBatchConfirmPayDTO dto);
 
     /**
      * 管理端分页列表（日期/场次/关键词/金额筛选）

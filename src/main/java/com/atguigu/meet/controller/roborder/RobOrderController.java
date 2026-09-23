@@ -3,13 +3,14 @@ package com.atguigu.meet.controller.roborder;
 import com.atguigu.meet.annotation.RequirePermission;
 import com.atguigu.meet.common.Response;
 import com.atguigu.meet.constant.PermissionConst;
-import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
-import com.atguigu.meet.model.dto.roborder.RobOrderConfirmPayDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchConfirmPayDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
-import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
+import com.atguigu.meet.model.vo.roborder.RobOrderBatchInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
 import com.atguigu.meet.service.roborder.RobOrderService;
+import com.atguigu.meet.service.roborder.BatchRobOrderException;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -39,7 +40,7 @@ public class RobOrderController {
      * @return 抢购订单分页
      */
     @GetMapping
-    @Operation(summary = "抢购订单分页列表", description = "单列表分页查询，支持日期范围、所属场次、关键词(姓名/手机号/用户ID/商品名)、金额模糊、状态筛选")
+    @Operation(summary = "抢购订单分页列表", description = "支持日期范围、所属场次、关键词、金额、订单状态及 payStatus 精确筛选（0未收款、1已收款、2已回款、3无效）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderVO.class)))
     public Response getPageList(@Valid RobOrderPageQueryDTO parameter) {
         return robOrderService.getPageList(parameter);
@@ -61,28 +62,36 @@ public class RobOrderController {
     /**
      * 取消订单
      *
-     * @param dto 订单ID + 确认积分不足仍继续
+     * @param dto 订单ID列表 + 确认积分不足仍继续
      * @return 操作结果（data 非空表示积分不足待二次确认）
      */
     @PutMapping("/cancel")
     @RequirePermission(PermissionConst.ROB_ORDER_CANCEL)
-    @Operation(summary = "取消订单", description = "取消正常订单：场次商品库存回滚、推荐奖/自购奖/购物券积分全额冲回（幂等）。原受益人可用积分余额不足时返回积分不足提示（data 非空），携带 confirmInsufficient=true 确认后继续执行（允许负余额）")
-    @ApiResponse(responseCode = "200", description = "成功：data=null；积分不足待二次确认：data=PointsInsufficientVO（users 列表逐用户返回 userId/nickname/phone/identityType/identityName（1=推荐人 2=买家）/pointsInsufficient）", content = @Content(mediaType = "application/json", schema = @Schema(oneOf = {PointsInsufficientVO.class})))
-    public Response<Void> cancelOrder(@RequestBody @Valid RobOrderCancelDTO dto) {
-        return robOrderService.cancelOrder(dto);
+    @Operation(summary = "批量取消订单", description = "按 orderIds 批量取消，整批事务回滚。积分不足时 data 返回全部需确认订单，携带 confirmInsufficient=true 重新提交后继续执行")
+    @ApiResponse(responseCode = "200", description = "成功：data=null；积分不足待二次确认：data 为 RobOrderBatchInsufficientVO 列表", content = @Content(mediaType = "application/json", schema = @Schema(implementation = RobOrderBatchInsufficientVO.class)))
+    public Response<?> cancelOrders(@RequestBody @Valid RobOrderBatchCancelDTO dto) {
+        try {
+            return robOrderService.cancelOrders(dto);
+        } catch (BatchRobOrderException e) {
+            return e.getResponse();
+        }
     }
 
     /**
      * 确认收款/回款
      *
-     * @param dto 订单ID + 动作(1=确认收款 2=确认回款)
+     * @param dto 订单ID列表 + 动作(1=确认付款 2=确认回款)
      * @return 操作结果（data 始终为 null）
      */
     @PutMapping("/confirmPay")
-    @RequirePermission(PermissionConst.ROB_ORDER_CANCEL)
-    @Operation(summary = "确认收款/回款", description = "按 action 分别执行收款(1=确认收款)或回款(2=确认回款)确认，状态机 0→1→2 单向流转。权限按 action 分流校验（Service 层实现）：action=1 需确认收股权限 system:allOrder:confirmReceive，action=2 需确认回款权限 system:allOrder:confirmPayback。守卫矩阵：未收款可收款(0→1)、未收款不可回款、已收款不可重复收款、已收款可回款(1→2)、已回款不可重复操作、已取消(pay_status=3 或 order_status=2)任一动作均拒。取消订单时 pay_status 统一置为 3=无效且保留审计字段；已收款/回款订单不可转移")
+    @RequirePermission(value = {PermissionConst.ROB_ORDER_CONFIRM_RECEIPT, PermissionConst.ROB_ORDER_CONFIRM_PAYBACK}, mode = RequirePermission.Mode.OR)
+    @Operation(summary = "批量确认付款/回款", description = "按 orderIds 与 action 批量确认，整批事务回滚。action=1 确认付款(未收款→已收款)，action=2 确认回款(已收款→已回款)；按动作分别校验权限")
     @ApiResponse(responseCode = "200", description = "成功：data=null", content = @Content(mediaType = "application/json", schema = @Schema(implementation = Void.class)))
-    public Response<Void> confirmPay(@RequestBody @Valid RobOrderConfirmPayDTO dto) {
-        return robOrderService.confirmPay(dto);
+    public Response<?> confirmPays(@RequestBody @Valid RobOrderBatchConfirmPayDTO dto) {
+        try {
+            return robOrderService.confirmPays(dto);
+        } catch (BatchRobOrderException e) {
+            return e.getResponse();
+        }
     }
 }

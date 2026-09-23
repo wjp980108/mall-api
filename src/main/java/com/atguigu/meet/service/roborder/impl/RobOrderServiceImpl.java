@@ -16,8 +16,8 @@ import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
 import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.mapper.seckill.sessionproduct.SessionProductMapper;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
-import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
-import com.atguigu.meet.model.dto.roborder.RobOrderConfirmPayDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchConfirmPayDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderPageQueryDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 import com.atguigu.meet.model.dto.points.PointsReverseItem;
@@ -31,6 +31,7 @@ import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.vo.PageResultVO;
 import com.atguigu.meet.model.vo.roborder.InsufficientUserVO;
+import com.atguigu.meet.model.vo.roborder.RobOrderBatchInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.roborder.RobOrderVO;
@@ -39,6 +40,7 @@ import com.atguigu.meet.service.auth.PermissionCacheService;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.points.UserPointsService;
 import com.atguigu.meet.service.roborder.RobOrderService;
+import com.atguigu.meet.service.roborder.BatchRobOrderException;
 import com.atguigu.meet.service.user.UserAddressService;
 import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.utils.BeanConvertUtils;
@@ -60,6 +62,8 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -259,75 +263,98 @@ public class RobOrderServiceImpl implements RobOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Response cancelOrder(RobOrderCancelDTO dto) {
-        Long orderId = dto.getOrderId();
-        RobOrder order = robOrderMapper.selectById(orderId);
-        if (order == null) {
-            return Response.fail(500, "订单不存在");
+    public Response<?> cancelOrders(RobOrderBatchCancelDTO dto) {
+        Response<?> idsError = validateBatchIds(dto.getOrderIds());
+        if (idsError != null) {
+            return idsError;
         }
-        if (RobOrderStatus.CANCEL.getCode() == order.getOrderStatus()) {
-            return Response.fail(500, "订单已取消，请勿重复操作");
+        List<RobOrder> orders = new ArrayList<>();
+        List<PointsReverseItem> reverseItems = new ArrayList<>();
+        for (Long orderId : dto.getOrderIds()) {
+            RobOrder order = robOrderMapper.selectById(orderId);
+            if (order == null) {
+                return Response.fail(500, "订单[" + orderId + "]不存在");
+            }
+            if (Integer.valueOf(RobOrderStatus.CANCEL.getCode()).equals(order.getOrderStatus())) {
+                return Response.fail(500, "订单[" + orderId + "]已取消，请勿重复操作");
+            }
+            orders.add(order);
+            addReverseItems(reverseItems, order.getInviterId(), order.getBuyerId(), order);
         }
+        PointsInsufficientVO aggregateInsufficient = userPointsService.checkReverseBalance(reverseItems);
+        if (aggregateInsufficient != null && !Boolean.TRUE.equals(dto.getConfirmInsufficient())) {
+            return Response.ok("用户积分不足，请确认是否继续",
+                    batchInsufficientOrders(orders, aggregateInsufficient));
+        }
+        for (Long orderId : dto.getOrderIds()) {
+            RobOrder order = robOrderMapper.selectById(orderId);
+            if (order == null || Integer.valueOf(RobOrderStatus.CANCEL.getCode()).equals(order.getOrderStatus())) {
+                throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]状态已变更，取消失败"));
+            }
+            PointsInsufficientVO insufficient = checkInsufficient(order.getInviterId(), order.getBuyerId(), order);
+            if (insufficient != null && !Boolean.TRUE.equals(dto.getConfirmInsufficient())) {
+                throw new BatchRobOrderException(Response.ok("订单[" + orderId + "]：用户积分不足，请确认是否继续",
+                        List.of(new RobOrderBatchInsufficientVO(orderId, insufficient))));
+            }
+            int affected = robOrderMapper.update(null,
+                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
+                            .eq(RobOrder::getId, orderId)
+                            .eq(RobOrder::getOrderStatus, RobOrderStatus.NORMAL.getCode())
+                            .set(RobOrder::getOrderStatus, RobOrderStatus.CANCEL.getCode())
+                            .set(RobOrder::getPayStatus, 3));
+            if (affected == 0) {
+                throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]状态已变更，取消失败"));
+            }
+            if (sessionProductMapper.addStock(order.getSessionProductId(), order.getQuantity()) != 1) {
+                throw new BatchRobOrderException(Response.fail(500,
+                        "订单[" + orderId + "]库存回补失败，取消操作已回滚"));
+            }
+            if (order.getInviterId() != null && nz(order.getRecommendAmount()).signum() > 0) {
+                userPointsService.reverse(order.getInviterId(), PointsAccountType.POINTS.getCode(),
+                        order.getRecommendAmount(), PointsBizType.RECOMMEND.getCode(),
+                        order.getId(), order.getOrderNo(), "取消订单冲回推荐奖 " + order.getOrderNo());
+            }
+            if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
+                userPointsService.reverse(order.getBuyerId(), PointsAccountType.POINTS.getCode(),
+                        order.getSelfBuyBonusAmount(), PointsBizType.SELF_BUY.getCode(),
+                        order.getId(), order.getOrderNo(), "取消订单冲回自购奖金 " + order.getOrderNo());
+            }
+            if (nz(order.getSelfBuyCouponAmount()).signum() > 0) {
+                userPointsService.reverse(order.getBuyerId(), PointsAccountType.COUPON.getCode(),
+                        order.getSelfBuyCouponAmount(), PointsBizType.COUPON.getCode(),
+                        order.getId(), order.getOrderNo(), "取消订单冲回购物券 " + order.getOrderNo());
+            }
+            AdminUser admin = AdminContext.get();
+            String remark = insufficient != null
+                    ? "取消订单，库存与积分已回滚；积分不足经确认强制执行（负余额）"
+                    : "取消订单，库存与积分已回滚";
+            RobOrderOperateLog placeAmounts = operateLogMapper.selectPlaceAmounts(orderId);
+            BigDecimal placeReceipt = placeAmounts != null ? placeAmounts.getReceiptAmount() : null;
+            BigDecimal placeReceiptRound = placeAmounts != null ? placeAmounts.getReceiptRoundAmount() : null;
+            BigDecimal placePayment = placeAmounts != null ? placeAmounts.getPaymentAmount() : null;
+            writeLog(order.getId(), RobOrderStatus.NORMAL.getCode(), RobOrderStatus.CANCEL.getCode(),
+                    RobOrderOperateType.CANCEL_ORDER,
+                    admin != null ? admin.getUserId() : null, admin != null ? admin.getUsername() : null,
+                    remark, placeReceipt, placeReceiptRound, placePayment,
+                    order.getBuyerId(), order.getBuyerName(), order.getBuyerPhone(),
+                    null, null, null, null);
+            log.info("[抢购订单取消] orderNo={} operator={}", order.getOrderNo(),
+                    admin != null ? admin.getUsername() : "system");
+        }
+        return Response.ok("已取消 " + dto.getOrderIds().size() + " 笔订单", null);
+    }
 
-        // 积分不足预检（先于一切写操作）：未确认且不足时返回提示等待二次确认，事务内无任何变更
-        boolean confirmed = Boolean.TRUE.equals(dto.getConfirmInsufficient());
-        PointsInsufficientVO insufficient =
-                checkInsufficient(order.getInviterId(), order.getBuyerId(), order);
-        if (insufficient != null && !confirmed) {
-            return Response.ok("用户积分不足，请确认是否继续", insufficient);
+    private Response<?> validateBatchIds(List<Long> orderIds) {
+        if (orderIds == null || orderIds.isEmpty()) {
+            return Response.fail(400, "订单ID列表不能为空");
         }
-
-        // 条件置已取消（幂等）：同时将 pay_status 置为 3=无效，保留审计字段以便追溯
-        int affected = robOrderMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
-                        .eq(RobOrder::getId, orderId)
-                        .eq(RobOrder::getOrderStatus, RobOrderStatus.NORMAL.getCode())
-                        .set(RobOrder::getOrderStatus, RobOrderStatus.CANCEL.getCode())
-                        .set(RobOrder::getPayStatus, 3));
-        if (affected == 0) {
-            return Response.fail(500, "订单状态已变更，取消失败");
+        if (orderIds.stream().anyMatch(Objects::isNull)) {
+            return Response.fail(400, "订单ID不能为空");
         }
-
-        // 回滚库存
-        sessionProductMapper.addStock(order.getSessionProductId(), order.getQuantity());
-
-        // 冲回积分（按订单当前快照；允许负余额）
-        if (order.getInviterId() != null && nz(order.getRecommendAmount()).signum() > 0) {
-            userPointsService.reverse(order.getInviterId(), PointsAccountType.POINTS.getCode(),
-                    order.getRecommendAmount(), PointsBizType.RECOMMEND.getCode(),
-                    order.getId(), order.getOrderNo(), "取消订单冲回推荐奖 " + order.getOrderNo());
+        if (new HashSet<>(orderIds).size() != orderIds.size()) {
+            return Response.fail(400, "订单ID列表不能重复");
         }
-        if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
-            userPointsService.reverse(order.getBuyerId(), PointsAccountType.POINTS.getCode(),
-                    order.getSelfBuyBonusAmount(), PointsBizType.SELF_BUY.getCode(),
-                    order.getId(), order.getOrderNo(), "取消订单冲回自购奖金 " + order.getOrderNo());
-        }
-        if (nz(order.getSelfBuyCouponAmount()).signum() > 0) {
-            userPointsService.reverse(order.getBuyerId(), PointsAccountType.COUPON.getCode(),
-                    order.getSelfBuyCouponAmount(), PointsBizType.COUPON.getCode(),
-                    order.getId(), order.getOrderNo(), "取消订单冲回购物券 " + order.getOrderNo());
-        }
-
-        AdminUser admin = AdminContext.get();
-        String remark = insufficient != null
-                ? "取消订单，库存与积分已回滚；积分不足经确认强制执行（负余额）"
-                : "取消订单，库存与积分已回滚";
-        // 取消事件行回款/付款金额：一条 SQL 取同订单下单事件行两值同值落库（正数原值，展示符号由查询层打负号；
-        // 存量订单下单事件行两值为默认值 0，自然退化；下单行不存在时两值均按 0）
-        RobOrderOperateLog placeAmounts = operateLogMapper.selectPlaceAmounts(orderId);
-        BigDecimal placeReceipt = placeAmounts != null ? placeAmounts.getReceiptAmount() : null;
-        BigDecimal placeReceiptRound = placeAmounts != null ? placeAmounts.getReceiptRoundAmount() : null;
-        BigDecimal placePayment = placeAmounts != null ? placeAmounts.getPaymentAmount() : null;
-        writeLog(order.getId(), RobOrderStatus.NORMAL.getCode(), RobOrderStatus.CANCEL.getCode(),
-                RobOrderOperateType.CANCEL_ORDER,
-                admin != null ? admin.getUserId() : null, admin != null ? admin.getUsername() : null,
-                remark, placeReceipt, placeReceiptRound, placePayment,
-                order.getBuyerId(), order.getBuyerName(), order.getBuyerPhone(),
-                null, null, null, null);
-
-        log.info("[抢购订单取消] orderNo={} operator={}", order.getOrderNo(),
-                admin != null ? admin.getUsername() : "system");
-        return Response.ok("订单已取消", null);
+        return null;
     }
 
     // ====================== 管理端转移订单 ======================
@@ -445,84 +472,72 @@ public class RobOrderServiceImpl implements RobOrderService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public Response<Void> confirmPay(RobOrderConfirmPayDTO dto) {
-        Integer action = dto.getAction();
-        // 1. action 取值校验（非法 action 直接拒绝，先于权限与状态守卫）
-        if (!Integer.valueOf(1).equals(action) && !Integer.valueOf(2).equals(action)) {
-            return Response.fail(400, "动作取值非法，仅支持 1=确认收款 2=确认回款");
+    public Response<?> confirmPays(RobOrderBatchConfirmPayDTO dto) {
+        Response<?> idsError = validateBatchIds(dto.getOrderIds());
+        if (idsError != null) {
+            return idsError;
         }
-        // 2. 权限校验：按 action 选对应独立权限点（先于状态守卫，无权限直接拒绝且不变更任何字段）
+        Integer action = dto.getAction();
+        if (action == null || (action != 1 && action != 2)) {
+            return Response.fail(400, "动作取值非法，仅支持 1=确认付款 2=确认回款");
+        }
         AdminUser admin = AdminContext.get();
         if (admin == null || admin.getUserId() == null) {
             return Response.fail(401, "未登录，请先进行身份验证");
         }
-        String requiredPerm = Integer.valueOf(1).equals(action)
+        String requiredPerm = action == 1
                 ? PermissionConst.ROB_ORDER_CONFIRM_RECEIPT
                 : PermissionConst.ROB_ORDER_CONFIRM_PAYBACK;
         if (!hasPermission(requiredPerm)) {
             return Response.fail(403, "无操作权限");
         }
-
-        // 3. 订单存在性守卫
-        RobOrder order = robOrderMapper.selectById(dto.getOrderId());
-        if (order == null) {
-            return Response.fail(500, "订单不存在");
-        }
-        Integer curPayStatus = order.getPayStatus();
-        Integer curOrderStatus = order.getOrderStatus();
-        // 4. 已取消业务态 / pay_status=3 无效：任一动作统一拒绝（取消订单时 order_status=2 且 pay_status=3）
-        if (curOrderStatus != null && RobOrderStatus.CANCEL.getCode() == curOrderStatus) {
-            return Response.fail(500, "订单已取消，不可操作");
-        }
-        if (curPayStatus != null && curPayStatus == 3) {
-            return Response.fail(500, "订单已取消，不可操作");
-        }
-
-        // 5. 守卫矩阵（5 行 × 2 列）+ 条件落库（乐观锁防并发状态翻转）
-        LocalDateTime now = LocalDateTime.now();
-        Long operatorId = admin.getUserId();
-        if (Integer.valueOf(1).equals(action)) {
-            // 确认收款
-            if (curPayStatus != null && curPayStatus == 1) {
-                return Response.fail(500, "已收款，请勿重复操作");
+        for (Long orderId : dto.getOrderIds()) {
+            RobOrder order = robOrderMapper.selectById(orderId);
+            if (order == null) {
+                throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]不存在"));
             }
-            if (curPayStatus != null && curPayStatus == 2) {
-                return Response.fail(500, "已回款，请勿重复操作");
+            Integer curPayStatus = order.getPayStatus();
+            if (Integer.valueOf(RobOrderStatus.CANCEL.getCode()).equals(order.getOrderStatus())
+                    || Integer.valueOf(3).equals(curPayStatus)) {
+                throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]已取消，不可操作"));
             }
-            // curPayStatus 为 null 或 0：0 → 1，写 receipt_*
-            int affected = robOrderMapper.update(null,
-                    new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
-                            .eq(RobOrder::getId, order.getId())
-                            .eq(RobOrder::getPayStatus, 0)
-                            .set(RobOrder::getPayStatus, 1)
-                            .set(RobOrder::getReceiptOperateUserId, operatorId)
-                            .set(RobOrder::getReceiptOperateTime, now));
+            LocalDateTime now = LocalDateTime.now();
+            int affected;
+            if (action == 1) {
+                if (Integer.valueOf(1).equals(curPayStatus) || Integer.valueOf(2).equals(curPayStatus)) {
+                    throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]已确认付款，请勿重复操作"));
+                }
+                affected = robOrderMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
+                                .eq(RobOrder::getId, orderId)
+                                .eq(RobOrder::getPayStatus, 0)
+                                .eq(RobOrder::getOrderStatus, RobOrderStatus.NORMAL.getCode())
+                                .set(RobOrder::getPayStatus, 1)
+                                .set(RobOrder::getReceiptOperateUserId, admin.getUserId())
+                                .set(RobOrder::getReceiptOperateTime, now));
+            } else {
+                if (curPayStatus == null || curPayStatus == 0) {
+                    throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]请先确认付款"));
+                }
+                if (curPayStatus == 2) {
+                    throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]已回款，请勿重复操作"));
+                }
+                affected = robOrderMapper.update(null,
+                        new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
+                                .eq(RobOrder::getId, orderId)
+                                .eq(RobOrder::getPayStatus, 1)
+                                .eq(RobOrder::getOrderStatus, RobOrderStatus.NORMAL.getCode())
+                                .set(RobOrder::getPayStatus, 2)
+                                .set(RobOrder::getPaybackOperateUserId, admin.getUserId())
+                                .set(RobOrder::getPaybackOperateTime, now));
+            }
             if (affected == 0) {
-                return Response.fail(500, "订单收款状态已变更，确认收款失败");
+                throw new BatchRobOrderException(Response.fail(500, "订单[" + orderId + "]状态已变更，确认失败"));
             }
-            log.info("[确认收款] orderNo={} operator={}", order.getOrderNo(), operatorId);
-            return Response.ok("已确认收款", null);
+            log.info("[批量确认{}] orderNo={} operator={}", action == 1 ? "付款" : "回款",
+                    order.getOrderNo(), admin.getUserId());
         }
-        // action == 2 确认回款
-        if (curPayStatus == null || curPayStatus == 0) {
-            return Response.fail(500, "请先确认收款");
-        }
-        if (curPayStatus == 2) {
-            return Response.fail(500, "已回款，请勿重复操作");
-        }
-        // curPayStatus == 1：1 → 2，写 payback_*
-        int affected = robOrderMapper.update(null,
-                new com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper<RobOrder>()
-                        .eq(RobOrder::getId, order.getId())
-                        .eq(RobOrder::getPayStatus, 1)
-                        .set(RobOrder::getPayStatus, 2)
-                        .set(RobOrder::getPaybackOperateUserId, operatorId)
-                        .set(RobOrder::getPaybackOperateTime, now));
-        if (affected == 0) {
-            return Response.fail(500, "订单收款状态已变更，确认回款失败");
-        }
-        log.info("[确认回款] orderNo={} operator={}", order.getOrderNo(), operatorId);
-        return Response.ok("已确认回款", null);
+        return Response.ok("已确认 " + dto.getOrderIds().size() + " 笔订单", null);
     }
 
     // ====================== 列表 / 详情 / 可抢商品 ======================
@@ -673,14 +688,7 @@ public class RobOrderServiceImpl implements RobOrderService {
      */
     private PointsInsufficientVO checkInsufficient(Long inviterId, Long buyerId, RobOrder order) {
         List<PointsReverseItem> items = new ArrayList<>();
-        if (inviterId != null && nz(order.getRecommendAmount()).signum() > 0) {
-            items.add(new PointsReverseItem(inviterId, PointsAccountType.POINTS.getCode(),
-                    order.getRecommendAmount()));
-        }
-        if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
-            items.add(new PointsReverseItem(buyerId, PointsAccountType.COUPON.getCode(),
-                    order.getSelfBuyBonusAmount()));
-        }
+        addReverseItems(items, inviterId, buyerId, order);
         PointsInsufficientVO vo = userPointsService.checkReverseBalance(items);
         if (vo != null && vo.getUsers() != null) {
             // 身份为抢购订单业务口径，按订单快照回填（与 D1 一致：积分服务不感知订单语境）
@@ -694,6 +702,56 @@ public class RobOrderServiceImpl implements RobOrderService {
         return vo;
     }
 
+    private void addReverseItems(List<PointsReverseItem> items, Long inviterId, Long buyerId, RobOrder order) {
+        if (inviterId != null && nz(order.getRecommendAmount()).signum() > 0) {
+            items.add(new PointsReverseItem(inviterId, PointsAccountType.POINTS.getCode(),
+                    order.getRecommendAmount()));
+        }
+        if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
+            items.add(new PointsReverseItem(buyerId, PointsAccountType.POINTS.getCode(),
+                    order.getSelfBuyBonusAmount()));
+        }
+    }
+
+    private List<RobOrderBatchInsufficientVO> batchInsufficientOrders(
+            List<RobOrder> orders, PointsInsufficientVO aggregate) {
+        List<RobOrderBatchInsufficientVO> result = new ArrayList<>();
+        if (aggregate.getUsers() == null) {
+            return result;
+        }
+        for (RobOrder order : orders) {
+            List<InsufficientUserVO> users = new ArrayList<>();
+            boolean needsConfirmation = false;
+            for (InsufficientUserVO source : aggregate.getUsers()) {
+                boolean inviter = source.getUserId() != null
+                        && source.getUserId().equals(order.getInviterId())
+                        && nz(order.getRecommendAmount()).signum() > 0;
+                boolean buyer = source.getUserId() != null
+                        && source.getUserId().equals(order.getBuyerId())
+                        && nz(order.getSelfBuyBonusAmount()).signum() > 0;
+                if (!inviter && !buyer) {
+                    continue;
+                }
+                InsufficientUserVO user = new InsufficientUserVO();
+                user.setUserId(source.getUserId());
+                user.setNickname(source.getNickname());
+                user.setPhone(source.getPhone());
+                user.setPointsInsufficient(source.getPointsInsufficient());
+                RobOrderUserIdentity identity = inviter ? RobOrderUserIdentity.INVITER : RobOrderUserIdentity.BUYER;
+                user.setIdentityType(identity.getCode());
+                user.setIdentityName(identity.getDesc());
+                users.add(user);
+                needsConfirmation |= Boolean.TRUE.equals(source.getPointsInsufficient());
+            }
+            if (needsConfirmation) {
+                PointsInsufficientVO detail = new PointsInsufficientVO();
+                detail.setUsers(users);
+                result.add(new RobOrderBatchInsufficientVO(order.getId(), detail));
+            }
+        }
+        return result;
+    }
+
     /**
      * 当前登录管理员是否拥有指定权限点。
      * <p>
@@ -702,7 +760,7 @@ public class RobOrderServiceImpl implements RobOrderService {
      * ② 超级管理员角色直接放行；
      * ③ 否则校验权限集合是否包含目标权限点。
      * <p>
-     * 设计原因：{@code @RequirePermission} 注解只能绑定一组权限标识，而 {@code confirmPay}
+     * 设计原因：{@code @RequirePermission} 注解只能绑定一组权限标识，而 {@code confirmPays}
      * 单接口需按 action 分别校验两个独立权限点（收款/回款），故在 Service 层手动复用同款逻辑。
      */
     private boolean hasPermission(String perm) {

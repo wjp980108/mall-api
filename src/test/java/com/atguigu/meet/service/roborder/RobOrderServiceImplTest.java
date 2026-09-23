@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.roborder;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.constant.PermissionConst;
 import com.atguigu.meet.enums.RobOrderStatus;
 import com.atguigu.meet.mapper.goods.consign.ConsignGoodsMapper;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
@@ -9,23 +10,28 @@ import com.atguigu.meet.mapper.roborder.RobOrderOperateLogMapper;
 import com.atguigu.meet.mapper.seckill.session.SessionMapper;
 import com.atguigu.meet.mapper.seckill.sessionproduct.SessionProductMapper;
 import com.atguigu.meet.model.dto.roborder.PlaceRobOrderDTO;
-import com.atguigu.meet.model.dto.roborder.RobOrderCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchCancelDTO;
+import com.atguigu.meet.model.dto.roborder.RobOrderBatchConfirmPayDTO;
 import com.atguigu.meet.model.dto.roborder.RobOrderTransferDTO;
 import com.atguigu.meet.model.entity.general.settings.SysSettings;
 import com.atguigu.meet.model.entity.goods.consign.ConsignGoods;
 import com.atguigu.meet.model.entity.permission.user.SysUser;
+import com.atguigu.meet.model.entity.permission.user.AdminUser;
 import com.atguigu.meet.model.entity.roborder.RobOrder;
 import com.atguigu.meet.model.entity.roborder.RobOrderOperateLog;
 import com.atguigu.meet.model.entity.seckill.session.Session;
 import com.atguigu.meet.model.entity.seckill.sessionproduct.SessionProduct;
 import com.atguigu.meet.model.entity.user.UserAddress;
 import com.atguigu.meet.model.vo.roborder.InsufficientUserVO;
+import com.atguigu.meet.model.vo.roborder.RobOrderBatchInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.PointsInsufficientVO;
 import com.atguigu.meet.model.vo.roborder.RobGoodsDetailVO;
 import com.atguigu.meet.model.vo.seckill.sessionproduct.SessionProductVO;
 import com.atguigu.meet.service.general.settings.SysSettingsService;
 import com.atguigu.meet.service.points.UserPointsService;
 import com.atguigu.meet.service.roborder.impl.RobOrderServiceImpl;
+import com.atguigu.meet.service.roborder.BatchRobOrderException;
+import com.atguigu.meet.utils.AdminContext;
 import com.atguigu.meet.service.user.UserAddressService;
 import com.baomidou.mybatisplus.core.MybatisConfiguration;
 import com.baomidou.mybatisplus.core.metadata.TableInfoHelper;
@@ -43,11 +49,14 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import java.math.BigDecimal;
 import java.time.LocalTime;
 import java.util.Collections;
+import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -316,6 +325,119 @@ class RobOrderServiceImplTest {
         doReturn(1).when(sessionProductMapper).addStock(SP_ID, 1);
     }
 
+    private RobOrderBatchCancelDTO cancelBatch(Boolean confirmed) {
+        RobOrderBatchCancelDTO dto = new RobOrderBatchCancelDTO();
+        dto.setOrderIds(List.of(ORDER_ID));
+        dto.setConfirmInsufficient(confirmed);
+        return dto;
+    }
+
+    private PointsInsufficientVO firstInsufficient(Response<?> result) {
+        return ((RobOrderBatchInsufficientVO) ((List<?>) result.getData()).get(0)).getPointsInsufficient();
+    }
+
+    @Test
+    void cancelOrders_collectsAllInsufficientOrdersBeforeWriting() {
+        RobOrder first = normalOrder();
+        RobOrder second = normalOrder();
+        second.setId(78L);
+        when(robOrderMapper.selectById(ORDER_ID)).thenReturn(first);
+        when(robOrderMapper.selectById(78L)).thenReturn(second);
+        when(userPointsService.checkReverseBalance(any()))
+                .thenReturn(insufficientVO(INVITER_ID, true));
+
+        RobOrderBatchCancelDTO dto = new RobOrderBatchCancelDTO();
+        dto.setOrderIds(List.of(ORDER_ID, 78L));
+        Response<?> result = robOrderService.cancelOrders(dto);
+
+        assertEquals(200, result.getCode());
+        List<?> data = (List<?>) result.getData();
+        assertEquals(2, data.size());
+        assertEquals(ORDER_ID, ((RobOrderBatchInsufficientVO) data.get(0)).getOrderId());
+        assertEquals(78L, ((RobOrderBatchInsufficientVO) data.get(1)).getOrderId());
+        verify(robOrderMapper, never()).update(isNull(), any());
+        verify(sessionProductMapper, never()).addStock(anyLong(), anyInt());
+    }
+
+    @Test
+    void cancelOrders_detectsInsufficientBalanceAcrossOrdersBeforeWriting() {
+        RobOrder first = normalOrder();
+        RobOrder second = normalOrder();
+        second.setId(78L);
+        when(robOrderMapper.selectById(ORDER_ID)).thenReturn(first);
+        when(robOrderMapper.selectById(78L)).thenReturn(second);
+        when(userPointsService.checkReverseBalance(any())).thenAnswer(invocation -> {
+            List<?> items = invocation.getArgument(0);
+            return items.size() > 2 ? insufficientVO(INVITER_ID, true) : null;
+        });
+        RobOrderBatchCancelDTO dto = new RobOrderBatchCancelDTO();
+        dto.setOrderIds(List.of(ORDER_ID, 78L));
+
+        Response<?> result = robOrderService.cancelOrders(dto);
+
+        assertEquals(200, result.getCode());
+        assertEquals(2, ((List<?>) result.getData()).size());
+        verify(robOrderMapper, never()).update(isNull(), any());
+        verify(sessionProductMapper, never()).addStock(anyLong(), anyInt());
+    }
+
+    @Test
+    void cancelOrders_rejectsDuplicateIdsBeforeWriting() {
+        RobOrderBatchCancelDTO dto = new RobOrderBatchCancelDTO();
+        dto.setOrderIds(List.of(ORDER_ID, ORDER_ID));
+
+        Response<?> result = robOrderService.cancelOrders(dto);
+
+        assertEquals(400, result.getCode());
+        verify(robOrderMapper, never()).selectById(anyLong());
+    }
+
+    @Test
+    void cancelOrders_stockRestoreFailureAbortsBeforePointsReversal() {
+        stubNormalOrder();
+        stubWrites();
+        when(userPointsService.checkReverseBalance(any())).thenReturn(null);
+        when(sessionProductMapper.addStock(SP_ID, 1)).thenReturn(0);
+
+        BatchRobOrderException error = assertThrows(BatchRobOrderException.class,
+                () -> robOrderService.cancelOrders(cancelBatch(null)));
+
+        assertEquals(500, error.getResponse().getCode());
+        assertTrue(error.getResponse().getMsg().contains("库存回补失败"));
+        verify(userPointsService, never()).reverse(anyLong(), anyInt(), any(), anyInt(), anyLong(), any(), any());
+        verify(operateLogMapper, never()).insert(any(RobOrderOperateLog.class));
+    }
+
+    @Test
+    void confirmPays_abortsOnFirstFailedOrder() {
+        AdminUser admin = new AdminUser();
+        admin.setUserId(1L);
+        admin.setPermissions(Set.of(PermissionConst.ROB_ORDER_CONFIRM_RECEIPT));
+        RobOrder first = normalOrder();
+        first.setPayStatus(0);
+        RobOrder second = normalOrder();
+        second.setId(78L);
+        second.setPayStatus(1);
+        when(robOrderMapper.selectById(ORDER_ID)).thenReturn(first);
+        when(robOrderMapper.selectById(78L)).thenReturn(second);
+        stubWrites();
+        RobOrderBatchConfirmPayDTO dto = new RobOrderBatchConfirmPayDTO();
+        dto.setOrderIds(List.of(ORDER_ID, 78L, 79L));
+        dto.setAction(1);
+
+        AdminContext.set(admin);
+        try {
+            BatchRobOrderException error = assertThrows(BatchRobOrderException.class,
+                    () -> robOrderService.confirmPays(dto));
+            assertEquals(500, error.getResponse().getCode());
+            assertTrue(error.getResponse().getMsg().contains("78"));
+            verify(robOrderMapper, never()).selectById(79L);
+            verify(robOrderMapper).update(isNull(), any());
+        } finally {
+            AdminContext.remove();
+        }
+    }
+
     @Test
     void cancelOrder_insufficientNotConfirmed_noWrites() {
         stubNormalOrder();
@@ -323,12 +445,10 @@ class RobOrderServiceImplTest {
         when(userPointsService.checkReverseBalance(any()))
                 .thenReturn(insufficientVO(INVITER_ID, true));
 
-        RobOrderCancelDTO dto = new RobOrderCancelDTO();
-        dto.setOrderId(ORDER_ID);
-        Response resp = robOrderService.cancelOrder(dto);
+        Response<?> resp = robOrderService.cancelOrders(cancelBatch(null));
 
         assertEquals(200, resp.getCode());
-        PointsInsufficientVO data = (PointsInsufficientVO) resp.getData();
+        PointsInsufficientVO data = firstInsufficient(resp);
         assertNotNull(data);
         assertEquals(1, data.getUsers().size());
         assertEquals(INVITER_ID, data.getUsers().get(0).getUserId());
@@ -353,12 +473,10 @@ class RobOrderServiceImplTest {
         when(userPointsService.checkReverseBalance(any()))
                 .thenReturn(insufficientVO(BUYER_ID, true));
 
-        RobOrderCancelDTO dto = new RobOrderCancelDTO();
-        dto.setOrderId(ORDER_ID);
-        Response resp = robOrderService.cancelOrder(dto);
+        Response<?> resp = robOrderService.cancelOrders(cancelBatch(null));
 
         assertEquals(200, resp.getCode());
-        PointsInsufficientVO data = (PointsInsufficientVO) resp.getData();
+        PointsInsufficientVO data = firstInsufficient(resp);
         assertNotNull(data);
         assertEquals(1, data.getUsers().size());
         assertEquals(BUYER_ID, data.getUsers().get(0).getUserId());
@@ -375,9 +493,7 @@ class RobOrderServiceImplTest {
         stubAddStock();
         when(userPointsService.checkReverseBalance(any())).thenReturn(null);
 
-        RobOrderCancelDTO dto = new RobOrderCancelDTO();
-        dto.setOrderId(ORDER_ID);
-        Response resp = robOrderService.cancelOrder(dto);
+        Response<?> resp = robOrderService.cancelOrders(cancelBatch(null));
 
         assertEquals(200, resp.getCode());
         assertNull(resp.getData());
@@ -398,10 +514,7 @@ class RobOrderServiceImplTest {
         when(userPointsService.checkReverseBalance(any()))
                 .thenReturn(insufficientVO(INVITER_ID, true));
 
-        RobOrderCancelDTO dto = new RobOrderCancelDTO();
-        dto.setOrderId(ORDER_ID);
-        dto.setConfirmInsufficient(true);
-        Response resp = robOrderService.cancelOrder(dto);
+        Response<?> resp = robOrderService.cancelOrders(cancelBatch(true));
 
         assertEquals(200, resp.getCode());
         assertNull(resp.getData());
@@ -422,9 +535,7 @@ class RobOrderServiceImplTest {
         stubAddStock();
         when(userPointsService.checkReverseBalance(any())).thenReturn(null);
 
-        RobOrderCancelDTO dto = new RobOrderCancelDTO();
-        dto.setOrderId(ORDER_ID);
-        Response resp = robOrderService.cancelOrder(dto);
+        Response<?> resp = robOrderService.cancelOrders(cancelBatch(null));
 
         assertEquals(200, resp.getCode());
         assertNull(resp.getData());

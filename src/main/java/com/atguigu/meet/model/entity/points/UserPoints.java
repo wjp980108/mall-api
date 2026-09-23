@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
  * <p>
  * 双余额：
  * <ul>
- *   <li>{@code points} 可用积分 = 推荐奖 + 自购奖金，<b>可转让</b></li>
- *   <li>{@code couponPoints} 购物券积分 = 自购返券，<b>锁死不可转让</b></li>
+ *   <li>{@code points} 可用积分 = 推荐奖 + 积分对冲转入，<b>可转让</b></li>
+ *   <li>{@code couponPoints} 购物券积分 = 自购奖金 + 自购返券，<b>锁死不可转让</b></li>
  * </ul>
  * 每个用户一行（uk_user_id）；账户行不存在时由业务 INSERT IGNORE 初始化。
  * 余额变动走行锁（SELECT ... FOR UPDATE）在订单事务内串行化，冲回允许负余额。
@@ -34,12 +34,12 @@ public class UserPoints extends Model<UserPoints> {
     @Schema(description = "用户ID")
     private Long userId;
 
-    /** 可用积分（推荐奖+自购奖金），可转让 */
-    @Schema(description = "可用积分（推荐奖+自购奖金），可转让")
+    /** 可用积分（推荐奖+积分对冲转入），可转让 */
+    @Schema(description = "可用积分（推荐奖+积分对冲转入），可转让")
     private BigDecimal points;
 
-    /** 购物券积分（自购返券），锁死不可转让 */
-    @Schema(description = "购物券积分（自购返券），锁死不可转让")
+    /** 购物券积分（自购奖金+自购返券），锁死不可转让 */
+    @Schema(description = "购物券积分（自购奖金+自购返券），锁死不可转让")
     private BigDecimal couponPoints;
 
     @Schema(description = "创建时间")

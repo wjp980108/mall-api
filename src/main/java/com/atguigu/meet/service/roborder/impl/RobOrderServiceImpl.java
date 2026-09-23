@@ -233,7 +233,7 @@ public class RobOrderServiceImpl implements RobOrderService {
                     order.getId(), order.getOrderNo(), "抢购订单推荐奖 " + order.getOrderNo());
         }
         if (selfBuyBonusAmount.signum() > 0) {
-            userPointsService.credit(buyer.getId(), PointsAccountType.POINTS.getCode(),
+            userPointsService.credit(buyer.getId(), PointsAccountType.COUPON.getCode(),
                     selfBuyBonusAmount, PointsBizType.SELF_BUY.getCode(),
                     order.getId(), order.getOrderNo(), "抢购订单自购奖金 " + order.getOrderNo());
         }
@@ -403,7 +403,7 @@ public class RobOrderServiceImpl implements RobOrderService {
         }
         // 新受益人入账（金额冻结不变；新买家无邀请人则推荐奖留利润池不发）
         if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
-            userPointsService.credit(newBuyer.getId(), PointsAccountType.POINTS.getCode(),
+            userPointsService.credit(newBuyer.getId(), PointsAccountType.COUPON.getCode(),
                     order.getSelfBuyBonusAmount(), PointsBizType.SELF_BUY.getCode(),
                     order.getId(), order.getOrderNo(), "订单转入获得自购奖金 " + order.getOrderNo());
         }
@@ -678,7 +678,7 @@ public class RobOrderServiceImpl implements RobOrderService {
                     order.getRecommendAmount()));
         }
         if (nz(order.getSelfBuyBonusAmount()).signum() > 0) {
-            items.add(new PointsReverseItem(buyerId, PointsAccountType.POINTS.getCode(),
+            items.add(new PointsReverseItem(buyerId, PointsAccountType.COUPON.getCode(),
                     order.getSelfBuyBonusAmount()));
         }
         PointsInsufficientVO vo = userPointsService.checkReverseBalance(items);

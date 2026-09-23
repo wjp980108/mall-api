@@ -20,7 +20,7 @@ import org.springframework.web.bind.annotation.*;
  * H5 我的资产（积分）
  * <p>
  * 依赖 JWT 登录态，当前用户 ID 从 {@link AdminContext} 取；
- * 双余额：可用积分（推荐奖+自购奖金，可转让）与购物券积分（锁死不可转）。
+ * 双余额：可用积分（推荐奖+积分对冲转入，可转让）与购物券积分（自购奖+购物券奖，锁死不可转）。
  */
 @RestController
 @RequestMapping("/app/assets")
@@ -37,7 +37,7 @@ public class AppAssetsController {
      * @return 可用积分 + 购物券积分
      */
     @GetMapping("/points")
-    @Operation(summary = "我的积分余额", description = "返回当前用户可用积分（推荐奖+自购奖金，可转让）与购物券积分（锁死不可转）")
+    @Operation(summary = "我的积分余额", description = "返回当前用户可用积分（推荐奖+积分对冲转入，可转让）与购物券积分（自购奖+购物券奖，锁死不可转）")
     @ApiResponse(responseCode = "200", description = "成功", content = @Content(mediaType = "application/json", schema = @Schema(implementation = PointsBalanceVO.class)))
     public Response<PointsBalanceVO> getPointsBalance() {
         return userPointsService.getBalance(AdminContext.getLoginUserId());
@@ -63,7 +63,7 @@ public class AppAssetsController {
      * @return 转让结果
      */
     @PostMapping("/points/transfer")
-    @Operation(summary = "积分转让", description = "输入对方手机号与数量转让可用积分：校验对方已注册/不能转给自己/余额充足，购物券积分不参与；双方各写一条积分对冲流水")
+    @Operation(summary = "积分转让", description = "输入对方手机号与数量转让可用积分（推荐奖+积分对冲转入池）：校验对方已注册/不能转给自己/余额充足，购物券积分（自购奖+购物券奖）不参与；双方各写一条积分对冲流水")
     public Response<Void> transferPoints(@RequestBody @Valid PointsTransferDTO dto) {
         return userPointsService.transfer(AdminContext.getLoginUserId(), dto.getPhone(), dto.getAmount());
     }

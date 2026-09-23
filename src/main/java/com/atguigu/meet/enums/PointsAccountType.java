@@ -4,7 +4,7 @@ import lombok.Getter;
 
 /**
  * 积分账户类型枚举（t_user_points_flow.account_type）
- * 1可用积分(points，推荐奖+自购奖金，可转让) 2购物券积分(coupon_points，锁死不可转)
+ * 1可用积分(points，推荐奖+积分对冲转入，可转让) 2购物券积分(coupon_points，自购奖+购物券奖，锁死不可转)
  */
 @Getter
 public enum PointsAccountType {

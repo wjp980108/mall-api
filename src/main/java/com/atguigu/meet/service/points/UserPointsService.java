@@ -55,8 +55,9 @@ public interface UserPointsService {
     PointsInsufficientVO checkReverseBalance(List<PointsReverseItem> items);
 
     /**
-     * 积分转让：按对方手机号转出可用积分（购物券积分不参与）。
+     * 积分转让：按对方手机号转出可用积分（仅推荐奖+积分对冲转入池，购物券积分不参与）。
      * <p>同事务内条件扣款（余额不足即失败回滚）+ 对方加款 + 双方写积分对冲流水。
+     * 转让进入对方账户的积分计入可用积分池，可继续转让（链条化）。
      *
      * @param fromUserId 转出用户ID
      * @param toPhone    受让方手机号

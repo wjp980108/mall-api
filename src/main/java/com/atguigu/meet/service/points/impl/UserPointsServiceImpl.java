@@ -41,6 +41,9 @@ import java.util.stream.Collectors;
  * 并发策略：账户变动走 {@code SELECT ... FOR UPDATE} 行锁（账户行先 INSERT IGNORE 初始化），
  * 在调用方事务内串行化同一用户的积分变动；冲回允许负余额（平台待追回），
  * 转让用条件扣款（points &gt;= amount）防并发超转。
+ * <p>
+ * 转让资格：仅 accountType=1 可用积分池（推荐奖 + 积分对冲转入）可转让；
+ * accountType=2 购物券积分池（自购奖金 + 购物券奖）锁死不可转。
  */
 @Service
 @Slf4j

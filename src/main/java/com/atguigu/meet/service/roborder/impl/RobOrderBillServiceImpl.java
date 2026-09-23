@@ -15,11 +15,10 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
-import java.io.File;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.math.BigDecimal;
@@ -51,9 +50,6 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
     @Autowired
     private SysSettingsService sysSettingsService;
 
-    @Value("${roborder.bill.pdf.font-path}")
-    private String pdfFontPath;
-
     @Override
     public Response getBillPage(RobOrderBillPageQueryDTO parameter) {
         DateRange range = parseDateRange(parameter.getDate());
@@ -80,15 +76,36 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
         String title = buildTitle(siteName, range.selectedDate);
         String filename = buildFilename(siteName, range.selectedDate);
 
-        validateFontFile();
+        // P2 防御网：先生成到内存，校验有效后再写 response。
+        // 避免 PDF 生成中途异常导致 response 已 committed 无法兜底，
+        // 也防止"半截 PDF + JSON 错误"这类不可恢复的损坏。
+        byte[] pdfBytes;
+        try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+            RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator(title);
+            generator.generate(records, baos);
+            pdfBytes = baos.toByteArray();
+        } catch (IOException e) {
+            throw new BusinessException("导出账单 PDF 失败：生成异常，" + e.getMessage());
+        }
+
+        if (pdfBytes.length == 0) {
+            throw new BusinessException("导出账单 PDF 失败：生成结果为空");
+        }
+        // 校验 PDF 魔数头 %PDF（25 50 44 46）
+        if (pdfBytes.length < 4 || pdfBytes[0] != '%' || pdfBytes[1] != 'P'
+                || pdfBytes[2] != 'D' || pdfBytes[3] != 'F') {
+            throw new BusinessException("导出账单 PDF 失败：生成结果不是有效 PDF");
+        }
 
         response.setContentType("application/pdf");
-        response.setCharacterEncoding(StandardCharsets.UTF_8.name());
+        // P1 卫生修复：不给二进制流设 charset UTF-8，规范规定 setCharacterEncoding
+        // 只影响 Content-Type header 追加 ;charset，对 getOutputStream() 的原始字节无影响；
+        // 但某些代理/拦截器可能据此做多余处理，且语义上二进制流不需要 charset。
         response.setHeader("Content-Disposition", "attachment; filename*=UTF-8''" + encodeFilename(filename));
+        response.setContentLength(pdfBytes.length);
 
         try (OutputStream out = response.getOutputStream()) {
-            RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator(pdfFontPath, title);
-            generator.generate(records, out);
+            out.write(pdfBytes);
             out.flush();
         } catch (IOException e) {
             throw new BusinessException("导出账单 PDF 失败：写入响应流异常，" + e.getMessage());
@@ -175,16 +192,6 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
         String encoded = URLEncoder.encode(filename, StandardCharsets.UTF_8);
         // RFC 5987 要求空格编码为 %20 而非 +
         return encoded.replace("+", "%20");
-    }
-
-    private void validateFontFile() {
-        if (!StringUtils.hasText(pdfFontPath)) {
-            throw new BusinessException("PDF 中文字体路径未配置，请设置 roborder.bill.pdf.font-path");
-        }
-        File fontFile = new File(pdfFontPath);
-        if (!fontFile.exists() || !fontFile.isFile()) {
-            throw new BusinessException("PDF 中文字体文件不存在：" + pdfFontPath);
-        }
     }
 
     private record DateRange(LocalDate selectedDate,

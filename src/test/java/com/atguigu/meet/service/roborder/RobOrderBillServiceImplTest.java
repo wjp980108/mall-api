@@ -269,11 +269,7 @@ class RobOrderBillServiceImplTest {
     }
 
     @Test
-    @EnabledOnOs(OS.MAC)
     void exportRobOrderBillsPdf_withSiteName_setsCorrectFilename() throws Exception {
-        java.io.File fontFile = new java.io.File("/Library/Fonts/Arial Unicode.ttf");
-        org.junit.jupiter.api.Assumptions.assumeTrue(fontFile.exists(), "默认中文字体不存在，跳过测试");
-
         RobOrderBillExportDTO dto = new RobOrderBillExportDTO();
         dto.setDate("2026-09-22");
         dto.setKeyword(null);
@@ -282,7 +278,6 @@ class RobOrderBillServiceImplTest {
         settings.setSiteName("五谷丰登商贸55酒水");
         when(sysSettingsService.get()).thenReturn(settings);
         when(robOrderBillMapper.selectBillList(any(), any(), any(), any(), any())).thenReturn(List.of());
-        ReflectionTestUtils.setField(robOrderBillService, "pdfFontPath", "/Library/Fonts/Arial Unicode.ttf");
 
         MockHttpServletResponse response = new MockHttpServletResponse();
         robOrderBillService.exportRobOrderBillsPdf(dto, response);
@@ -294,11 +289,7 @@ class RobOrderBillServiceImplTest {
     }
 
     @Test
-    @EnabledOnOs(OS.MAC)
     void exportRobOrderBillsPdf_withoutSiteName_setsDefaultFilename() throws Exception {
-        java.io.File fontFile = new java.io.File("/Library/Fonts/Arial Unicode.ttf");
-        org.junit.jupiter.api.Assumptions.assumeTrue(fontFile.exists(), "默认中文字体不存在，跳过测试");
-
         RobOrderBillExportDTO dto = new RobOrderBillExportDTO();
         dto.setDate("2026-09-22");
 
@@ -306,7 +297,6 @@ class RobOrderBillServiceImplTest {
         settings.setSiteName(null);
         when(sysSettingsService.get()).thenReturn(settings);
         when(robOrderBillMapper.selectBillList(any(), any(), any(), any(), any())).thenReturn(List.of());
-        ReflectionTestUtils.setField(robOrderBillService, "pdfFontPath", "/Library/Fonts/Arial Unicode.ttf");
 
         MockHttpServletResponse response = new MockHttpServletResponse();
         robOrderBillService.exportRobOrderBillsPdf(dto, response);

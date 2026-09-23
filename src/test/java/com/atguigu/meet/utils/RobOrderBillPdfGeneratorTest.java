@@ -2,26 +2,19 @@ package com.atguigu.meet.utils;
 
 import com.atguigu.meet.model.vo.roborder.RobOrderBillVO;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledOnOs;
-import org.junit.jupiter.api.condition.OS;
 
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.math.BigDecimal;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.junit.jupiter.api.Assumptions.assumeTrue;
 
 /**
  * RobOrderBillPdfGenerator 单元测试。
  * <p>
- * 由于依赖本地中文字体，仅在 macOS 且存在默认字体时运行。
+ * 字体已内嵌到 classpath（思源黑体），跨平台零配置，任何环境均可运行。
  */
-@EnabledOnOs(OS.MAC)
 class RobOrderBillPdfGeneratorTest {
-
-    private static final String DEFAULT_FONT_PATH = "/Library/Fonts/Arial Unicode.ttf";
 
     private RobOrderBillVO bill(long userId, long todayPurchase, long yesterdayPurchase) {
         RobOrderBillVO vo = new RobOrderBillVO();
@@ -44,9 +37,7 @@ class RobOrderBillPdfGeneratorTest {
 
     @Test
     void generate_withData_producesNonEmptyPdf() throws Exception {
-        assumeTrue(new File(DEFAULT_FONT_PATH).exists(), "默认中文字体不存在，跳过测试");
-
-        RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator(DEFAULT_FONT_PATH, "测试进货明细表 - 2026年9月22日");
+        RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator("测试进货明细表 - 2026年9月22日");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         generator.generate(List.of(bill(1L, 100, 0), bill(2L, 0, 200)), out);
 
@@ -58,9 +49,7 @@ class RobOrderBillPdfGeneratorTest {
 
     @Test
     void generate_emptyData_producesNonEmptyPdf() throws Exception {
-        assumeTrue(new File(DEFAULT_FONT_PATH).exists(), "默认中文字体不存在，跳过测试");
-
-        RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator(DEFAULT_FONT_PATH, "测试进货明细表 - 2026年9月22日");
+        RobOrderBillPdfGenerator generator = new RobOrderBillPdfGenerator("测试进货明细表 - 2026年9月22日");
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         generator.generate(List.of(), out);
 

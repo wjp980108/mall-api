@@ -17,6 +17,7 @@ import com.lowagie.text.pdf.PdfWriter;
 
 import java.awt.Color;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.math.BigDecimal;
 import java.util.List;
@@ -25,8 +26,12 @@ import java.util.List;
  * 抢购订单用户账单 PDF 生成器（基于 OpenPDF）。
  * <p>
  * A4 横向、红色标题栏、蓝色表头、网格线；支持金额整数展示与特定条件标红。
+ * 中文字体思源黑体 Regular（SourceHanSansSC-Regular.otf）随项目内嵌，
+ * 跨平台零配置，SIL OFL 1.1 许可证允许免费商用。
  */
 public class RobOrderBillPdfGenerator {
+
+    private static final String FONT_RESOURCE = "fonts/SourceHanSansSC-Regular.otf";
 
     private static final String[] HEADERS = {
             "序号", "姓名", "电话",
@@ -53,15 +58,12 @@ public class RobOrderBillPdfGenerator {
     private static final float FONT_SIZE_HEADER = 9f;
     private static final float FONT_SIZE_BODY = 9f;
 
-    private final String fontPath;
     private final String title;
 
     /**
-     * @param fontPath 中文字体 TTF 文件路径
-     * @param title    PDF 标题
+     * @param title PDF 标题
      */
-    public RobOrderBillPdfGenerator(String fontPath, String title) {
-        this.fontPath = fontPath;
+    public RobOrderBillPdfGenerator(String title) {
         this.title = title;
     }
 
@@ -77,7 +79,7 @@ public class RobOrderBillPdfGenerator {
             PdfWriter.getInstance(document, out);
             document.open();
 
-            BaseFont baseFont = BaseFont.createFont(fontPath, BaseFont.IDENTITY_H, BaseFont.EMBEDDED);
+            BaseFont baseFont = loadEmbeddedFont();
             Font titleFont = new Font(baseFont, FONT_SIZE_TITLE, Font.BOLD, TITLE_TEXT);
             Font headerFont = new Font(baseFont, FONT_SIZE_HEADER, Font.BOLD, HEADER_TEXT);
             Font bodyFont = new Font(baseFont, FONT_SIZE_BODY, Font.NORMAL, Color.BLACK);
@@ -175,5 +177,35 @@ public class RobOrderBillPdfGenerator {
 
     private String formatAmount(BigDecimal amount) {
         return amount == null ? "0" : amount.toPlainString();
+    }
+
+    /**
+     * 从 classpath 加载内嵌字体，BaseFont.EMBEDDED 确保 PDF 跨环境正常显示中文。
+     * <p>
+     * OpenPDF 2.0 支持通过 byte[] 加载字体（createFont 的重载签名：
+     * createFont(String name, String encoding, boolean embedded, boolean cached,
+     * byte[] ttfAfm, byte[] pfb)），TTF/OTF 字体传入 ttfAfm 参数，pfb 传 null。
+     */
+    private BaseFont loadEmbeddedFont() {
+        ClassLoader cl = Thread.currentThread().getContextClassLoader();
+        if (cl == null) {
+            cl = RobOrderBillPdfGenerator.class.getClassLoader();
+        }
+        try (InputStream is = cl.getResourceAsStream(FONT_RESOURCE)) {
+            if (is == null) {
+                throw new IOException("PDF 内嵌字体不存在: " + FONT_RESOURCE);
+            }
+            byte[] fontBytes = is.readAllBytes();
+            return BaseFont.createFont(
+                    "SourceHanSansSC-Regular.otf",
+                    BaseFont.IDENTITY_H,
+                    BaseFont.EMBEDDED,
+                    true,      // cached
+                    fontBytes, // ttfAfm：TTF/OTF 字体文件字节
+                    null       // pfb：Type1 字体用，TTF/OTF 传 null
+            );
+        } catch (IOException | DocumentException e) {
+            throw new BusinessException("加载 PDF 内嵌字体失败: " + e.getMessage());
+        }
     }
 }

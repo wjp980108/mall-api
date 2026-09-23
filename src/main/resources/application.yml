@@ -147,10 +147,3 @@ permission:
   cache-prefix: "mall:permission:"
   # 缓存过期时间（秒），默认 1 小时
   expire-seconds: 3600
-
-# 抢购订单账单 PDF 导出配置
-roborder:
-  bill:
-    pdf:
-      # 中文字体文件路径（TTF），macOS 开发默认；部署环境请覆盖为实际字体路径
-      font-path: /Library/Fonts/Arial Unicode.ttf

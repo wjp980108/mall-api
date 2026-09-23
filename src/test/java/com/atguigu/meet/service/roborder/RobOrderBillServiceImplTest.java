@@ -316,6 +316,84 @@ class RobOrderBillServiceImplTest {
         assertTrue(!filename.contains("null"), "文件名中不应出现 null");
     }
 
+    @Test
+    @SuppressWarnings("unchecked")
+    void getBillPage_cancelSameDay_netAmountsAreZero() {
+        RobOrderBillPageQueryDTO dto = query(1, 10, "2026-09-22", null);
+
+        // 当日创建并当日取消：买入/分享/付款/回款净额均为 0
+        RobOrderBillVO vo = bill(1L, "0", "0", "0", "0", "0", "0", "0");
+        Page<RobOrderBillVO> page = new Page<>(1, 10);
+        page.setRecords(List.of(vo));
+        page.setTotal(1L);
+        when(robOrderBillMapper.selectBillPage(any(), any(), any(), any(), any(), any())).thenReturn(page);
+
+        Response resp = robOrderBillService.getBillPage(dto);
+        PageResultVO<RobOrderBillVO> result = (PageResultVO<RobOrderBillVO>) resp.getData();
+        RobOrderBillVO actual = result.getList().get(0);
+
+        assertEquals("0", actual.getTodayConsignmentAmount().toPlainString());
+        assertEquals("0", actual.getYesterdayConsignmentAmount().toPlainString());
+        assertEquals("0", actual.getPayableAmount().toPlainString());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getBillPage_cancelCrossDay_belongsToYesterday() {
+        RobOrderBillPageQueryDTO dto = query(1, 10, "2026-09-22", null);
+
+        // 昨日创建并昨日取消：昨日买入/付款/回款净额均为 0；今日无数据
+        RobOrderBillVO vo = bill(1L, "0", "0", "0", "0", "0", "0", "0");
+        Page<RobOrderBillVO> page = new Page<>(1, 10);
+        page.setRecords(List.of(vo));
+        page.setTotal(1L);
+        when(robOrderBillMapper.selectBillPage(any(), any(), any(), any(), any(), any())).thenReturn(page);
+
+        Response resp = robOrderBillService.getBillPage(dto);
+        PageResultVO<RobOrderBillVO> result = (PageResultVO<RobOrderBillVO>) resp.getData();
+        RobOrderBillVO actual = result.getList().get(0);
+
+        // 跨日取消不影响今日指标，应付款 = 今日净付款 0 - 昨日净回款 0 = 0
+        assertEquals("0", actual.getTodayConsignmentAmount().toPlainString());
+        assertEquals("0", actual.getYesterdayConsignmentAmount().toPlainString());
+        assertEquals("0", actual.getPayableAmount().toPlainString());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getBillPage_transferSplit_originalAndNewBuyer() {
+        RobOrderBillPageQueryDTO dto = query(1, 10, "2026-09-22", null);
+
+        // 转移拆分：原买家 A 今日买入 -100，新买家 B 今日买入 +100
+        RobOrderBillVO originalBuyer = bill(1L, "-100", "-80", "-100", "-10", "0", "0", "0");
+        originalBuyer.setUserName("原买家");
+        RobOrderBillVO newBuyer = bill(2L, "100", "80", "100", "10", "0", "0", "0");
+        newBuyer.setUserName("新买家");
+
+        Page<RobOrderBillVO> page = new Page<>(1, 10);
+        page.setRecords(List.of(originalBuyer, newBuyer));
+        page.setTotal(2L);
+        when(robOrderBillMapper.selectBillPage(any(), any(), any(), any(), any(), any())).thenReturn(page);
+
+        Response resp = robOrderBillService.getBillPage(dto);
+        PageResultVO<RobOrderBillVO> result = (PageResultVO<RobOrderBillVO>) resp.getData();
+        assertEquals(2, result.getList().size());
+
+        RobOrderBillVO original = result.getList().get(0);
+        RobOrderBillVO transferred = result.getList().get(1);
+
+        // 原买家红冲为负
+        assertEquals("-100", original.getTodayPurchaseAmount().toPlainString());
+        assertEquals("-80", original.getTodayPaymentAmount().toPlainString());
+        assertEquals("-100", original.getTodayReceiptAmount().toPlainString());
+        assertEquals("-10", original.getTodayShareAmount().toPlainString());
+        // 新买家正向为正
+        assertEquals("100", transferred.getTodayPurchaseAmount().toPlainString());
+        assertEquals("80", transferred.getTodayPaymentAmount().toPlainString());
+        assertEquals("100", transferred.getTodayReceiptAmount().toPlainString());
+        assertEquals("10", transferred.getTodayShareAmount().toPlainString());
+    }
+
     private String extractFilename(String contentDisposition) {
         String prefix = "filename*=UTF-8''";
         int idx = contentDisposition.indexOf(prefix);

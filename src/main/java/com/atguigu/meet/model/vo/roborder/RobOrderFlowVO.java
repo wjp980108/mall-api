@@ -30,6 +30,10 @@ public class RobOrderFlowVO {
     @Schema(description = "事件发生时间")
     private LocalDateTime eventTime;
 
+    @JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")
+    @Schema(description = "订单创建时间")
+    private LocalDateTime orderCreateTime;
+
     @Schema(description = "订单ID")
     private Long orderId;
 

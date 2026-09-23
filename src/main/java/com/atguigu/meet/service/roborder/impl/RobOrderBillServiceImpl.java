@@ -96,7 +96,12 @@ public class RobOrderBillServiceImpl implements RobOrderBillService {
     }
 
     /**
-     * 金额归一化：原始字段四舍五入取整后，再计算派生字段。
+     * 金额归一化：Mapper 已按事件行带符号净额口径聚合（下单/转移正向为正，取消/转移红冲为负），
+     * 先对原始聚合字段四舍五入取整，再计算寄售与应付款派生字段。
+     * <p>
+     * 公式：今日寄售 = 今日净回款 - 今日净付款；
+     *      昨日寄售 = 昨日净回款 - 昨日净付款；
+     *      应付款 = 今日净付款 - 昨日净回款。
      */
     private void normalizeAmounts(RobOrderBillVO vo) {
         vo.setTodayPurchaseAmount(round(vo.getTodayPurchaseAmount()));

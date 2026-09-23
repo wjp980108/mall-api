@@ -10,8 +10,8 @@ import java.util.List;
 /**
  * 订单流水分页查询 DTO（管理端算账读模型）
  * <p>
- * 查询轴为订单操作事件的发生时间（t_rob_order_operate_log.create_time），
- * 与运营视角的 {@link RobOrderPageQueryDTO}（按订单下单日）刻意隔离。
+ * 查询轴为订单创建时间（t_rob_order.create_time），
+ * 与账单视图在同一时间锚点对齐。
  */
 @Data
 @Schema(description = "订单流水分页查询参数")
@@ -25,8 +25,8 @@ public class RobOrderFlowPageQueryDTO {
     @NotNull(message = "每页条数不能为空")
     private Integer pageSize;
 
-    /** 事件发生时间范围（yyyy-MM-dd 起, yyyy-MM-dd 止）；不传默认查全部 */
-    @Schema(description = "事件发生时间范围（不传默认查全部）", example = "2026-09-12,2026-09-12")
+    /** 订单创建时间范围（yyyy-MM-dd 起, yyyy-MM-dd 止）；不传默认查全部 */
+    @Schema(description = "订单创建时间范围（不传默认查全部）", example = "2026-09-12,2026-09-12")
     private List<String> timeRange;
 
     /** 事件类型：1下单 2取消订单 3转移订单；不传查全部 */

@@ -9,6 +9,7 @@
         <id column="log_id" property="logId"/>
         <result column="event_type" property="eventType"/>
         <result column="event_time" property="eventTime"/>
+        <result column="order_create_time" property="orderCreateTime"/>
         <result column="order_id" property="orderId"/>
         <result column="order_no" property="orderNo"/>
         <result column="goods_id" property="goodsId"/>
@@ -58,17 +59,17 @@
         </association>
     </resultMap>
 
-    <!-- 公共时间区间过滤（事件轴：日志创建时间） -->
-    <sql id="eventTimeFilter">
+    <!-- 公共时间区间过滤（订单创建时间轴：t_rob_order.create_time） -->
+    <sql id="orderCreateTimeFilter">
         <if test="startTime != null">
-            AND l.create_time &gt;= #{startTime}
+            AND o.create_time &gt;= #{startTime}
         </if>
         <if test="endTime != null">
-            AND l.create_time &lt;= #{endTime}
+            AND o.create_time &lt;= #{endTime}
         </if>
     </sql>
 
-    <!-- 分页与筛选合计公共过滤：事件时间区间 + 可选事件类型（汇总接口不使用此片段） -->
+    <!-- 分页与筛选合计公共过滤：订单创建时间区间 + 可选事件类型（汇总接口不使用此片段） -->
     <sql id="eventTypeFilter">
         <if test="operateType != null">
             AND l.operate_type = #{operateType}
@@ -117,7 +118,7 @@
         LEFT JOIN (SELECT 1 AS n UNION ALL SELECT 2 AS n) split
             ON l.operate_type = 3
         WHERE 1 = 1
-        <include refid="eventTimeFilter"/>
+        <include refid="orderCreateTimeFilter"/>
         <include refid="eventTypeFilter"/>
         <include refid="keywordFilter"/>
     </select>
@@ -127,7 +128,7 @@
           split.n=1 红冲视角：买家取原买家快照(prev_buyer_*，存量 NULL 时 COALESCE 兜底为当前买家)，数量/金额带负号
           split.n=2 正向视角：买家取事件买家快照(buyer_*，即转移新买家；存量 NULL 时 COALESCE 兜底为当前买家)，数量/金额带正号
         下单(1)/取消(2)事件 split.n 为 NULL，仍为一行；下单/取消买家同样取事件买家快照 l.buyer_*，缺失 COALESCE 当前买家；取消金额打负号逻辑不变。
-        全局排序：事件时间/日志 ID 倒序 + split.n 倒序——同一转移事件正向行(+)在红冲行(-)之前；
+        全局排序：订单创建时间/日志 ID 倒序 + split.n 倒序——同一转移事件正向行(+)在红冲行(-)之前；
         无 GROUP BY，分页 COUNT 为拆行物理行数（转移翻倍）。split.n 仅在同一 log 两行间生效（下单/取消行 split.n 为 NULL，
         其与拆行行的先后已由 l.id 次序决定）。存量转移行 receipt/payment=0 时 -0/+0 自然退化为两行 0 金额。
     -->
@@ -136,6 +137,7 @@
             l.id                       AS log_id,
             l.operate_type             AS event_type,
             l.create_time              AS event_time,
+            o.create_time              AS order_create_time,
             l.order_id,
             o.order_no,
             o.goods_id,
@@ -186,10 +188,10 @@
         LEFT JOIN (SELECT 1 AS n UNION ALL SELECT 2 AS n) split
             ON l.operate_type = 3
         WHERE 1 = 1
-        <include refid="eventTimeFilter"/>
+        <include refid="orderCreateTimeFilter"/>
         <include refid="eventTypeFilter"/>
         <include refid="keywordFilter"/>
-        ORDER BY l.create_time DESC, l.id DESC, split.n DESC
+        ORDER BY o.create_time DESC, l.id DESC, split.n DESC
     </select>
 
     <!--
@@ -223,7 +225,7 @@
         INNER JOIN t_rob_order o
             ON o.id = l.order_id AND o.is_deleted = 0
         WHERE 1 = 1
-        <include refid="eventTimeFilter"/>
+        <include refid="orderCreateTimeFilter"/>
     </select>
 
 </mapper>

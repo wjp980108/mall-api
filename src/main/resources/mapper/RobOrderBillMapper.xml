@@ -18,58 +18,99 @@
         <result column="yesterday_receipt_amount" property="yesterdayReceiptAmount"/>
     </resultMap>
 
-    <!-- 买家关键词模糊匹配（姓名/手机号） -->
+    <!--
+        买家关键词模糊匹配（按事件行展示买家匹配）：
+          转移红冲行(split.n=1) → 转移前买家 l.prev_buyer_*，COALESCE 回退 o.buyer_*
+          其他行               → 事件买家 l.buyer_*，COALESCE 回退 o.buyer_*
+        命中时转移事件红冲+正向两行同时返回。
+    -->
     <sql id="keywordFilter">
         <if test="keyword != null and keyword != ''">
             AND (
-                o.buyer_name LIKE CONCAT('%', #{keyword}, '%')
-                OR o.buyer_phone LIKE CONCAT('%', #{keyword}, '%')
+                (CASE WHEN l.operate_type = 3 AND split.n = 1
+                      THEN COALESCE(l.prev_buyer_name, o.buyer_name)
+                      ELSE COALESCE(l.buyer_name, o.buyer_name) END) LIKE CONCAT('%', #{keyword}, '%')
+                OR (CASE WHEN l.operate_type = 3 AND split.n = 1
+                         THEN COALESCE(l.prev_buyer_phone, o.buyer_phone)
+                         ELSE COALESCE(l.buyer_phone, o.buyer_phone) END) LIKE CONCAT('%', #{keyword}, '%')
             )
         </if>
     </sql>
 
     <!--
         按买家聚合今日/昨日账单指标：
-        1. 仅统计正常订单（order_status = 1）
-        2. 以订单创建日归属买入/分享/付款/回款
-        3. 付款/回款从 t_rob_order_operate_log 的下单事件行（operate_type = 1）读取
-        4. 按 buyer_id / buyer_name / buyer_phone 分组，无数据买家不出现
+        1. 以 t_rob_order_operate_log 为驱动，INNER JOIN t_rob_order，按订单创建日 o.create_time 圈定今昨两日
+        2. 取消事件金额打负号；转移事件拆两行：原买家红冲（负）/ 新买家正向（正）
+        3. 买入/分享取订单快照 total_amount / recommend_amount 带符号聚合；付款/回款取日志行 payment_amount / receipt_amount 带符号聚合
+        4. 按事件行展示买家（ buyer_id / buyer_name / buyer_phone ）分组，无事件行买家不出现
     -->
     <sql id="billListSql">
         SELECT
-            o.buyer_id                                                AS user_id,
-            MAX(o.buyer_name)                                         AS user_name,
-            MAX(o.buyer_phone)                                        AS phone,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
-                              THEN o.total_amount ELSE 0 END), 0)     AS today_purchase_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
-                              THEN o.recommend_amount ELSE 0 END), 0) AS today_share_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
-                               AND l.operate_type = 1
-                              THEN l.payment_amount ELSE 0 END), 0)   AS today_payment_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{todayStart} AND o.create_time &lt;= #{todayEnd}
-                               AND l.operate_type = 1
-                              THEN l.receipt_amount ELSE 0 END), 0)   AS today_receipt_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
-                              THEN o.total_amount ELSE 0 END), 0)     AS yesterday_purchase_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
-                              THEN o.recommend_amount ELSE 0 END), 0) AS yesterday_share_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
-                               AND l.operate_type = 1
-                              THEN l.payment_amount ELSE 0 END), 0)   AS yesterday_payment_amount,
-            COALESCE(SUM(CASE WHEN o.create_time &gt;= #{yesterdayStart} AND o.create_time &lt;= #{yesterdayEnd}
-                               AND l.operate_type = 1
-                              THEN l.receipt_amount ELSE 0 END), 0)   AS yesterday_receipt_amount
-        FROM t_rob_order o
-        LEFT JOIN t_rob_order_operate_log l
-            ON l.order_id = o.id AND l.operate_type = 1
-        WHERE o.is_deleted = 0
-          AND o.order_status = 1
-          AND o.create_time &gt;= #{yesterdayStart}
-          AND o.create_time &lt;= #{todayEnd}
-        <include refid="keywordFilter"/>
-        GROUP BY o.buyer_id, o.buyer_name, o.buyer_phone
-        ORDER BY o.buyer_id DESC
+            t.buyer_id                                                AS user_id,
+            MAX(t.buyer_name)                                         AS user_name,
+            MAX(t.buyer_phone)                                        AS phone,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{todayStart} AND t.create_time &lt;= #{todayEnd}
+                              THEN t.signed_total_amount ELSE 0 END), 0)     AS today_purchase_amount,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{todayStart} AND t.create_time &lt;= #{todayEnd}
+                              THEN t.signed_payment_amount ELSE 0 END), 0)   AS today_payment_amount,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{todayStart} AND t.create_time &lt;= #{todayEnd}
+                              THEN t.signed_receipt_amount ELSE 0 END), 0)   AS today_receipt_amount,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{todayStart} AND t.create_time &lt;= #{todayEnd}
+                              THEN t.signed_recommend_amount ELSE 0 END), 0) AS today_share_amount,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{yesterdayStart} AND t.create_time &lt;= #{yesterdayEnd}
+                              THEN t.signed_total_amount ELSE 0 END), 0)     AS yesterday_purchase_amount,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{yesterdayStart} AND t.create_time &lt;= #{yesterdayEnd}
+                              THEN t.signed_payment_amount ELSE 0 END), 0)   AS yesterday_payment_amount,
+            COALESCE(SUM(CASE WHEN t.create_time &gt;= #{yesterdayStart} AND t.create_time &lt;= #{yesterdayEnd}
+                              THEN t.signed_receipt_amount ELSE 0 END), 0)   AS yesterday_receipt_amount
+        FROM (
+            SELECT
+                o.create_time,
+                CASE WHEN l.operate_type = 3 AND split.n = 1
+                     THEN COALESCE(l.prev_buyer_id, o.buyer_id)
+                     ELSE COALESCE(l.buyer_id, o.buyer_id) END   AS buyer_id,
+                CASE WHEN l.operate_type = 3 AND split.n = 1
+                     THEN COALESCE(l.prev_buyer_name, o.buyer_name)
+                     ELSE COALESCE(l.buyer_name, o.buyer_name) END AS buyer_name,
+                CASE WHEN l.operate_type = 3 AND split.n = 1
+                     THEN COALESCE(l.prev_buyer_phone, o.buyer_phone)
+                     ELSE COALESCE(l.buyer_phone, o.buyer_phone) END AS buyer_phone,
+                CASE
+                    WHEN l.operate_type = 2 THEN -o.total_amount
+                    WHEN l.operate_type = 3 AND split.n = 1 THEN -o.total_amount
+                    WHEN l.operate_type = 3 AND split.n = 2 THEN o.total_amount
+                    ELSE o.total_amount
+                END                        AS signed_total_amount,
+                CASE
+                    WHEN l.operate_type = 2 THEN -o.recommend_amount
+                    WHEN l.operate_type = 3 AND split.n = 1 THEN -o.recommend_amount
+                    WHEN l.operate_type = 3 AND split.n = 2 THEN o.recommend_amount
+                    ELSE o.recommend_amount
+                END                        AS signed_recommend_amount,
+                CASE
+                    WHEN l.operate_type = 2 THEN -l.payment_amount
+                    WHEN l.operate_type = 3 AND split.n = 1 THEN -l.payment_amount
+                    WHEN l.operate_type = 3 AND split.n = 2 THEN l.payment_amount
+                    ELSE l.payment_amount
+                END                        AS signed_payment_amount,
+                CASE
+                    WHEN l.operate_type = 2 THEN -l.receipt_amount
+                    WHEN l.operate_type = 3 AND split.n = 1 THEN -l.receipt_amount
+                    WHEN l.operate_type = 3 AND split.n = 2 THEN l.receipt_amount
+                    ELSE l.receipt_amount
+                END                        AS signed_receipt_amount
+            FROM t_rob_order_operate_log l
+            INNER JOIN t_rob_order o
+                ON o.id = l.order_id AND o.is_deleted = 0
+            LEFT JOIN (SELECT 1 AS n UNION ALL SELECT 2 AS n) split
+                ON l.operate_type = 3
+            WHERE 1 = 1
+              AND o.create_time &gt;= #{yesterdayStart}
+              AND o.create_time &lt;= #{todayEnd}
+            <include refid="keywordFilter"/>
+        ) t
+        GROUP BY t.buyer_id, t.buyer_name, t.buyer_phone
+        ORDER BY t.buyer_id DESC
     </sql>
 
     <!-- 账单分页列表 -->

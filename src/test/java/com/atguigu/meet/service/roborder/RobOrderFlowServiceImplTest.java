@@ -47,10 +47,16 @@ class RobOrderFlowServiceImplTest {
     private RobOrderFlowServiceImpl robOrderFlowService;
 
     private RobOrderFlowVO row(long orderId, int eventType, LocalDateTime time, String amount) {
+        return row(orderId, eventType, time, time, amount);
+    }
+
+    private RobOrderFlowVO row(long orderId, int eventType, LocalDateTime eventTime,
+                               LocalDateTime orderCreateTime, String amount) {
         RobOrderFlowVO vo = new RobOrderFlowVO();
         vo.setOrderId(orderId);
         vo.setEventType(eventType);
-        vo.setEventTime(time);
+        vo.setEventTime(eventTime);
+        vo.setOrderCreateTime(orderCreateTime);
         vo.setSignedTotalAmount(new BigDecimal(amount));
         return vo;
     }
@@ -95,6 +101,8 @@ class RobOrderFlowServiceImplTest {
         // 中文名已回填
         assertNotNull(list.get(0).getEventTypeName());
         assertNotNull(list.get(1).getEventTypeName());
+        // 订单创建时间字段透传
+        assertNotNull(list.get(0).getOrderCreateTime());
 
         // 分页元数据以事件物理行计
         assertEquals(9L, result.getTotal());
@@ -125,5 +133,75 @@ class RobOrderFlowServiceImplTest {
         assertEquals(0L, result.getTotal());
         // 单层分页：只查一次分页、一次合计
         verify(robOrderFlowMapper).selectFlowPage(any(), any(), any(), any(), any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFlowPage_crossDayCancel_rowsBelongToOrderCreateDay() {
+        RobOrderFlowPageQueryDTO dto = new RobOrderFlowPageQueryDTO();
+        dto.setPageNum(1);
+        dto.setPageSize(10);
+        dto.setTimeRange("2026-09-01,2026-09-01");
+
+        LocalDateTime createTime = LocalDateTime.of(2026, 9, 1, 10, 0);
+        LocalDateTime cancelTime = LocalDateTime.of(2026, 9, 10, 15, 0);
+        List<RobOrderFlowVO> records = List.of(
+                // 跨日取消：下单行与取消红冲行均归属订单创建日 2026-09-01
+                row(1L, 2, cancelTime, createTime, "-100.00"),
+                row(1L, 1, createTime, createTime, "100.00"));
+        Page<RobOrderFlowVO> rowPage = new Page<>(1, 10);
+        rowPage.setRecords(records);
+        rowPage.setTotal(2L);
+        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any(), any())).thenReturn(rowPage);
+        when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any(), any())).thenReturn(BigDecimal.ZERO);
+
+        Response resp = robOrderFlowService.getFlowPage(dto);
+        assertEquals(200, resp.getCode());
+
+        RobOrderFlowPageResultVO result = (RobOrderFlowPageResultVO) resp.getData();
+        List<RobOrderFlowVO> list = result.getList();
+        assertEquals(2, list.size());
+
+        // 两行订单创建时间相同（均归属创建日），事件时间不同
+        assertEquals(createTime, list.get(0).getOrderCreateTime());
+        assertEquals(createTime, list.get(1).getOrderCreateTime());
+        assertEquals(cancelTime, list.get(0).getEventTime());
+        assertEquals(createTime, list.get(1).getEventTime());
+        // 净额抵消为 0
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.getTotalAmount()));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void getFlowPage_transferSplit_rowsBelongToOrderCreateDay() {
+        RobOrderFlowPageQueryDTO dto = new RobOrderFlowPageQueryDTO();
+        dto.setPageNum(1);
+        dto.setPageSize(10);
+        dto.setTimeRange("2026-09-01,2026-09-01");
+
+        LocalDateTime createTime = LocalDateTime.of(2026, 9, 1, 10, 0);
+        LocalDateTime transferTime = LocalDateTime.of(2026, 9, 5, 15, 0);
+        List<RobOrderFlowVO> records = List.of(
+                // 转移拆行：正向行（新买家）与红冲行（原买家）均归属订单创建日
+                row(1L, 3, transferTime, createTime, "100.00"),
+                row(1L, 3, transferTime, createTime, "-100.00"));
+        Page<RobOrderFlowVO> rowPage = new Page<>(1, 10);
+        rowPage.setRecords(records);
+        rowPage.setTotal(2L);
+        when(robOrderFlowMapper.selectFlowPage(any(), any(), any(), any(), any())).thenReturn(rowPage);
+        when(robOrderFlowMapper.selectFlowTotalAmount(any(), any(), any(), any())).thenReturn(BigDecimal.ZERO);
+
+        Response resp = robOrderFlowService.getFlowPage(dto);
+        assertEquals(200, resp.getCode());
+
+        RobOrderFlowPageResultVO result = (RobOrderFlowPageResultVO) resp.getData();
+        List<RobOrderFlowVO> list = result.getList();
+        assertEquals(2, list.size());
+
+        // 两行订单创建时间均归属创建日
+        assertEquals(createTime, list.get(0).getOrderCreateTime());
+        assertEquals(createTime, list.get(1).getOrderCreateTime());
+        // 转移两行净额抵消
+        assertEquals(0, BigDecimal.ZERO.compareTo(result.getTotalAmount()));
     }
 }

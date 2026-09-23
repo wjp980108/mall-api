@@ -23,33 +23,33 @@ public class RobOrderBillVO {
     @Schema(description = "买家手机号快照")
     private String phone;
 
-    @Schema(description = "今日买入金额")
+    @Schema(description = "今日买入金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal todayPurchaseAmount = BigDecimal.ZERO;
 
-    @Schema(description = "今日寄售金额（今日回款 - 今日付款）")
+    @Schema(description = "今日寄售金额（今日净回款 - 今日净付款）")
     private BigDecimal todayConsignmentAmount = BigDecimal.ZERO;
 
-    @Schema(description = "今日付款金额")
+    @Schema(description = "今日付款金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal todayPaymentAmount = BigDecimal.ZERO;
 
-    @Schema(description = "今日回款金额")
+    @Schema(description = "今日回款金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal todayReceiptAmount = BigDecimal.ZERO;
 
-    @Schema(description = "今日分享金额")
+    @Schema(description = "今日分享金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal todayShareAmount = BigDecimal.ZERO;
 
-    @Schema(description = "昨日买入金额")
+    @Schema(description = "昨日买入金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal yesterdayPurchaseAmount = BigDecimal.ZERO;
 
-    @Schema(description = "昨日寄售金额（昨日回款 - 昨日付款）")
+    @Schema(description = "昨日寄售金额（昨日净回款 - 昨日净付款）")
     private BigDecimal yesterdayConsignmentAmount = BigDecimal.ZERO;
 
-    @Schema(description = "昨日付款金额")
+    @Schema(description = "昨日付款金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal yesterdayPaymentAmount = BigDecimal.ZERO;
 
-    @Schema(description = "昨日回款金额")
+    @Schema(description = "昨日回款金额（净额：下单/转移正向为正，取消/转移红冲为负）")
     private BigDecimal yesterdayReceiptAmount = BigDecimal.ZERO;
 
-    @Schema(description = "应付款（今日付款 - 昨日回款）")
+    @Schema(description = "应付款（今日净付款 - 昨日净回款）")
     private BigDecimal payableAmount = BigDecimal.ZERO;
 }

@@ -71,7 +71,7 @@ public class InviteCodeServiceImpl implements InviteCodeService {
         inviteCode.setInviteCode(code);
         inviteCode.setInviterId(userId);
         inviteCode.setStatus(0);
-        inviteCode.setMaxInviteNum(10);
+        inviteCode.setMaxInviteNum(0);
         inviteCode.setUsedInviteNum(0);
         sysInviteCodeMapper.insert(inviteCode);
 
@@ -165,7 +165,10 @@ public class InviteCodeServiceImpl implements InviteCodeService {
         if (code.getExpireTime() != null && code.getExpireTime().isBefore(LocalDateTime.now())) {
             throw new BusinessException("邀请码已过期");
         }
-        if (code.getUsedInviteNum() >= code.getMaxInviteNum()) {
+        // 0 表示不限制，跳过人数上限校验
+        if (code.getMaxInviteNum() != null
+                && code.getMaxInviteNum() > 0
+                && code.getUsedInviteNum() >= code.getMaxInviteNum()) {
             throw new BusinessException("邀请码已达到最大邀请人数");
         }
         return code;
@@ -190,8 +193,10 @@ public class InviteCodeServiceImpl implements InviteCodeService {
                 .eq(SysInviteCode::getUsedInviteNum, inviteCode.getUsedInviteNum())
                 .set(SysInviteCode::getUsedInviteNum, newUsedNum);
 
-        // 名额满则自动停用
-        if (newUsedNum >= inviteCode.getMaxInviteNum()) {
+        // 名额满则自动停用；0 表示不限制，跳过停用
+        if (inviteCode.getMaxInviteNum() != null
+                && inviteCode.getMaxInviteNum() > 0
+                && newUsedNum >= inviteCode.getMaxInviteNum()) {
             updateWrapper.set(SysInviteCode::getStatus, 2);
         }
 

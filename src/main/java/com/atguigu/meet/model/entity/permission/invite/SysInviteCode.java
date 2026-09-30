@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 /**
  * 邀请码实体类
  * 1个用户只能生成1个邀请码（uk_inviter 唯一索引保证）
- * 单邀请码最多邀请10人注册
+ * 单邀请码最大可邀请人数：0 表示不限制，正数表示按人数限制
  */
 @Data
 @TableName("sys_invite_code")
@@ -42,9 +42,9 @@ public class SysInviteCode extends Model<SysInviteCode> {
     @Schema(description = "状态 0可用 1手动失效 2名额已满停用")
     private Integer status = 0;
 
-    /** 最大可邀请人数：10 */
-    @Schema(description = "最大可邀请人数")
-    private Integer maxInviteNum = 10;
+    /** 最大可邀请人数：0 表示不限制 */
+    @Schema(description = "最大可邀请人数，0 表示不限制")
+    private Integer maxInviteNum = 0;
 
     /** 已邀请注册人数（冗余，仅展示） */
     @Schema(description = "已邀请人数")

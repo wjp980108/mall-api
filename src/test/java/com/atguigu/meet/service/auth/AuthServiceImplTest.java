@@ -1,6 +1,7 @@
 package com.atguigu.meet.service.auth;
 
 import com.atguigu.meet.common.Response;
+import com.atguigu.meet.exception.BusinessException;
 import com.atguigu.meet.mapper.permission.user.UserMapper;
 import com.atguigu.meet.mapper.permission.userRole.SysUserRoleMapper;
 import com.atguigu.meet.model.dto.auth.AuthRegisterDTO;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.util.ReflectionTestUtils;
 
@@ -26,6 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -94,14 +97,14 @@ class AuthServiceImplTest {
             u.setId(100L);
             return 1;
         });
-        // 邀请码生成失败 → 抛异常触发事务回滚
-        doThrow(new RuntimeException("redis down"))
+        // 邀请码生成失败（Redis 不可用，邀请码服务已转为业务异常）→ 抛异常触发事务回滚
+        doThrow(new BusinessException("注册服务暂时不可用，请稍后重试"))
                 .when(inviteCodeService).generateInviteCode(100L);
 
-        // 调用 register：异常应向上抛出（@Transactional 据此标记回滚）
-        RuntimeException ex = assertThrows(RuntimeException.class,
+        // 调用 register：业务异常向上抛出（@Transactional 据此标记回滚）
+        BusinessException ex = assertThrows(BusinessException.class,
                 () -> authService.register(dto));
-        assertEquals("redis down", ex.getMessage());
+        assertEquals("注册服务暂时不可用，请稍后重试", ex.getMessage());
 
         // 断言：异常抛出前已发生的写入会随事务回滚而不持久化
         // 1) sys_user 已写入（事务回滚后不留痕）
@@ -158,5 +161,32 @@ class AuthServiceImplTest {
         verify(inviteCodeService).processInviteRecord(eq(inviteCode), eq(300L), eq("13800000003"));
         // 邀请码生成已触发（与 sys_user 同一事务，对同一新用户同时可见，无半成品）
         verify(inviteCodeService).generateInviteCode(300L);
+    }
+
+    /**
+     * 连点/并发兜底：前置查重之后插入用户仍撞用户名唯一键时，
+     * 返回「该账号已注册，请勿重复提交」，且不再执行后续任何环节。
+     */
+    @Test
+    void register_userInsertDuplicate_returnsFriendlyMessage() {
+        // 不填邀请码的注册场景
+        AuthRegisterDTO dto = new AuthRegisterDTO();
+        dto.setUsername("dupUser");
+        dto.setPhone("13800002222");
+        dto.setPassword("pwd123");
+
+        lenient().when(userMapper.selectList(any())).thenReturn(Collections.emptyList());
+        lenient().when(userMapper.selectOne(any())).thenReturn(null);
+        when(passwordEncoder.encode("pwd123")).thenReturn("encodedPwd");
+        when(userMapper.insert(any(SysUser.class)))
+                .thenThrow(new DuplicateKeyException("Duplicate entry for username"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> authService.register(dto));
+        assertEquals("该账号已注册，请勿重复提交", ex.getMessage());
+
+        // 后续环节均未触发
+        verify(sysUserRoleMapper, never()).insert(any(SysUserRole.class));
+        verify(inviteCodeService, never()).generateInviteCode(any());
     }
 }

@@ -16,6 +16,10 @@ import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -29,6 +33,11 @@ import java.util.List;
 @Service
 @Slf4j
 public class InviteCodeServiceImpl implements InviteCodeService {
+
+    /**
+     * 邀请码生成最大尝试次数：插入撞唯一键时，自动同步 DB MAX(seq) 后重试。
+     */
+    private static final int MAX_GENERATE_ATTEMPTS = 3;
 
     @Autowired
     private SysInviteCodeMapper sysInviteCodeMapper;
@@ -61,21 +70,45 @@ public class InviteCodeServiceImpl implements InviteCodeService {
             return Response.ok("邀请码已存在", existing);
         }
 
-        // 2. Redis 全局自增 seq → 54 进制编码为 8 位邀请码（数学上一一对应，无碰撞，无需重试）
-        long seq = seqGenerator.nextSeq();
-        String code = InviteCodeUtil.encode(seq);
+        // 2. 发号 -> 编码 -> 插入。
+        //    若 Redis 丢号导致 seq 落后于 DB，插入会撞 uk_seq/uk_invite_code；
+        //    此时在同一事务内自动同步 DB MAX(seq) 到 Redis 后重新发号重试（MySQL/InnoDB
+        //    单条语句失败不会中止事务），最多 MAX_GENERATE_ATTEMPTS 次。
+        for (int attempt = 1; attempt <= MAX_GENERATE_ATTEMPTS; attempt++) {
+            long seq;
+            try {
+                seq = seqGenerator.nextSeq();
+            } catch (RedisConnectionFailureException | QueryTimeoutException | RedisSystemException e) {
+                // Redis 不可达/命令超时：无法发号，转为明确业务提示（外层事务回滚）
+                log.warn("[邀请码] Redis发号不可用，userId={}, error={}", userId, e.getMessage());
+                throw new BusinessException("注册服务暂时不可用，请稍后重试");
+            }
 
-        // 3. 插入邀请码表
-        SysInviteCode inviteCode = new SysInviteCode();
-        inviteCode.setSeq(seq);
-        inviteCode.setInviteCode(code);
-        inviteCode.setInviterId(userId);
-        inviteCode.setStatus(0);
-        inviteCode.setMaxInviteNum(0);
-        inviteCode.setUsedInviteNum(0);
-        sysInviteCodeMapper.insert(inviteCode);
+            String code = InviteCodeUtil.encode(seq);
 
-        return Response.ok("邀请码生成成功", inviteCode);
+            SysInviteCode inviteCode = new SysInviteCode();
+            inviteCode.setSeq(seq);
+            inviteCode.setInviteCode(code);
+            inviteCode.setInviterId(userId);
+            inviteCode.setStatus(0);
+            inviteCode.setMaxInviteNum(0);
+            inviteCode.setUsedInviteNum(0);
+            try {
+                sysInviteCodeMapper.insert(inviteCode);
+            } catch (DuplicateKeyException e) {
+                if (attempt < MAX_GENERATE_ATTEMPTS) {
+                    log.warn("[邀请码] 发号撞唯一键(attempt={})，同步DB MAX(seq)后重试，userId={}", attempt, userId);
+                    seqGenerator.syncSeqFromDb();
+                    continue;
+                }
+                log.error("[邀请码] 发号撞唯一键，重试{}次仍失败，userId={}", MAX_GENERATE_ATTEMPTS, userId);
+                throw new BusinessException("注册服务暂时不可用，请稍后重试");
+            }
+            return Response.ok("邀请码生成成功", inviteCode);
+        }
+
+        // 理论不可达：循环中每次失败均 continue 或 throw
+        throw new BusinessException("注册服务暂时不可用，请稍后重试");
     }
 
     /**

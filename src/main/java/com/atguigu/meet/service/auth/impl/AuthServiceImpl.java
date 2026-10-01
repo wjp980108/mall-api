@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import lombok.extern.slf4j.Slf4j;
 import com.atguigu.meet.utils.BeanConvertUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,7 +99,12 @@ public class AuthServiceImpl extends ServiceImpl<UserMapper, SysUser> implements
         if (inviteCode != null) {
             user.setInviterId(inviteCode.getInviterId());
         }
-        userMapper.insert(user);
+        try {
+            userMapper.insert(user);
+        } catch (DuplicateKeyException e) {
+            // 并发/连点窗口兜底：前置查重之后仍撞用户名唯一键
+            throw new BusinessException("该账号已注册，请勿重复提交");
+        }
 
         // 4.1 H5 注册用户默认绑定 MEMBER(会员) 角色（固定 roleId=3）
         SysUserRole memberRole = new SysUserRole();

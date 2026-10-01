@@ -22,6 +22,9 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DuplicateKeyException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 
 import java.util.Arrays;
 
@@ -31,6 +34,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
@@ -195,5 +200,98 @@ class InviteCodeServiceImplTest {
         String sqlSet = captor.getValue().getSqlSet();
         assertTrue(sqlSet.toLowerCase().contains("used_invite_num"));
         assertTrue(sqlSet.toLowerCase().contains("status"));
+    }
+
+    /**
+     * 自愈核心场景：Redis 丢号后首次插入撞唯一键，自动同步 DB MAX(seq)，
+     * 第二次发号插入成功。用户仅提交 1 次即成功。
+     */
+    @Test
+    void generateInviteCode_firstInsertDuplicate_syncAndRetrySucceeds() {
+        // 用户尚无邀请码
+        when(sysInviteCodeMapper.selectOne(any())).thenReturn(null);
+        // 第一次发出 seq=1（必撞老数据），同步后第二次发出 seq=38
+        when(seqGenerator.nextSeq()).thenReturn(1L, 38L);
+        // 第一次插入撞唯一键，第二次成功
+        when(sysInviteCodeMapper.insert(any(SysInviteCode.class)))
+                .thenThrow(new DuplicateKeyException("Duplicate entry for key 'uk_seq'"))
+                .thenReturn(1);
+
+        Response<?> resp = inviteCodeService.generateInviteCode(100L);
+
+        // 1 次提交即成功
+        assertEquals(200, resp.getCode());
+        // DB MAX -> Redis 同步恰好触发 1 次
+        verify(seqGenerator, times(1)).syncSeqFromDb();
+        // 最终插入的是同步后的新号
+        ArgumentCaptor<SysInviteCode> captor = ArgumentCaptor.forClass(SysInviteCode.class);
+        verify(sysInviteCodeMapper, times(2)).insert(captor.capture());
+        SysInviteCode inserted = captor.getValue();
+        assertEquals(38L, inserted.getSeq());
+    }
+
+    /**
+     * 并发竞争场景：自愈后第二次发号仍撞键（被其他注册抢先），第三次成功。
+     */
+    @Test
+    void generateInviteCode_secondAttemptAlsoDuplicate_thirdSucceeds() {
+        when(sysInviteCodeMapper.selectOne(any())).thenReturn(null);
+        when(seqGenerator.nextSeq()).thenReturn(1L, 2L, 39L);
+        when(sysInviteCodeMapper.insert(any(SysInviteCode.class)))
+                .thenThrow(new DuplicateKeyException("dup 1"))
+                .thenThrow(new DuplicateKeyException("dup 2"))
+                .thenReturn(1);
+
+        Response<?> resp = inviteCodeService.generateInviteCode(100L);
+
+        assertEquals(200, resp.getCode());
+        // 前两次失败各触发一次同步
+        verify(seqGenerator, times(2)).syncSeqFromDb();
+    }
+
+    /**
+     * 重试 3 次仍失败：抛出带明确文案的业务异常，前两次失败触发同步。
+     */
+    @Test
+    void generateInviteCode_threeAttemptsFail_throwsBusinessException() {
+        when(sysInviteCodeMapper.selectOne(any())).thenReturn(null);
+        when(seqGenerator.nextSeq()).thenReturn(1L, 2L, 3L);
+        when(sysInviteCodeMapper.insert(any(SysInviteCode.class)))
+                .thenThrow(new DuplicateKeyException("dup"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> inviteCodeService.generateInviteCode(100L));
+        assertEquals("注册服务暂时不可用，请稍后重试", ex.getMessage());
+        // 最后一次失败不再同步
+        verify(seqGenerator, times(2)).syncSeqFromDb();
+    }
+
+    /**
+     * Redis 连接失败：无法发号，转为明确业务提示，且不执行插入。
+     */
+    @Test
+    void generateInviteCode_redisConnectionFails_throwsBusinessException() {
+        when(sysInviteCodeMapper.selectOne(any())).thenReturn(null);
+        when(seqGenerator.nextSeq())
+                .thenThrow(new RedisConnectionFailureException("connection refused"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> inviteCodeService.generateInviteCode(100L));
+        assertEquals("注册服务暂时不可用，请稍后重试", ex.getMessage());
+        verify(sysInviteCodeMapper, never()).insert(any(SysInviteCode.class));
+    }
+
+    /**
+     * Redis 命令超时：转为明确业务提示。
+     */
+    @Test
+    void generateInviteCode_redisTimeout_throwsBusinessException() {
+        when(sysInviteCodeMapper.selectOne(any())).thenReturn(null);
+        when(seqGenerator.nextSeq())
+                .thenThrow(new QueryTimeoutException("command timed out"));
+
+        BusinessException ex = assertThrows(BusinessException.class,
+                () -> inviteCodeService.generateInviteCode(100L));
+        assertEquals("注册服务暂时不可用，请稍后重试", ex.getMessage());
     }
 }
